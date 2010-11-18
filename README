@@ -1,0 +1,10 @@
+
+---+++ SvenDowideit's foswiki_releases github repository
+I do alot of extension and cfg testing with different versions of foswiki, so its handy to have a way to quickly grab a raw install, work on it, and then do diff's to see what was added or installed.
+
+my current test infrastructure is a set of 4 identical core2duo's that I can quickly set up from a PXE boot, clone the test setup, and go - very very handy for performance and validation testing.
+
+On these servers, I use a userdir/suexec setup to automatically have a functional foswiki apache conf in all user's ~/foswiki dir's allowing me to utilise git's lightweight clone's extremely quickly - resutling in url's like http://hp1/~f109/bin/view
+
+
+SvenDowideit@fosiki.com
