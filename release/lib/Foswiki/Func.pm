@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2010-09-05 19:49:58 +0200 (Sun, 05 Sep 2010) $ (revision $Rev: 9498 (2010-10-04) $)
+API version $Date: 2010-10-22 00:10:04 +0200 (Fri, 22 Oct 2010) $ (revision $Rev: 9743 (2010-10-25) $)
 
 *Since:* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki 1.0.0). The _date_ indicates the
@@ -56,56 +56,56 @@ package Foswiki::Func;
 
 use strict;
 use warnings;
-use Scalar::Util     ();
+use Scalar::Util ();
 
 use Error qw( :try );
 use Assert;
 
-use Foswiki          ();
-use Foswiki::Plugins ();
-use Foswiki::Meta    ();
+use Foswiki                         ();
+use Foswiki::Plugins                ();
+use Foswiki::Meta                   ();
 use Foswiki::AccessControlException ();
-use Foswiki::Sandbox ();
+use Foswiki::Sandbox                ();
 
 # Given $web, $web and $topic, or $web $topic and $attachment, validate
 # and untaint each of them and return. If any fails to validate it will
 # be returned as undef.
 sub _checkWTA {
-    my ($web, $topic, $attachment) = @_;
-    if (defined $topic) {
+    my ( $web, $topic, $attachment ) = @_;
+    if ( defined $topic ) {
         ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
         ( $web, $topic ) =
-          $Foswiki::Plugins::SESSION->normalizeWebTopicName($web, $topic);
+          $Foswiki::Plugins::SESSION->normalizeWebTopicName( $web, $topic );
     }
-    if (Scalar::Util::tainted($web)) {
-        $web = Foswiki::Sandbox::untaint(
-            $web, \&Foswiki::Sandbox::validateWebName);
+    if ( Scalar::Util::tainted($web) ) {
+        $web = Foswiki::Sandbox::untaint( $web,
+            \&Foswiki::Sandbox::validateWebName );
     }
     return ($web) unless defined $web && defined $topic;
 
-    if (Scalar::Util::tainted($topic)) {
-        $topic = Foswiki::Sandbox::untaint(
-            $topic, \&Foswiki::Sandbox::validateTopicName);
+    if ( Scalar::Util::tainted($topic) ) {
+        $topic = Foswiki::Sandbox::untaint( $topic,
+            \&Foswiki::Sandbox::validateTopicName );
     }
-    return ($web, $topic) unless defined $topic && defined $attachment;
+    return ( $web, $topic ) unless defined $topic && defined $attachment;
 
-    if (Scalar::Util::tainted($attachment)) {
-        $attachment = Foswiki::Sandbox::untaint(
-            $attachment, \&Foswiki::Sandbox::validateAttachmentName);
+    if ( Scalar::Util::tainted($attachment) ) {
+        $attachment = Foswiki::Sandbox::untaint( $attachment,
+            \&Foswiki::Sandbox::validateAttachmentName );
     }
-    return ($web, $topic, $attachment);
-    
+    return ( $web, $topic, $attachment );
+
 }
 
 # Validate a web.topic.attachment and throw an exception if the
 # validation fails
 sub _validateWTA {
-    my ($web, $topic, $attachment) = @_;
-    my ($w, $t, $a) = _checkWTA($web, $topic, $attachment);
-    die 'Invalid web' if (defined $web && !defined $w);
-    die 'Invalid topic' if (defined $topic && !defined $t);
-    die 'Invalid attachment' if (defined $attachment && !defined $a);
-    return ($w, $t, $a);
+    my ( $web, $topic, $attachment ) = @_;
+    my ( $w, $t, $a ) = _checkWTA( $web, $topic, $attachment );
+    die 'Invalid web'        if ( defined $web        && !defined $w );
+    die 'Invalid topic'      if ( defined $topic      && !defined $t );
+    die 'Invalid attachment' if ( defined $attachment && !defined $a );
+    return ( $w, $t, $a );
 }
 
 =begin TML
@@ -1142,35 +1142,40 @@ sub isAnAdmin {
 
 =begin TML
 
----+++ isGroupMember( $group, $id ) -> $boolean
+---+++ isGroupMember( $group, $id, $options ) -> $boolean
 
-Find out if $id is in the named group. e.g.
+Find out if $id is in the named group.  The expand option controls whether or not nested groups are searched.
+
+e.g. Is jordi in the HesperionXXGroup, and not in a nested group. e.g.
 <verbatim>
-if( Foswiki::Func::isGroupMember( "HesperionXXGroup", "jordi" )) {
+if( Foswiki::Func::isGroupMember( "HesperionXXGroup", "jordi", { expand => 0 } )) {
     ...
 }
 </verbatim>
 If =$user= is =undef=, it defaults to the currently logged-in user.
 
    * $id can be a login name or a WikiName
+   * Nested groups are expanded unless $options{ expand => } is set to false.
 
 =cut
 
 sub isGroupMember {
-    my ( $group, $user ) = @_;
+    my ( $group, $user, $options ) = @_;
     my $users = $Foswiki::Plugins::SESSION->{users};
+
+    my $expand = Foswiki::Func::isTrue($options->{expand}, 1);
 
     return () unless $users->isGroup($group);
     if ($user) {
 
         #my $login = wikiToUserName( $user );
         #return 0 unless $login;
-        $user = getCanonicalUserID($user);
+        $user = getCanonicalUserID($user) || $user;
     }
     else {
         $user = $Foswiki::Plugins::SESSION->{user};
     }
-    return $users->isInGroup( $user, $group );
+    return $users->isInGroup( $user, $group, { expand => $expand } );
 }
 
 =begin TML
@@ -1267,14 +1272,17 @@ sub isGroup {
 
 ---+++ eachGroupMember($group) -> $iterator
 Get an iterator over all the members of the named group. Returns undef if
-$group is not a valid group.
+$group is not a valid group.  Nested groups are expanded unless the
+expand option is set to false.
 
-Use it as follows:
+Use it as follows:  Process all users in RadioHeadGroup without expanding nested groups
 <verbatim>
-    my $iterator = Foswiki::Func::eachGroupMember('RadioheadGroup');
+    my $iterator = Foswiki::Func::eachGroupMember('RadioheadGroup', {expand => 'false');
     while ($it->hasNext()) {
         my $user = $it->next();
         # $user is a wiki name e.g. 'TomYorke', 'PhilSelway'
+        #   With expand set to false, group names can also be returned.
+        #   Users are not checked to exist.
     }
 </verbatim>
 
@@ -1283,11 +1291,15 @@ Use it as follows:
 =cut
 
 sub eachGroupMember {
-    my $user    = shift;
+    my ( $user, $options )   = @_;
+
+    my $expand = Foswiki::Func::isTrue($options->{expand}, 1);
+
     my $session = $Foswiki::Plugins::SESSION;
     return
       unless $Foswiki::Plugins::SESSION->{users}->isGroup($user);
-    my $it = $Foswiki::Plugins::SESSION->{users}->eachGroupMember($user);
+    my $it =
+      $Foswiki::Plugins::SESSION->{users}->eachGroupMember( $user, { expand => $expand } );
     $it->{process} = sub {
         return $Foswiki::Plugins::SESSION->{users}->getWikiName( $_[0] );
     };
@@ -1306,12 +1318,12 @@ sub addUserToGroup {
     my ( $user, $group, $create ) = @_;
     my $users = $Foswiki::Plugins::SESSION->{users};
 
-#    return () unless ($users->isGroup($group) || $create);
-#    if (!$users->isGroup($user)) {     #requires isInGroup to also work on nested groupnames
-    $user = getCanonicalUserID($user);
-    return unless ( defined($user) and ( $users->userExists($user) ) );
-
-    #    }
+    return () unless ( $users->isGroup($group) || $create );
+    if ( defined $user && !$users->isGroup($user) )
+    {    #requires isInGroup to also work on nested groupnames
+        $user = getCanonicalUserID($user) || $user;
+        return unless ( defined($user) );
+    }
     return $users->addUserToGroup( $user, $group, $create );
 }
 
@@ -1328,8 +1340,12 @@ sub removeUserFromGroup {
     my $users = $Foswiki::Plugins::SESSION->{users};
 
     return () unless $users->isGroup($group);
-    $user = getCanonicalUserID($user);
-    return unless ( defined($user) and ( $users->userExists($user) ) );
+
+    if ( !$users->isGroup($user) )
+    {    #requires isInGroup to also work on nested groupnames
+        $user = getCanonicalUserID($user) || $user;
+        return unless ( defined($user) );
+    }
     return $users->removeUserFromGroup( $user, $group );
 }
 
@@ -1380,11 +1396,11 @@ sub checkAccessPermission {
     my ( $type, $user, $text, $inTopic, $inWeb, $meta ) = @_;
     return 1 unless ($user);
 
-    my ($web, $topic) = _checkWTA($inWeb, $inTopic);
-    return 0 unless defined $web ;  #Web name is illegal.
-    if (defined $inTopic) {
+    my ( $web, $topic ) = _checkWTA( $inWeb, $inTopic );
+    return 0 unless defined $web;    #Web name is illegal.
+    if ( defined $inTopic ) {
         my $top = $topic;
-        return 0 unless (defined $topic);  #Topic name is illegal
+        return 0 unless ( defined $topic );    #Topic name is illegal
     }
 
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
@@ -1440,7 +1456,7 @@ as follows:
 sub getListOfWebs {
     my $filter = shift;
     my $web    = shift;
-    if (defined $web) {
+    if ( defined $web ) {
         $web = _checkWTA($web);
         return () unless defined $web;
     }
@@ -1483,6 +1499,7 @@ sub webExists {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     return $Foswiki::Plugins::SESSION->webExists($web);
 }
+
 =begin TML
 
 ---+++ getTopicList( $web ) -> @topics
@@ -1559,12 +1576,12 @@ topic.
 
 sub readTopic {
 
-    my( $web, $topic, $rev ) = @_;
-    ($web, $topic) = _validateWTA($web, $topic);
+    my ( $web, $topic, $rev ) = @_;
+    ( $web, $topic ) = _validateWTA( $web, $topic );
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
-    my $meta = Foswiki::Meta->load(
-        $Foswiki::Plugins::SESSION, $web, $topic, $rev );
+    my $meta =
+      Foswiki::Meta->load( $Foswiki::Plugins::SESSION, $web, $topic, $rev );
     return ( $meta, $meta->text() );
 }
 
@@ -1592,7 +1609,7 @@ more efficient.
 sub getRevisionInfo {
     my ( $web, $topic, $rev, $attachment ) = @_;
 
-    ($web, $topic) = _validateWTA($web, $topic);
+    ( $web, $topic ) = _validateWTA( $web, $topic );
 
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
@@ -1628,7 +1645,7 @@ Return: Single-digit revision number, or undef if it couldn't be determined
 
 sub getRevisionAtTime {
     my ( $web, $topic, $time ) = @_;
-    ($web, $topic) = _validateWTA($web, $topic);
+    ( $web, $topic ) = _validateWTA( $web, $topic );
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     my $topicObject =
       Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
@@ -1646,7 +1663,7 @@ Get a list of the attachments on the given topic.
 
 sub getAttachmentList {
     my ( $web, $topic ) = @_;
-    ($web, $topic) = _validateWTA($web, $topic);
+    ( $web, $topic ) = _validateWTA( $web, $topic );
     my $topicObject =
       Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
     my $it = $topicObject->eachAttachment();
@@ -1713,7 +1730,7 @@ not check access controls.
 sub readAttachment {
     my ( $web, $topic, $attachment, $rev ) = @_;
 
-    ( $web, $topic, $attachment ) = _validateWTA($web, $topic, $attachment);
+    ( $web, $topic, $attachment ) = _validateWTA( $web, $topic, $attachment );
 
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     my $result;
@@ -1744,7 +1761,6 @@ sub readAttachment {
 
 =cut
 
-
 =begin TML
 
 ---+++ createWeb( $newWeb, $baseWeb, $opts )
@@ -1774,16 +1790,17 @@ try {
 =cut
 
 sub createWeb {
-    my ($web, $baseweb) = @_;
+    my ( $web, $baseweb ) = @_;
     ($web) = _validateWTA($web);
-    if (defined $baseweb) {
+    if ( defined $baseweb ) {
         ($baseweb) = _validateWTA($baseweb);
     }
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
     my ($parentWeb) = $web =~ m#(.*)/[^/]+$#;
 
-    my $rootObject = Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $parentWeb );
+    my $rootObject =
+      Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $parentWeb );
     unless ( $rootObject->haveAccess('CHANGE') ) {
         throw Foswiki::AccessControlException( 'CHANGE',
             $Foswiki::Plugins::SESSION->{user},
@@ -1833,16 +1850,15 @@ Foswiki::Func::moveWeb( "Deadweb", "Trash.Deadweb" );
 
 sub moveWeb {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    my ($from, $to) = @_;
+    my ( $from, $to ) = @_;
     ($from) = _validateWTA($from);
-    ($to) = _validateWTA($to);
+    ($to)   = _validateWTA($to);
 
     $from = Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $from );
     $to   = Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $to );
     return $from->move($to);
 
 }
-
 
 =begin TML
 
@@ -1861,7 +1877,7 @@ sub checkTopicEditLock {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
     ( $web, $topic ) = _checkWTA( $web, $topic );
-    return ( '', '', 0) unless defined $web && defined $topic;
+    return ( '', '', 0 ) unless defined $web && defined $topic;
 
     $script ||= 'edit';
 
@@ -1978,7 +1994,8 @@ sub saveTopic {
       Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
 
     unless ( $options->{ignorepermissions}
-               || $topicObject->haveAccess('CHANGE') ) {
+        || $topicObject->haveAccess('CHANGE') )
+    {
         throw Foswiki::AccessControlException( 'CHANGE',
             $Foswiki::Plugins::SESSION->{user},
             $web, $topic, $Foswiki::Meta::reason );
@@ -1986,7 +2003,7 @@ sub saveTopic {
 
     # Set the new text and meta, now that access to the existing topic
     # is verified
-    $topicObject->text( $text );
+    $topicObject->text($text);
     $topicObject->copyFrom($smeta) if $smeta;
     return $topicObject->save(%$options);
 }
@@ -2027,8 +2044,9 @@ try {
 
 sub moveTopic {
     my ( $web, $topic, $newWeb, $newTopic ) = @_;
-    ($web, $topic) = _validateWTA($web, $topic);
-    ($newWeb, $newTopic) = _validateWTA($newWeb || $web, $newTopic || $topic);
+    ( $web, $topic ) = _validateWTA( $web, $topic );
+    ( $newWeb, $newTopic ) =
+      _validateWTA( $newWeb || $web, $newTopic || $topic );
 
     return if ( $newWeb eq $web && $newTopic eq $topic );
 
@@ -2039,8 +2057,7 @@ sub moveTopic {
             $web, $topic, $Foswiki::Meta::reason );
     }
 
-    my $toWeb =
-      Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $newWeb );
+    my $toWeb = Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $newWeb );
     unless ( $from->haveAccess('CHANGE') ) {
         throw Foswiki::AccessControlException( 'CHANGE',
             $Foswiki::Plugins::SESSION->{user},
@@ -2097,7 +2114,7 @@ This is the way 99% of extensions will create new attachments. See
 
 sub saveAttachment {
     my ( $web, $topic, $attachment, $data ) = @_;
-    ( $web, $topic, $attachment ) = _validateWTA($web, $topic, $attachment);
+    ( $web, $topic, $attachment ) = _validateWTA( $web, $topic, $attachment );
 
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     my $topicObject =
@@ -2151,10 +2168,13 @@ try {
 sub moveAttachment {
     my ( $web, $topic, $attachment, $newWeb, $newTopic, $newAttachment ) = @_;
 
-    ( $web, $topic, $attachment ) = _validateWTA($web, $topic, $attachment);
+    ( $web, $topic, $attachment ) = _validateWTA( $web, $topic, $attachment );
 
-    ($newWeb, $newTopic, $newAttachment) = _validateWTA(
-        $newWeb || $web, $newTopic || $topic, $newAttachment || $attachment);
+    ( $newWeb, $newTopic, $newAttachment ) = _validateWTA(
+        $newWeb        || $web,
+        $newTopic      || $topic,
+        $newAttachment || $attachment
+    );
 
     return
       if ( $newWeb eq $web
@@ -2232,10 +2252,13 @@ try {
 sub copyAttachment {
     my ( $web, $topic, $attachment, $newWeb, $newTopic, $newAttachment ) = @_;
 
-    ( $web, $topic, $attachment ) = _validateWTA($web, $topic, $attachment);
+    ( $web, $topic, $attachment ) = _validateWTA( $web, $topic, $attachment );
 
-    ($newWeb, $newTopic, $newAttachment) = _validateWTA(
-        $newWeb || $web, $newTopic || $topic, $newAttachment || $attachment);
+    ( $newWeb, $newTopic, $newAttachment ) = _validateWTA(
+        $newWeb        || $web,
+        $newTopic      || $topic,
+        $newAttachment || $attachment
+    );
 
     return
       if ( $newWeb eq $web
@@ -2356,7 +2379,7 @@ text.
 
 sub summariseChanges {
     my ( $web, $topic, $orev, $nrev, $tml ) = @_;
-    ($web, $topic) = _validateWTA($web, $topic);
+    ( $web, $topic ) = _validateWTA( $web, $topic );
 
     my $topicObject =
       Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
@@ -2383,10 +2406,13 @@ Return: =$text=    Template text
 
 sub readTemplate {
 
-    my( $name, $skin ) = @_;
+    my ( $name, $skin ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     return $Foswiki::Plugins::SESSION->templates->readTemplate(
-        $name, skins => $skin, no_oops => 1) || '';
+        $name,
+        skins   => $skin,
+        no_oops => 1
+    ) || '';
 }
 
 =begin TML
@@ -2409,13 +2435,14 @@ If template text is found, extracts include statements and fully expands them.
 
 sub loadTemplate {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    my ($name, $skin, $web) = @_;
+    my ( $name, $skin, $web ) = @_;
 
     my %opts = ( no_oops => 1 );
     $opts{skins} = $skin if defined $skin;
-    ($opts{web}) = _validateWTA($web) if defined $web;
+    ( $opts{web} ) = _validateWTA($web) if defined $web;
 
-    my $tmpl = $Foswiki::Plugins::SESSION->templates->readTemplate($name, %opts);
+    my $tmpl =
+      $Foswiki::Plugins::SESSION->templates->readTemplate( $name, %opts );
     $tmpl = '' unless defined $tmpl;
 
     return $tmpl;
@@ -2463,10 +2490,11 @@ See also: expandVariablesOnTopicCreation
 sub expandCommonVariables {
     my ( $text, $topic, $web, $meta ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    ($web, $topic) = _validateWTA(
+    ( $web, $topic ) = _validateWTA(
         $web   || $Foswiki::Plugins::SESSION->{webName},
-        $topic || $Foswiki::Plugins::SESSION->{topicName});
-    $meta  ||= Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
+        $topic || $Foswiki::Plugins::SESSION->{topicName}
+    );
+    $meta ||= Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
 
     return $meta->expandMacros($text);
 }
@@ -2772,52 +2800,42 @@ sub normalizeWebTopicName {
 
 =begin TML
 
----+++ searchInWebContent($searchString, $web, \@topics, \%options ) -> iterator (resultset)
+---+++ query($searchString, $topics, \%options ) -> iterator (resultset)
 
-Search for a string in the content of a web. The search is over all content, including meta-data. 
-Meta-data matches will be returned as formatted lines within the topic content (meta-data matches are returned as lines of the format %META:\w+{.*}%)
-   * =$searchString= - the search string, in egrep format
-   * =$web= - The web/s to search in - string can have the same form as the =web= param of SEARCH
-   * =\@topics= - reference to a list of topics to search (if undef, then the store will search all topics in the specified web/webs.)
+Query the topic data in the specified webs. A programatic interface to SEARCH results.
+
+   * =$searchString= - the search string, as appropriate for the selected type
+   * =$topics= - undef OR reference to a ResultSet, Iterator, or array containing the web.topics to be evaluated. 
+                 if undef, then all the topics in the webs specified will be evaluated.
    * =\%option= - reference to an options hash
 The =\%options= hash may contain the following options:
-   * =type= - =regex=, =keyword=, =query=
+   * =type= - =regex=, =keyword=, =query=, ... defaults to =query=
+   * =web= - The web/s to search in - string can have the same form as the =web= param of SEARCH (if not specified, defaults to BASEWEB)
    * =casesensitive= - false to ignore case (defaulkt true)
-   * =files_without_match= - true to return files only (default false). If =files_without_match= is specified, it will return on the first match in each topic (i.e. it will return only one match per topic, and will not return matching lines).
-   * TODO: topic, excludetopic and other params as per SEARCH
-
-The return value is a reference to a hash which maps each matching topic
-name to a list of the lines in that topic that matched the search,
-as would be returned by 'grep'.
+   * =files_without_match= - true to return files only (default false). If =files_without_match= is specified, it will return on the first match in each topic (i.e. it will return only one match per 
+   * topic, excludetopic and other params as per SEARCH
 
 To iterate over the returned topics use:
 <verbatim>
-my $result = Foswiki::Func::searchInWebContent( "Slimy Toad", $web, \@topics,
-   { casesensitive => 0, files_without_match => 0 } );
-        while ($matches->hasNext) {
-            my $webtopic = $matches->next;
-            my ($web, $searchTopic) = Foswiki::Func::normalizeWebTopicName($searchWeb, $webtopic);
+    my $matches = Foswiki::Func::query( "Slimy Toad", undef,
+            { web => 'Main,San*', casesensitive => 0, files_without_match => 0 } );
+    while ($matches->hasNext) {
+        my $webtopic = $matches->next;
+        my ($web, $topic) = Foswiki::Func::normalizeWebTopicName('', $webtopic);
       ...etc
 </verbatim>
 
-__WARNING: does not return a hash - returns an iterator (else you will crash your server needlessly)__
-(Please report a Task item if you're using the non-iterator interface)
-
 =cut
 
-# Note: this function used to be a direct caller of Store::searchInWebContent,
-# which is no longer the case, but this explains the naming overlap even
-# though the function definitions are quite different.
-sub searchInWebContent {
-
-    my ( $searchString, $webs, $topics, $options ) = @_;
+sub query {
+    my ( $searchString, $topics, $options ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
     my $inputTopicSet;
     if ($topics) {
         $inputTopicSet = new Foswiki::ListIterator($topics);
     }
-    $options->{web} = $webs;
+    $options->{type} ||= 'query';
     my $query =
       $Foswiki::Plugins::SESSION->search->parseSearch( $searchString,
         $options );
@@ -3579,6 +3597,67 @@ See Foswiki:Development/UpdatingExtensionsScriptZone for more details.
 
 sub addToHEAD {
     $Foswiki::Plugins::SESSION->addToZone( 'head', @_ );
+}
+
+
+=begin TML
+
+---+++ searchInWebContent($searchString, $web, \@topics, \%options ) -> reference to a hash - keys of which are topic names
+
+*Deprecated* 17 Oct 2010 - use =query( ...)=.
+__WARNING: This function has been deprecated in foswiki 1.1.0 for scalability reasons__
+
+
+Search for a string in the content of a web. The search is over all content, including meta-data. 
+Meta-data matches will be returned as formatted lines within the topic content (meta-data matches are returned as lines of the format %META:\w+{.*}%)
+   * =$searchString= - the search string, in egrep format
+   * =$web= - The web/s to search in - string can have the same form as the =web= param of SEARCH
+   * =\@topics= - reference to a list of topics to search (if undef, then the store will search all topics in the specified web/webs.)
+   * =\%option= - reference to an options hash
+The =\%options= hash may contain the following options:
+   * =type= - =regex=, =keyword=, =query= - defaults to =regex=
+   * =casesensitive= - false to ignore case (defaulkt true)
+   * =files_without_match= - true to return files only (default false). If =files_without_match= is specified, it will return on the first match in each topic (i.e. it will return only one match per topic, and will not return matching lines).
+   * TODO: topic, excludetopic and other params as per SEARCH
+
+The return value is a reference to a hash which maps each matching topic
+name to a list of the lines in that topic that matched the search,
+as would be returned by 'grep'.
+
+To iterate over the returned topics use:
+<verbatim>
+    my $matches = Foswiki::Func::searchInWebContent( "Slimy Toad", $searchWeb, \@topics,
+            { casesensitive => 0, files_without_match => 0 } );
+    foreach my $topic (keys(%$matches)) {
+         ...etc
+</verbatim>
+
+
+=cut
+
+sub searchInWebContent {
+
+    my ( $searchString, $webs, $topics, $options ) = @_;
+    ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
+
+    my $inputTopicSet = $topics;
+    if ( $topics and ( ref($topics) eq 'ARRAY' ) ) {
+        $inputTopicSet = new Foswiki::ListIterator($topics);
+    }
+    $options->{type} ||= 'regex';
+    $options->{web} = $webs;
+    my $query =
+      $Foswiki::Plugins::SESSION->search->parseSearch( $searchString,
+        $options );
+
+    my $itr = Foswiki::Meta::query( $query, $inputTopicSet, $options );
+    my %matches;
+    while ($itr->hasNext) {
+        my $webtopic = $itr->next;
+        my ($web, $searchTopic) = Foswiki::Func::normalizeWebTopicName('', $webtopic);
+        $matches{$searchTopic} = 1;
+    }
+    return \%matches
 }
 
 1;

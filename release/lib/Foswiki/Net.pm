@@ -195,7 +195,7 @@ sub getExternalResource {
             }
         }
 
-        '$Rev: 9498 (2010-10-04) $' =~ /([0-9]+)/;
+        '$Rev: 9743 (2010-10-25) $' =~ /([0-9]+)/;
         my $revstr = $1;
 
         $req .= 'User-Agent: Foswiki::Net/' . $revstr . "\r\n";
@@ -254,7 +254,7 @@ sub _GETUsingLWP {
     my $request;
     require HTTP::Request;
     $request = HTTP::Request->new( GET => $url );
-    '$Rev: 9498 (2010-10-04) $' =~ /([0-9]+)/;
+    '$Rev: 9743 (2010-10-25) $' =~ /([0-9]+)/;
     my $revstr = $1;
     $request->header( 'User-Agent' => 'Foswiki::Net/' 
           . $revstr

@@ -21,15 +21,15 @@ use Foswiki;
 # *must* exist in this package
 use vars qw( $VERSION $RELEASE $debug $pluginName );
 
-# This should always be $Rev: 9342 (2010-09-26) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 9660 (2010-10-21) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-$VERSION = '$Rev: 9342 (2010-09-26) $';
+$VERSION = '$Rev: 9660 (2010-10-21) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part
 # of the version number in PLUGINDESCRIPTIONS.
-$RELEASE = '31 Jul 2010';
+$RELEASE = '21 Oct 2010';
 
 # Name of this Plugin, only used in this module
 $pluginName = 'CompareRevisionsAddonPlugin';

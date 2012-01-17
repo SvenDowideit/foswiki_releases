@@ -14,12 +14,12 @@ use CGI           ();
 use strict;
 use warnings;
 
-use vars qw( @twistystack $doneHeader $doneDefaults
+use vars qw( @twistystack $doneHeader $doneDefaults $twistyCount
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-our $VERSION = '$Rev: 9310 (2010-09-22) $';
+our $VERSION = '$Rev: 9716 (2010-10-24) $';
 
-our $RELEASE = '1.6.6';
+our $RELEASE = '1.6.7';
 our $SHORTDESCRIPTION =
   'Twisty section Javascript library to open/close content dynamically';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -41,6 +41,7 @@ sub initPlugin {
 
     $doneDefaults = 0;
     $doneHeader   = 0;
+    $twistyCount  = 0;
 
     _exportAnimationSpeed();
 
@@ -67,7 +68,7 @@ sub _exportAnimationSpeed {
     # add TWISTYANIMATIONSPEED to the html head so
     # that it may be used in the client JS with
     # foswiki.getPreference('TWISTYANIMATIONSPEED')
-    Foswiki::Func::addToZone("head", "TWISTYPLUGIN::META", <<"HERE");
+    Foswiki::Func::addToZone( "head", "TWISTYPLUGIN::META", <<"HERE");
 <meta name="foswiki.TWISTYANIMATIONSPEED" content="$pref" />
 HERE
 
@@ -153,7 +154,7 @@ sub _TWISTYBUTTON {
 
 =pod
 
-If no ID is passed, creates a new unique id based on web and topic. Adds a random number for cases the twisty is loaded through AJAX.
+If no ID is passed, creates a new unique id based on web and topic.
 
 =cut
 
@@ -161,13 +162,7 @@ sub _TWISTY {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
 
     _addHeader();
-    my $id = $params->{'id'};
-    if ( !defined $id || $id eq '' ) {
-        $params->{'id'} = _createId( $params->{'id'}, $theWeb, $theTopic );
-
-        # randomize this id in case the twisty is loaded through AJAX
-        $params->{'id'} .= int( rand(10000) ) + 1;
-    }
+    $params->{'id'} = _createId( $params, $theWeb, $theTopic );
     return _TWISTYBUTTON( $session, $params, $theTopic, $theWeb )
       . _TWISTYTOGGLE( $session, $params, $theTopic, $theWeb );
 }
@@ -207,17 +202,20 @@ sub _ENDTWISTYTOGGLE {
 }
 
 sub _createId {
-    my ( $inRawId, $inWeb, $inTopic ) = @_;
+    my ( $params, $inWeb, $inTopic ) = @_;
 
-    my $id;
-    if ($inRawId) {
-        $id = $inRawId;
-    }
-    else {
-        $id = "$inWeb$inTopic";
-    }
+    my $id = $params->{'id'} || "twistyId$inWeb$inTopic";
     $id =~ s/\//subweb/go;
-    return "twistyId$id";
+
+    # Ensure uniqueness, or at least try to
+    my $remember = $params->{'remember'} || $prefRemember;
+    if ( Foswiki::Func::isTrue($remember) ) {
+        $id .= ++$twistyCount;    # For remember
+    }
+    else {    # 100 is the number of remembered cookies to avoid clashes
+        $id .= int( rand(10000) ) + 100;    # For AJAX
+    }
+    return $id;
 }
 
 sub _twistyBtn {
@@ -337,12 +335,13 @@ sub _createHtmlProperties {
 
     my @classList = ();
     push( @classList, $class ) if $class && !$isTrigger;
-    push( @classList, 'twistyRememberSetting' ) if ( $remember eq 'on' );
-    push( @classList, 'twistyForgetSetting' )   if ( $remember eq 'off' );
-    push( @classList, 'twistyStartHide' )       if $startHidden;
-    push( @classList, 'twistyStartShow' )       if $startShown;
-    push( @classList, 'twistyFirstStartHide' )  if $firstStartHidden;
-    push( @classList, 'twistyFirstStartShow' )  if $firstStartShown;
+    push( @classList, 'twistyRememberSetting' )
+      if Foswiki::Func::isTrue($remember);
+    push( @classList, 'twistyForgetSetting' ) if $remember eq 'off';
+    push( @classList, 'twistyStartHide' )     if $startHidden;
+    push( @classList, 'twistyStartShow' )     if $startShown;
+    push( @classList, 'twistyFirstStartHide' ) if $firstStartHidden;
+    push( @classList, 'twistyFirstStartShow' ) if $firstStartShown;
 
     # Mimic the rules in twist.js, function _update()
     my $state = '';

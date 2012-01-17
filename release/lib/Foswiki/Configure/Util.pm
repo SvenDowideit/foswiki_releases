@@ -533,51 +533,57 @@ sub listDir {
 
 ---++ StaticMethod getPerlLocation( )
 This routine will read in the first line of the bin/configure 
-script and recover the location of the perl interpreter.
+script and recover the location of the perl interpreter. 
+
+Optional parameter is file used to retrieve the shebang.  If not 
+specified, defaults to the configure script
 
 =cut
 
 sub getPerlLocation {
 
+    my $file = shift || "$Foswiki::cfg{ScriptDir}/configure$Foswiki::cfg{ScriptSuffix}";
+
     local $/ = "\n";
     open( my $fh, '<',
-        "$Foswiki::cfg{ScriptDir}/configure$Foswiki::cfg{ScriptSuffix}" )
-      || return '';
-    my $shBang = <$fh>;
-    chomp $shBang;
-    $shBang =~ s/^#\!\s*(.*?)\s?(:?\s-.*)?$/$1/;
-    $shBang =~ s/\s+$//;
+        "$file" )
+      || return "";
+    my $Shebang = <$fh>;
+    chomp $Shebang;
+    $Shebang =~ s/^#\!\s*(.*?)\s?(:?\s-.*)?$/$1/;
+    $Shebang =~ s/\s+$//;
     close($fh);
-    return $shBang;
+    return $Shebang;
 
 }
 
 =begin TML
 
----++ StaticMethod rewriteShbang($file, $newShbang )
-This routine will rewrite the Shbang line of the target script
+---++ StaticMethod rewriteShebang($file, $newShebang )
+This routine will rewrite the Shebang line of the target script
 with the specified script name.
 
 =cut
 
-sub rewriteShbang {
+sub rewriteShebang {
     my $file      = shift;
-    my $newShbang = shift;
+    my $newShebang = shift;
 
     return unless ( -f $file );
+    return unless $newShebang;
 
     local $/ = undef;
-    open( my $fh, '<', $file ) || return "Rewrite shbang failed:  $!";
+    open( my $fh, '<', $file ) || return "Rewrite shebang failed:  $!";
     my $contents = <$fh>;
     close $fh;
 
     # Note: space inserted after #! - needed on some flavors of Unix
-    if ( $contents =~ s/^#!\s*\S+/#! $newShbang/s ) {
+    if ( $contents =~ s/^#!\s*\S+/#! $newShebang/s ) {
         my $mode = ( stat($file) )[2];
         $file =~ /(.*)/;
         $file = $1;
         chmod( oct(600), "$file" );
-        open( my $fh, '>', $file ) || return "Rewrite shbang failed:  $!";
+        open( my $fh, '>', $file ) || return "Rewrite shebang failed:  $!";
         print $fh $contents;
         close $fh;
         $mode =~ /(.*)/;

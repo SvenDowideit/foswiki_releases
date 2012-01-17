@@ -130,15 +130,15 @@ If Foswiki stops working after you applied a change in access permissions and yo
 <p />
 <h3><a name="Configure_the_locations_of_the_Perl_executable_and_the_Foswiki_modules"></a>  Configure the locations of the Perl executable and the Foswiki modules </h3>
 <p />
-<strong>Make sure the Foswiki scripts can be executed by the web server.</strong> The default location of Perl is <code>/usr/bin/perl</code>. <strong>If it's somewhere else</strong>, change the path to Perl in the first line of each script (you may have to give yourself write permission first) in the <code>bin</code> and <code>tools</code> directories. You can use the <code>tools/rewriteshbang.pl</code> script to do this; for example:
+<strong>Make sure the Foswiki scripts can be executed by the web server.</strong> The default location of Perl is <code>/usr/bin/perl</code>. <strong>If it's somewhere else</strong>, change the path to Perl in the first line of each script (you may have to give yourself write permission first) in the <code>bin</code> and <code>tools</code> directories. You can use the <code>tools/rewriteshebang.pl</code> script to do this; for example:
 <pre class="bash">
 cd /path/to/foswiki/bin
-/path/to/perl ../tools/rewriteshbang.pl
+/path/to/perl ../tools/rewriteshebang.pl
 # At the prompt, enter the full path to the perl executable, including
 # the full filename of the executable. You will be prompted twice for
 # this information in order to confirm it.
 cd /path/to/foswiki/tools
-/path/to/perl rewriteshbang.pl
+/path/to/perl rewriteshebang.pl
 </pre>
 <p />
 Some web servers require a special extension on perl script files (e.g. <code>.cgi</code> or <code>.pl</code>). This is not normally required with the Apache web server, though some hosted web servers are configured to require it. If the documentation for your web server indicates that a special extension is necessary, rename all the executable scripts in <code>bin</code>; that is, rename <code>bin/view</code> to <code>bin/view.pl</code>, and so on. When configuring Foswiki (see the section "<a href="#ConfigureFoswiki" class="foswikiCurrentTopicLink">Configure Foswiki</a>"), set the <code>ScriptSuffix</code> option to the special extension.

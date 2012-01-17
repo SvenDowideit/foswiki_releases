@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2010-10-04 17:25:59 +0200 (Mon, 04 Oct 2010) $ $Rev: 9498 (2010-10-04) $ ';
-    $RELEASE = 'Foswiki-1.1.0';
+    $VERSION = '$Date: 2010-10-25 23:57:27 +0200 (Mon, 25 Oct 2010) $ $Rev: 9743 (2010-10-25) $ ';
+    $RELEASE = 'Foswiki-1.1.1';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -2452,6 +2452,9 @@ sub expandMacrosOnTopicCreation {
         $p->{value} =
           _processMacros( $this, $p->{value}, \&_expandMacroOnTopicCreation,
             $topicObject, 16 );
+        # kill markers used to prevent variable expansion
+        $p->{value} =~  s/%NOP%//g;
+
     }
 }
 

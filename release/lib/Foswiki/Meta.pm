@@ -90,7 +90,7 @@ callers don't require them. For this reason, be *very careful* how you use
 =Foswiki::Meta=. Extension authors will almost always find the methods
 they want in =Foswiki::Func=, rather than in this class.
 
-API version $Date: 2010-10-04 01:26:23 +0200 (Mon, 04 Oct 2010) $ (revision $Rev: 9498 (2010-10-04) $)
+API version $Date: 2010-10-14 19:40:28 +0200 (Thu, 14 Oct 2010) $ (revision $Rev: 9743 (2010-10-25) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki release 4.2.3). The _date_ indicates the
@@ -119,7 +119,7 @@ use Assert;
 use Errno 'EINTR';
 
 our $reason;
-our $VERSION = '$Rev: 9498 (2010-10-04) $';
+our $VERSION = '$Rev: 9743 (2010-10-25) $';
 
 # Version for the embedding format (increment when embedding format changes)
 our $EMBEDDING_FORMAT_VERSION = 1.1;
@@ -1247,6 +1247,11 @@ Return revision info for the loaded revision in %info with at least:
    * ={author}= canonical user ID
    * ={version}= the revision number
 
+---++ ObjectMethod getRevisionInfo() -> ( $revDate, $author, $rev, $comment )
+
+Limited backwards compatibility for plugins that assume the 1.0.x interface
+The comment is *always* blank
+
 =cut
 
 sub getRevisionInfo {
@@ -1281,7 +1286,15 @@ sub getRevisionInfo {
         # cache the result
         $this->setRevisionInfo(%$info);
     }
-    return $info;
+    if (wantarray)
+    {
+        # Backwards compatibility for 1.0.x plugins
+        return ( $info->{date}, $info->{author}, $info->{version}, '' );
+    }
+    else
+    {
+        return $info;
+    }
 }
 
 # Determines, and caches, the topic revision info of the base version,

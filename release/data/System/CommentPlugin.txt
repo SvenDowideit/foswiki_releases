@@ -249,9 +249,10 @@ Another great extension from the <a style="text-decoration:none" href="http://wi
 |  Plugin Author: | Foswiki:Main.CrawfordCurrie http://www.c-dot.co.uk inspired by the work of TWiki:Main.DavidWeller and TWiki:Main.PeterMasiar |
 |  Copyright: | &copy; 2004, Foswiki:Main.CrawfordCurrie<br />&copy; 2004-2010 Foswiki:%SYSTEMWEB%.ProjectContributor |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Release: | 31 Jul 2010 |
-|  Version: | 8843 (2010-09-01) |
+|  Release: | 21 Oct 2010 |
+|  Version: | 9665 (2010-10-21) |
 |  Change History: | |
+|  21 Oct 2010 | Foswikitask:Item9857 - Restored the !CommentPluginTemplate to how it was before. All the changes done to make it look nice causes many errors. Never again add newlines, never again add trailing \ on existing templates. It does not always work. |
 |  31 Jul 2010 | Foswikitask:Item9415 - Documentation updates |
 |  27 May 2010 | Moved example topic Sandbox.CommentPluginExamples to Sandbox web. | 
 |  24 Feb 2010 | Foswikitask:Item8611 - block comments resulting from calls to saveTopic from within an afterSaveHandler |

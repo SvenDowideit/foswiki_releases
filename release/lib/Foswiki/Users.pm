@@ -634,7 +634,7 @@ sub isInUserList {
 
     return 0 unless defined $userlist && defined $cUID;
 
-    foreach my $ident ( @$userlist ) {
+    foreach my $ident (@$userlist) {
 
         my $identCUID = $this->getCanonicalUserID($ident);
 
@@ -833,24 +833,30 @@ sub isGroup {
 
 =begin TML
 
----++ ObjectMethod isInGroup( $cUID, $group ) -> $boolean
+---++ ObjectMethod isInGroup( $cUID, $group, $options) -> $boolean
 
-Test if the user identified by $cUID is in the given group.
+Test if the user identified by $cUID is in the given group.   Options
+is a hash array of options effecting the search.  Available options are:
+
+   * =expand => 1=  0/1 - should nested groups be expanded when searching for the user. Default is 1, to expand nested groups.
 
 =cut
 
 sub isInGroup {
-    my ( $this, $cUID, $group ) = @_;
+    my ( $this, $cUID, $group, $options ) = @_;
     return unless ( defined($cUID) );
+
+    my $expand = $options->{expand};
+    $expand = 1 unless ( defined $expand );
 
     my $mapping = $this->_getMapping($cUID);
     my $otherMapping =
       ( $mapping eq $this->{basemapping} )
       ? $this->{mapping}
       : $this->{basemapping};
-    return 1 if $mapping->isInGroup( $cUID, $group );
+    return 1 if $mapping->isInGroup( $cUID, $group, { expand => $expand } );
 
-    return $otherMapping->isInGroup( $cUID, $group )
+    return $otherMapping->isInGroup( $cUID, $group, { expand => $expand } )
       if ( $otherMapping ne $mapping );
 }
 

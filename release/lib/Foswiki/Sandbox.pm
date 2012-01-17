@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2010-08-20 00:35:39 +0200 (Fri, 20 Aug 2010) $ (revision $Rev: 9498 (2010-10-04) $)
+API version $Date: 2010-10-23 18:50:05 +0200 (Sat, 23 Oct 2010) $ (revision $Rev: 9743 (2010-10-25) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -102,7 +102,7 @@ unsafe operations.
 sub untaintUnchecked {
     my ($string) = @_;
 
-    if ( defined($string) && $string =~ /^(.*)$/ ) {
+    if ( defined($string) && $string =~ /^(.*)$/s ) {
         return $1;
     }
     return $string;
@@ -128,7 +128,7 @@ sub untaint {
     return $datum unless defined $datum;
 
     # Untaint the datum before validating it
-    return undef unless $datum =~ /^(.*)$/;
+    return undef unless $datum =~ /^(.*)$/s;
     return &$method( $1, @_ );
 }
 
