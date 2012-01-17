@@ -27,8 +27,8 @@ use strict;
 require Foswiki::Func;    # The plugins API
 require Foswiki::Plugins; # For the API version
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
-$VERSION = '$Rev: 1776 (2009-01-06) $';
-$RELEASE = 'Foswiki-1.0';
+$VERSION = '$Rev: 6017 (2010-01-11) $';
+$RELEASE = 'Foswiki-1.0.9';
 $TWiki::RELEASE = 'TWiki 4.2.3';
 $SHORTDESCRIPTION = 'add TWiki personality to Foswiki';
 $NO_PREFS_IN_TOPIC = 1;

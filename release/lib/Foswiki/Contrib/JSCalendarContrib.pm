@@ -17,8 +17,8 @@ require Foswiki::Func;    # The plugins API
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION );
 
-$VERSION = '$Rev: 5029 (2009-09-20) $';
-$RELEASE = '20 Sep 2009';
+$VERSION = '$Rev: 5987 (2010-01-09) $';
+$RELEASE = '09 Jan 2010';
 $SHORTDESCRIPTION = "[[http://dynarch.com/mishoo/calendar.epl][Mishoo JSCalendar]], packaged for use by plugins, skins and add-ons";
 
 # Max width of different mishoo format components

@@ -55,11 +55,16 @@ provide their own template file involves use of the generic message template
 available from =oopsattention.tmpl=:
 <verbatim>
 throw Foswiki::OopsException( 'oopsattention', def => 'generic',
-   params => [ "%MAKETEXT{\"[_1] is not allowed to [_2] [_3]\", args=\"$user,$action,$topic\"}%" ] );
+   params => [ Operation is not allowed  ] );
 </verbatim>
-In this example =%MAKETEXT= is used so that if a language translation includes this string it will be automatically translated.
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 5668 (2009-11-29) $)
+Note that to protect against cross site scripting all parameter values are
+automatically and unconditionally entity-encoded so you cannot pass macros
+if you need messages to be automatically translated you either need to handle
+it in the perl code before throwing Foswiki::OopsException or put the %MAKETEXT
+in the template. You cannot pass macros through the parameters.
+
+API version $Date: 2009-12-11 10:25:14 +0100 (Fri, 11 Dec 2009) $ (revision $Rev: 6075 (2010-01-17) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -106,7 +111,7 @@ The remaining parameters are interpreted as key-value pairs. The following keys 
 For an example of how to use the =def= parameter, see the =oopsattention=
 template.
 
-NOTE: parameter values are automatically and unconditionally entity-encoded
+NOTE: parameter values are automatically and unconditionally entity-encoded so you cannot pass macros
 
 =cut
 

@@ -1,6 +1,6 @@
 %META:TOPICINFO{author="ProjectContributor" date="1252718469" format="1.1" version="1"}%
 %META:TOPICPARENT{name="ReleaseHistory"}%
----+!! Foswiki Release 1.0.8 - 29 Nov 2009
+---+!! Foswiki Release 1.0.9 - 17 Jan 2010
 
 %TOC%
 
@@ -25,6 +25,7 @@ Foswiki is the old TWiki project under a new name. Restrictions on the use of th
    * Foswiki 1.0.6 was built 21 Jun 2009. It is a patch release with more than 200 bug fixes relative to 1.0.0 and some enhancements. This version introduces a major enhancement in security against Cross-Site Request Forgery. Further more a central translation framework got introduced which ease the translation process and enables all users to contribute to translations.
    * Foswiki 1.0.7 was built 20 Sep 2009. It is a patch release with more than 240 bug fixes relative to 1.0.0 and some enhancements. This release fixes some serious issues introduced by the CSRF fix and the redirect cache fix in 1.0.6. Major enhancement that also fixes many annoying editor bugs is the upgrade of the !Tiny MCE editor to version 3.2.2. 
    * Foswiki 1.0.8 was built 29 Nov 2009. It is a patch release with more than 280 bug fixes relative to 1.0.0 and some enhancements. This release fixes a short list of quite annoying old bugs incl a bug that prevented efficient use of MailerContrib for producing newsletters. The Wysiwyg editor has been upgraded with the latest Tiny MCE editor release 3.2.7.
+   * Foswiki 1.0.9 was built 17 Jan 2010. It is a patch release with more than 320 bug fixes relative to 1.0.0 and several enhancements. This release fixes many bugs in the Wysiwyg editor, bugs related to more advanced wiki applications and bugs in the Plugin API. It contains several bug fixes and enhancements related to security and spam fighting.
 
 ---++ Pre-installed Extensions
 
@@ -57,6 +58,8 @@ Foswiki 1.0 is shipped with the following:
    * Foswiki 1.0.6 introduces a major security enhancement, protecting against Cross-Site Request Forgery. The extra safe "double submit" algorithm, as recommended by the [[http://www.owasp.org][Open Web Application Security Project (OWASP)]] project has been used. This is the same algorithm used by several major banks and other security-conscious institutions, and requires that users have Javascript enabled. 
 See Foswiki:Support.SecurityFeatures for more information on these, and other, Foswiki security features. This is recommended reading for all Foswiki administrators.
    * Foswiki 1.0.7 extends the strikeone protection to also include attachment of files
+   * Foswiki 1.0.9 extends the strikeone protection to also include user registration. Default minimum password length is now 7 characters (does not apply when upgrading)
+   
 
 ---+++ Upgrading From TWiki
 
@@ -156,6 +159,19 @@ These changes have the following consequences when upgrading from TWiki to Foswi
 
 Please see %SYSTEMWEB%.UpgradeGuide#CopyUsersAndCustomizations for more information.
 
+---++ Important Changes since Foswiki 1.0.8
+
+This release fixes some of the new bugs that Tiny MCE Editor 3.2.7 introduced in previous release. This relates to bugs that are only seen in specific browser versions but are quite annoying to the users affected. This upgrade will improve the Wysiwyg experience.
+
+The release includes many more minor bug fixes seen only by very advanced application developers and plugin developers.
+
+It contains several bug fixes and enhancements related to security and spam fighting. The very advanced strikeone CSRF protection that was introduced in 1.0.6 has now also been implemented to make it harder to create registration bots. Reset of password and change of email address features are now both strike one protected and you can no longer change to an empty email address. Additionally logging has been added enabling the administrator to see both old and new email address after an email address change.
+
+Default password length is now 7 instead of 1 character. Upgraders will be not be affected by this as the current used setting will already be in the !LocalSite.cfg file.
+
+A rare race condition has been identified where .htpasswd files could be truncated on a very busy site or during a spam robot attack. Foswiki now uses a file locking with a semaphore file to efficiently protect .htpasswd file from ever being changed by more than one process at a time.
+
+
 ---++ Important Changes since Foswiki 1.0.7
 
 The Wysiwyg editor is now using Tiny MCE editor version 3.2.7
@@ -213,7 +229,7 @@ Fixed 70 bugs since Foswiki 1.0.0. Quite many of these are bugs that originate f
    * Fixed a number of bugs in configure related to installation of extensions
    * Fixed a bug that prevented proper operation with https
    * Fixed a bug related to VIEW_TEMPLATE and preview
-   * Fixed a bug related to RcsLite corrupting topic history
+   * Fixed a bug related to !RcsLite corrupting topic history
    * Enhanced the user interface of configure
    * Added approx. 30 more bugs to the list of bugs fixed in 1.0.0 that we missed in the 1.0.0 version of these release notes.
    * Foswiki ships with {Sessions}{UseIPMatching} disabled by default now because the problems are getting bigger than the minimal security it gives
@@ -341,7 +357,7 @@ Since the fork of Foswiki happened while TWiki 4.2.3 was the current release, al
 | [[%BUGS%/Item5922][Item5922]] | $formfield data not being displayed in formatted searches |
 | [[%BUGS%/Item5926][Item5926]] | Topics with Chinese in UTF8 destroys page view in Internet Explorer |
 | [[%BUGS%/Item5937][Item5937]] | move initialization of SwitchBoard to TWiki.spec |
-| [[%BUGS%/Item5939][Item5939]] | Rogue <p /> below </html> on every topic in every web |
+| [[%BUGS%/Item5939][Item5939]] | Rogue &lt;p /&gt; below &lt;/html&gt; on every topic in every web |
 | [[%BUGS%/Item5943][Item5943]] | TWikiRegistrationAgent should be in the admin group |
 | [[%BUGS%/Item5944][Item5944]] | The padding:1px for textareas makes it hard to place the cursor at the begining of a line |
 | [[%BUGS%/Item5957][Item5957]] | htdigest format password file gets stomped on password or email change/reset |
@@ -432,7 +448,7 @@ Since the fork of Foswiki happened while TWiki 4.2.3 was the current release, al
 | [[%BUGS%/Item913][Item913]] | JSCalendarContrib::addHEAD or Func::addToHEAD used in any xxxTagsHandler causes deep recursion |
 | [[%BUGS%/Item918][Item918]] | Small docu update for JSCalendarContrib |
 | [[%BUGS%/Item923][Item923]] | Adding two new fields to the default response header: Action and URI. |
-| [[%BUGS%/Item926][Item926]] | Foswiki.spec {AccessibleENV} must list FOSWIKI_ACTION instead of TWIKI_ACTION
+| [[%BUGS%/Item926][Item926]] | Foswiki.spec {AccessibleENV} must list FOSWIKI_ACTION instead of TWIKI_ACTION |
 | [[%BUGS%/Item928][Item928]] | Update documentation of Foswiki::Request |
 | [[%BUGS%/Item945][Item945]] | RcsLite corrupts file's history |
 | [[%BUGS%/Item952][Item952]] | email failure for password reset, pwd change and i think rego too oops output broken |
@@ -692,8 +708,8 @@ None
 | [[%BUGS%/Item1572][Item1572]] | Error using Configure -> 'Find More Extensions' after installing GaugePlugin |
 | [[%BUGS%/Item1687][Item1687]] | Documentation bug in !ManagingUsers, customizing registration emails  |
 | [[%BUGS%/Item1729][Item1729]] | Have more flexibility in Twisty's remember setting |
-| [[%BUGS%/Item1741][Item1741]] | %TOPICURL% does not work correctly in %INCLUDE% |
-| [[%BUGS%/Item1766][Item1766]] | Redirecting to http://foswiki_redirect_cache... on first login of a browser session |
+| [[%BUGS%/Item1741][Item1741]] | =%<nop>TOPICURL%= does not work correctly in =%<nop>INCLUDE%= |
+| [[%BUGS%/Item1766][Item1766]] | Redirecting to <nop>http://foswiki_redirect_cache... on first login of a browser session |
 | [[%BUGS%/Item1768][Item1768]] | %Q (info icon) Macro mistake |
 | [[%BUGS%/Item1776][Item1776]] | Command line save gets stopped by validation |
 | [[%BUGS%/Item1780][Item1780]] | Under Windows using sha1 passwords new registrations create non working password |
@@ -749,11 +765,13 @@ None
 <noautolink>
 | [[%BUGS%/Item913][Item913]] | JSCalendarContrib::addHEAD or Func::addToHEAD used in any xxxTagsHandler and in some cases ADDTOHEAD causes deep recursion |
 | [[%BUGS%/Item1302][Item1302]] | mailnotify ignores -news operand |
+| [[%BUGS%/Item1438][Item1438]] | =textareabuttons= are not displayed when =NOWYSIWYG= is 1 |
 | [[%BUGS%/Item1558][Item1558]] | WYSIWYG does not work on Opera with Mac |
 | [[%BUGS%/Item1936][Item1936]] | Search.pm assumes the {editby} field is a cUID and tries to getWikiName before it finds the real cUID |
 | [[%BUGS%/Item2043][Item2043]] | parseTime should return undef for invalid date |
 | [[%BUGS%/Item2130][Item2130]] | TablePlugin initsort parameter is not tested before use |
 | [[%BUGS%/Item2137][Item2137]] | configure fails to show many many plugins in Find More Extensions |
+| [[%BUGS%/Item2148][Item2148]] | If a user's loginname happens to be a wikiword reset pwd looks rubbish |
 | [[%BUGS%/Item2151][Item2151]] | EDIT_TEMPLATE with missing edit template makes it impossible to edit the topic |
 | [[%BUGS%/Item2182][Item2182]] | Broken link in PatternSkin docu |
 | [[%BUGS%/Item2183][Item2183]] | Unable to center text with Wysiwyg editor |
@@ -770,6 +788,7 @@ None
 | [[%BUGS%/Item2348][Item2348]] | don't fill the log files with uninited vars when previewing |
 | [[%BUGS%/Item2351][Item2351]] | Use filetest 'access' instead of 'stat' |
 | [[%BUGS%/Item2352][Item2352]] | WysiwygPlugin doesn't protect %Macros% with lowercase |
+| [[%BUGS%/Item2374][Item2374]] | DocumentGraphics icons added to aid upgrading from old project |
 | [[%BUGS%/Item2377][Item2377]] | don't use ref($this) to ASSERT on class, as it breaks subclasses |
 | [[%BUGS%/Item2381][Item2381]] | documentation updates for 1.0.8 |
 | [[%BUGS%/Item2404][Item2404]] | Documentation of !PatternSkinCustomization contains error about VIEW_TEMPLATE |
@@ -794,6 +813,64 @@ None
 <noautolink>
 | [[%BUGS%/Item2245][Item2245]] | Upgrade TinyMCEPlugin to 3.2.7 |
 | [[%BUGS%/Item2341][Item2341]] | Add blockquote button to TinyMCE |
+</noautolink>
+
+---++ Foswiki Patch Release 1.0.9 Details
+
+---++ Fixes
+
+<noautolink>
+| [[%BUGS%/Item446][Item446]] | Make redirectto aware of anchors in links |
+| [[%BUGS%/Item1462][Item1462]] | WYSIWYG-attaches to wrong topic when creating new autonumbered topic |
+| [[%BUGS%/Item1960][Item1960]] | Extension installer fails on FreeBSD |
+| [[%BUGS%/Item2301][Item2301]] | $LISTJOIN can't handle empty separator |
+| [[%BUGS%/Item2305][Item2305]] | Setting $Foswiki::cfg{AllowInlineScript} = 0 will kill strikeone |
+| [[%BUGS%/Item2337][Item2337]] | ATTACHFILESIZELIMIT check fails confusingly if value is "0 " |
+| [[%BUGS%/Item2423][Item2423]] | getRevisionInfo can't deal with dots in the web name |
+| [[%BUGS%/Item2434][Item2434]] | BASE windowtitle |
+| [[%BUGS%/Item2437][Item2437]] | MailerContrib documentation points to a non existing !PublishContrib |
+| [[%BUGS%/Item2439][Item2439]] | rewriteshbang typed wrong in installation guide |
+| [[%BUGS%/Item2447][Item2447]] | Unable to apply "normal" format in wysiwyg editor |
+| [[%BUGS%/Item2470][Item2470]] | Remove spurious newline from attachagain template |
+| [[%BUGS%/Item2476][Item2476]] | Slow, erratic editing in plain textareas with IE8 |
+| [[%BUGS%/Item2482][Item2482]] | Improved documentation for date formats in !TablePlugin |
+| [[%BUGS%/Item2494][Item2494]] | Document that registrationHandler does not trigger until activation key submitted |
+| [[%BUGS%/Item2495][Item2495]] | !OopsException documents false example using macros in parameters |
+| [[%BUGS%/Item2499][Item2499]] | Enabling a wrong language in the LocalSite.cfg breaks Foswiki |
+| [[%BUGS%/Item2504][Item2504]] | Search for windows should be setup for Pureperl instead of Forking |
+| [[%BUGS%/Item2506][Item2506]] | ICONTOPIC setting is too literal, so a space at the end breaks the setting |
+| [[%BUGS%/Item2510][Item2510]] | Universal Edit Button link does not append an accurate timestamp, so the browser loads a cached edit screen |
+| [[%BUGS%/Item2512][Item2512]] | Remove photoshop files from distribution |
+| [[%BUGS%/Item2520][Item2520]] | Reading form field values from topic happens with tainted topic name |
+| [[%BUGS%/Item2529][Item2529]] | Issues with beforeSaveAttachment plugin dispatch (release 1.0.x scope) |
+| [[%BUGS%/Item2532][Item2532]] | InstallationGuide refers to =Foswikibug= instead of =Foswikitask= |
+| [[%BUGS%/Item2534][Item2534]] | TinyMCE FAQ mentions TINYMCEPLUGIN_DISABLE instead of NOWYSIWYG |
+| [[%BUGS%/Item2537][Item2537]] | Race condition in updating htpasswd can cause truncated htpasswd file |
+| [[%BUGS%/Item2542][Item2542]] | empty paths in configure result in "NOT SET" |
+| [[%BUGS%/Item2544][Item2544]] | sync TWikiDocGraphics |
+| [[%BUGS%/Item2551][Item2551]] | The strikeone action parameter name clashes with manage script |
+| [[%BUGS%/Item2559][Item2559]] | Some calls to checkValidationKey contains unused parameters |
+| [[%BUGS%/Item2564][Item2564]] | Lots of broken parent links in System web |
+| [[%BUGS%/Item2567][Item2567]] | Check for valid email address when changing email address |
+| [[%BUGS%/Item2606][Item2606]] | Topics created on 29th of February in a leap year fails |
+| [[%BUGS%/Item2609][Item2609]] | extender.pl broken - Plugin installation fails if using tar instead of Archive::Tar |
+| [[%BUGS%/Item2641][Item2641]] | Link to "more topic actions" on history page calls wrong template |
+| [[%BUGS%/Item2647][Item2647]] | RSS feed of search does not store excludetopic |
+| [[%BUGS%/Item2649][Item2649]] | Search box in top bar does not keep search phrase |
+| [[%BUGS%/Item2650][Item2650]] | Link to advanced search transfers limited number of search parameters |
+| [[%BUGS%/Item2651][Item2651]] | Not all search parameters are used in search on !WebSearch |
+| [[%BUGS%/Item8213][Item8213]] | Default settings for JSCalendarContrib are currently hard coded. Move them into a config.spec. |
+| [[%BUGS%/Item8354][Item8354]] | Newsletter mode fails if  %STARTPUBLISH%/%STOPPUBLISH% used in the topic |
+| [[%BUGS%/Item8374][Item8374]] | "Delete last row" button removes newly added rows |
+</noautolink>
+
+---++ Enhancements
+
+<noautolink>
+| [[%BUGS%/Item2497][Item2497]] | Add strikeone protection also for the register case |
+| [[%BUGS%/Item2556][Item2556]] | Increase default {MinPasswordLength} to 7 characters |
+| [[%BUGS%/Item2565][Item2565]] | Log when user changes email address |
+| [[%BUGS%/Item2568][Item2568]] | Add strikeone protection for reset password and change email on 1.0.9 |
 </noautolink>
 
 ---

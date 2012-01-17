@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-10-17 04:38:59 +0200 (Sat, 17 Oct 2009) $ (revision $Rev: 5668 (2009-11-29) $)
+API version $Date: 2009-12-02 22:28:39 +0100 (Wed, 02 Dec 2009) $ (revision $Rev: 6075 (2010-01-17) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -989,7 +989,7 @@ earlier releases.
 
 *Tip* if you want, you can use this method to check your own access control types. For example, if you:
    * Set ALLOWTOPICSPIN = IncyWincy
-in =ThatWeb.ThisTopic=, then a call to =checkAccessPermissions('SPIN', 'IncyWincy', undef, 'ThisTopic', 'ThatWeb', undef)= will return =true=.
+in =ThatWeb.ThisTopic=, then a call to =checkAccessPermission('SPIN', 'IncyWincy', undef, 'ThisTopic', 'ThatWeb', undef)= will return =true=.
 
 =cut
 
@@ -1529,7 +1529,7 @@ fully documented in the source code documentation shipped with the
 release, or can be inspected in the =lib/Foswiki/Meta.pm= file.
 
 This method *ignores* topic access permissions. You should be careful to use
-=checkAccessPermissions= to ensure the current user has read access to the
+=checkAccessPermission= to ensure the current user has read access to the
 topic.
 
 =cut

@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2009-10-21 21:34:35 +0200 (Wed, 21 Oct 2009) $ (revision $Rev: 5668 (2009-11-29) $)
+API version $Date: 2010-01-08 04:06:12 +0100 (Fri, 08 Jan 2010) $ (revision $Rev: 6075 (2010-01-17) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -36,7 +36,7 @@ use strict;
 
 require Foswiki;
 
-our $VERSION = '$Rev: 5668 (2009-11-29) $'; # Subversion rev number
+our $VERSION = '$Rev: 6075 (2010-01-17) $'; # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -44,7 +44,6 @@ our @ISOMONTH = (
     'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
 );
 
-# SMELL: does not account for leap years
 our @MONTHLENS = ( 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 );
 
 our @WEEKDAY = ( 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun' );
@@ -197,7 +196,10 @@ sub parseTime {
         #range checks
         return undef if (defined($M) && ($M < 1 || $M > 12));
         my $month = ($M || 1)-1;
-        return undef if (defined($D) && ($D < 0 || $D > $MONTHLENS[$month]));
+        my $monthlength = $MONTHLENS[$month];
+        # If leap year, note February is month number 1 starting from 0
+        $monthlength = 29 if ( $month == 1 && _daysInYear($year) == 366 );
+        return undef if (defined($D) && ($D < 0 || $D > $monthlength));
         return undef if (defined($h) && ($h < 0 || $h > 24));
         return undef if (defined($m) && ($m < 0 || $m > 60));
         return undef if (defined($s) && ($s < 0 || $s > 60));
@@ -559,10 +561,13 @@ sub parseInterval {
     if ($last !~ /^P/) {
         # complete with parts from "-12-31T23:59:60"
         # check last day of month
-        # TODO: do we do leap years?
         if ( length( $last ) == 7 ) {
             my $month = substr( $last, 5 );
-            $last .= '-'.$MONTHLENS[ $month - 1 ];
+            my $year = substr( $last, 0, 4 );
+            my $monthlength = $MONTHLENS[ $month - 1 ];
+            # If leap year, note February is month number 2 here
+            $monthlength = 29 if ( $month == 2 && _daysInYear($year) == 366 ); 
+            $last .= '-'.$monthlength;
         }
         if ( length($last) < length('0000-12-31T23:59:59')) {
             $last .= substr( '0000-12-31T23:59:59', length( $last ) );

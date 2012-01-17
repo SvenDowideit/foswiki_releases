@@ -48,7 +48,8 @@ sub available_languages {
 
     my @available;
 
-    while ( my ( $langCode, $langOptions ) = each %{ $Foswiki::cfg{Languages} } )
+    while ( my ( $langCode, $langOptions ) =
+        each %{ $Foswiki::cfg{Languages} } )
     {
         if ( $langOptions->{Enabled} ) {
             push( @available, _normalize_language_tag($langCode) );
@@ -102,8 +103,15 @@ BEGIN {
     # languages.
     my $dependencies = "use Locale::Maketext::Lexicon{'en'=>['Auto'],";
     foreach my $lang (@languages) {
-        $dependencies .=
-          "'$lang'=>['Gettext'=>'$Foswiki::cfg{LocalesDir}/$lang.po' ], ";
+        my $langFile = "$Foswiki::cfg{LocalesDir}/$lang.po";
+        if ( -f $langFile ) {
+            $dependencies .= "'$lang'=>['Gettext'=>'$langFile' ], ";
+        }
+        else {
+            push( @initErrors,
+"I18N - Ignoring enabled language $lang as $langFile does not exist.\n"
+            );
+        }
     }
     $dependencies .= '};';
 
@@ -138,9 +146,9 @@ sub new {
         return $class->SUPER::new(@_);
     }
 
-    unless ($initialised) {
+    if (@initErrors) {
         foreach my $error (@initErrors) {
-            $session->logger->log('warning', $error);
+            $session->logger->log( $initialised ? 'warning' : 'error', $error );
         }
     }
 
@@ -167,8 +175,8 @@ sub new {
 
         # we couldn't initialise 'optional' I18N infrastructure, warn that we
         # can only use English if I18N has been requested with configure
-        $session->logger->log('warning',
-            'Could not load I18N infrastructure; falling back to English')
+        $session->logger->log( 'warning',
+            'Could not load I18N infrastructure; falling back to English' )
           if $Foswiki::cfg{UserInterfaceInternationalisation};
     }
 
@@ -359,8 +367,8 @@ sub fromSiteCharSet {
             );
         }
         else {
-            $this->{session}->logger->log(
-                'warning', 'Conversion from $encoding no supported, '
+            $this->{session}->logger->log( 'warning',
+                    'Conversion from $encoding no supported, '
                   . 'or name not recognised - check perldoc Unicode::MapUTF8' );
             return $text;
         }
@@ -372,7 +380,8 @@ sub fromSiteCharSet {
         import Encode;
         my $encoding = Encode::resolve_alias( $Foswiki::cfg{Site}{CharSet} );
         if ( not $encoding ) {
-            $this->{session}->logger->log('warning', 'Conversion to "'
+            $this->{session}->logger->log( 'warning',
+                    'Conversion to "'
                   . $Foswiki::cfg{Site}{CharSet}
                   . '" not supported, or name not recognised - check '
                   . '"perldoc Encode::Supported"' );
@@ -425,8 +434,8 @@ sub toSiteCharSet {
             );
         }
         else {
-            $this->{session}->logger->log(
-                'warning', 'Conversion to $encoding no supported, '
+            $this->{session}->logger->log( 'warning',
+                    'Conversion to $encoding no supported, '
                   . 'or name not recognised - check perldoc Unicode::MapUTF8' );
             return $encoded;
         }
@@ -436,8 +445,8 @@ sub toSiteCharSet {
         import Encode;
         my $encoding = Encode::resolve_alias( $Foswiki::cfg{Site}{CharSet} );
         if ( not $encoding ) {
-            $this->{session}->logger->log(
-                'warning', 'Conversion from "'
+            $this->{session}->logger->log( 'warning',
+                    'Conversion from "'
                   . $Foswiki::cfg{Site}{CharSet}
                   . '" not supported, or name not recognised - check '
                   . '"perldoc Encode::Supported"' );

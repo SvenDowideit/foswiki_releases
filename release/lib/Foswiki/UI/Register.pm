@@ -17,6 +17,7 @@ use Error qw( :try );
 require Foswiki;
 require Foswiki::OopsException;
 require Foswiki::Sandbox;
+require Foswiki::UI;
 
 # Keys from the user data that should *not* be included in
 # the user topic.
@@ -82,6 +83,7 @@ sub register_cgi {
                 def   => 'registration_disabled'
             );
         }
+        Foswiki::UI::checkValidationKey( $session );
         registerAndNext($session);
     }
     elsif ( $action eq 'verify' ) {
@@ -99,6 +101,12 @@ sub register_cgi {
     }
     else {
         registerAndNext($session);
+        throw Foswiki::OopsException(
+            'attention',
+            web   => $session->{webName},
+            topic => $session->{topicName},
+            def   => 'unrecognized_action'
+        );
     }
 
     $session->leaveContext('absolute_urls');
@@ -109,8 +117,8 @@ sub register_cgi {
     # Output of reset password:
     #    unaffected user, accessible by username.$verificationCode
 
-# Output of verify:
-#    UnsavedUser, accessible by username.$approvalCode (only sent to administrator)
+    # Output of verify:
+    #    UnsavedUser, accessible by username.$approvalCode (only sent to administrator)
 
     # Output of approve:
     #    RegisteredUser, all related UnsavedUsers deleted
@@ -324,7 +332,7 @@ sub _makeFormFieldOrderMatch {
 
 ---++ StaticMethod registerAndNext($session) 
 
-This is called when action = register or action = ""
+This is called when action = register
 
 It calls register and either Verify or Finish.
 
@@ -723,8 +731,23 @@ sub changePassword {
     }
 
     my $cUID = $users->getCanonicalUserID($login);
+
     if ( defined $email ) {
+        # check valid email addresses - space between each
+        if ( $email !~ /($Foswiki::regex{emailAddrRegex}\s*)+/ ) {
+            throw Foswiki::OopsException(
+                'attention',
+                web    => $webName,
+                topic  => $topic,
+                def    => 'bad_email',
+                params => [ $email ]
+            );
+        }
+        
+        my $oldEmails = join( ', ', $users->getEmails ( $cUID ) );
         my $return = $users->setEmails( $cUID, split( /\s+/, $email ) );
+        $session->logEvent('changepasswd', $webName . '.' . $topic,
+             "from $oldEmails to $email for $login" );
     }
 
     # OK - password may be changed

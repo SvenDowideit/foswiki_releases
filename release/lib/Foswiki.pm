@@ -161,10 +161,10 @@ BEGIN {
         $Error::Debug = 0;    # no verbose stack traces
     }
 
-    # DO NOT CHANGE THE FORMAT OF $VERSION
-    # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-11-29 17:25:06 +0100 (Sun, 29 Nov 2009) $ $Rev: 5668 (2009-11-29) $ ';
-    $RELEASE = 'Foswiki-1.0.8';
+    # DO NOT CHANGE THE FORMAT OF  $VERSION
+    # Automatically expanded on checkin of this module 
+    $VERSION = '$Date: 2010-01-17 15:13:06 +0100 (Sun, 17 Jan 2010) $ $Rev: 6075 (2010-01-17) $ ';
+    $RELEASE = 'Foswiki-1.0.9';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -852,6 +852,22 @@ sub redirectto {
 
 =begin TML
 
+---++ StaticMethod splitAnchorFromUrl( $url ) -> ( $url, $anchor )
+
+Takes a full url (including possible query string) and splits off the anchor.
+The anchor includes the # sign. Returns an empty string if not found in the url.
+
+=cut
+
+sub splitAnchorFromUrl {
+    my ($url) = @_;
+
+    ($url, my $anchor) = $url =~ m/^(.*?)(#(.*?))*$/;
+    return ( $url, $anchor );
+}
+
+=begin TML
+
 ---++ ObjectMethod redirect( $url, $passthrough )
 
    * $url - url or topic to redirect to
@@ -887,6 +903,8 @@ sub redirect {
 
     # if we got here without a query, there's not much more we can do
     return unless $query;
+
+	( $url, my $anchor ) = splitAnchorFromUrl($url);
 
     if ( $passthru && defined $query->method() ) {
         my $existing = '';
@@ -941,6 +959,8 @@ sub redirect {
               . $Foswiki::cfg{DefaultUrlHost} . '"'
         );
     }
+
+	$url .= $anchor if $anchor;
 
     return
       if ( $this->{plugins}
@@ -1261,6 +1281,7 @@ sub getIconUrl {
 
     my $iconTopic = $this->{prefs}->getPreferencesValue('ICONTOPIC');
     if ( defined($iconTopic) ) {
+        $iconTopic =~ s/\s+$//;
         my ( $web, $topic ) =
           $this->normalizeWebTopicName( $this->{webName}, $iconTopic );
         $iconName =~ s/^.*\.(.*?)$/$1/;
@@ -1693,9 +1714,7 @@ sub i18n {
 
 =begin TML
 
----++ ObjectMethod i18n()
-Get a reference to the i18n object. Done lazily because not everyone
-needs the i18ner.
+---++ ObjectMethod logger()
 
 =cut
 

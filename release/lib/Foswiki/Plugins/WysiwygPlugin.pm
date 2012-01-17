@@ -38,9 +38,9 @@ use vars qw( %FoswikiCompatibility @refs %xmltag %xmltagPlugin);
 
 our $SHORTDESCRIPTION  = 'Translator framework for Wysiwyg editors';
 our $NO_PREFS_IN_TOPIC = 1;
-our $VERSION           = '$Rev: 5356 (2009-10-22) $';
+our $VERSION           = '$Rev: 6068 (2010-01-17) $';
 
-our $RELEASE = '18 Sep 2009';
+our $RELEASE = '17 Jan 2010';
 
 our $SECRET_ID =
 'WYSIWYG content - do not remove this comment, and never use this identical text in your topics';
@@ -946,7 +946,9 @@ sub _restUpload {
             return;    # to prevent further processing
         }
 
-        my $maxSize = Foswiki::Func::getPreferencesValue('ATTACHFILESIZELIMIT');
+        my $maxSize =
+          Foswiki::Func::getPreferencesValue('ATTACHFILESIZELIMIT') || 0;
+        $maxSize =~ s/\s+$//;
         $maxSize = 0 unless ( $maxSize =~ /([0-9]+)/o );
 
         if ( $maxSize && $fileSize > $maxSize * 1024 ) {

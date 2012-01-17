@@ -99,7 +99,7 @@ In the future it is intended that individual users will be able to control the f
 
 Note that when using the "news mode" =!= or =?= specifiers the entire topic text is mailed out as HTML. The =newsletter= template is used to generate the content in this mail, using whatever skin is selected in the topic being mailed.
 
-In addition, the %<nop>STARTPUBLISH% and %<nop>STOPPUBLISH% markers used by Foswiki:Extensions.PublishContrib to delimit the text to be published are respected in news mode.
+In addition, the %<nop>STARTPUBLISH% and %<nop>STOPPUBLISH% markers used by Foswiki:Extensions.PublishPlugin to delimit the text to be published are respected in news mode.
 
 ---++ Foswiki/Contrib/MailerContrib code library
 The second part of the module is a code library that provides the services for other applications to modify the subscription topics through a clean, well documented API. This allows (for example) plugin developers to add (for example) a "Register me for this newsletter" button to their pages. Developers should refer to the POD documentation for the !WebNotify class as their starting point.
@@ -232,9 +232,10 @@ Many thanks to the following sponsors for supporting this work:
 |  Author: | [[http://c-dot.co.uk][Crawford Currie]] |
 |  Copyright &copy;: | 2004, Wind River Systems; 2008, http://WikiRing.com; 2009 Foswiki Contributors |
 |  License: | GPL |
-|  Version: | 5288 (2009-10-17) |
-|  Release: | 17 Oct 2009 |
+|  Version: | 5716 (2009-12-04) |
+|  Release: | 4 Dec 2009 |
 |  Change History: | |
+|  4 Dec 2009 | Foswikitask:Item8354: Martin Rowe fixed a problem with STARTPUBLISH in newsletters corrupting the template |
 |  17 Oct 2009 | Foswikitask:Item1302: Removed the documentation of the -news mode which was actually never really implemented. Instead added two new -nonews and -nochanges modes which enables running mailnotify in newsletter mode with another schedule than the changes mode. If you upgrade and used the -news option with mailnotify things will work like you are used to as the -news option made no difference (old bug). |
 |  15 Oct 2009 | Foswikitask:Item2260: Make the feature that allows defining the email template based in either skin or web path. And improve the documentation so people can learn how to tailor the emails that the WebNotify feature sends. <br /> Foswikitask:Item1603: use quotes to protect topic names with odd characters in them |
 |  20 Sep 2009 | Small documentation update for Foswiki 1.0.7 release (RELEASE and adding parent) |

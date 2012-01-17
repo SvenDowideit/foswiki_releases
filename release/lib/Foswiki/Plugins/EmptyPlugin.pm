@@ -57,15 +57,15 @@ require Foswiki::Plugins; # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
 # *must* exist in this package.
-# This should always be $Rev: 4684 (2009-08-18) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 5770 (2009-12-11) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-our $VERSION = '$Rev: 4684 (2009-08-18) $';
+our $VERSION = '$Rev: 5770 (2009-12-11) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part
 # of the version number in PLUGINDESCRIPTIONS.
-our $RELEASE = '$Date: 2009-08-18 17:13:53 +0200 (Tue, 18 Aug 2009) $';
+our $RELEASE = '$Date: 2009-12-11 09:52:40 +0100 (Fri, 11 Dec 2009) $';
 
 # Short description of this plugin
 # One line description, is shown in the %SYSTEMWEB%.TextFormattingRules topic:
@@ -210,6 +210,10 @@ This handler is called very early, immediately after =earlyInitPlugin=.
    * =$loginName= - users login name
 
 Called when a new user registers with this Foswiki.
+
+Note that the handler is not called when the user submits the registration
+form if {Register}{NeedVerification} is enabled. It is then called when
+the user submits the activation code.
 
 *Since:* Foswiki::Plugins::VERSION = '2.0'
 

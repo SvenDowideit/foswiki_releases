@@ -155,11 +155,7 @@ Open configure, and open the "Extensions" section. Use "Find More Extensions" to
 
 If you have any problems, or if the extension isn't available in =configure=, then you can still install manually from the command-line. See http://foswiki.org/Support/ManuallyInstallingExtensions for more help.
 
-   * An administrator can customize the appearance of the calendar by setting the following in =<nop>LocalSite.cfg=
-     | *Setting* | *Default* |
-     | =$Foswiki::cfg{JSCalendarContrib}{style}= | ='blue'= |
-     | =$Foswiki::cfg{JSCalendarContrib}{lang}= | ='en'= |
-     | =$Foswiki::cfg{JSCalendarContrib}{format}= | ='%e %b %Y'= |
+   * An administrator can customize the appearance of the calendar using the =configure= interface to set the style, language and time format options.
 
 ---+++ Contrib Info
 
@@ -168,9 +164,10 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  Author: | Foswiki:Main/CrawfordCurrie http://c-dot.co.uk |
 |  Copyright &copy;: | See [[%ATTACHURL%/doc/html/reference.html][the Mishoo documentation]] |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 5029 (2009-09-20) |
-|  Release: | 20 Sep 2009 |
+|  Version: | 5987 (2010-01-09) |
+|  Release: | 09 Jan 2010 |
 | Change History: | |
+|  09 Jan 2010 | Adding the Config.spec file with the 3 settings so that people do not have to manually create the file. |
 |  20 Sep 2009 | Small documentation update in connection with release of Foswiki 1.0.7 |
 |  16 Dec 2008 | Foswiki version |
 |  10 Sep 2008 | Bugs:Item5991 Applied patch to fix rendering on IE7 .|

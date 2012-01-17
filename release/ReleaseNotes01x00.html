@@ -1,6 +1,6 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en_US" lang="en_US"><head><title>ReleaseNotes01x00</title></head><body class=""><div class="foswikiPage">
-<a name="PageTop"></a> <h1><a name="Foswiki_Release_1_0_8_29_Nov_200"></a>  Foswiki Release 1.0.8 - 29 Nov 2009 </h1>
+<a name="PageTop"></a> <h1><a name="Foswiki_Release_1_0_9_17_Jan_201"></a>  Foswiki Release 1.0.9 - 17 Jan 2010 </h1>
 <p />
 <a name="foswikiTOC"></a><div class="foswikiToc"><span class="foswikiTocTitle">On this page:</span> <ul>
 <li> <a href="#Foswiki_The_Free_and_Open_Source"> Foswiki - The Free and Open Source Wiki</a>
@@ -14,11 +14,12 @@
 <li> <a href="#Topic_names_changed_in_System_we"> Topic names changed in System web (former TWiki web)</a>
 </li> <li> <a href="#Topic_names_changed_in_Main_web"> Topic names changed in Main web</a>
 </li></ul> 
-</li> <li> <a href="#Important_Changes_since_Foswiki"> Important Changes since Foswiki 1.0.7</a>
-</li> <li> <a href="#Important_Changes_since_Fosw_AN1"> Important Changes since Foswiki 1.0.6</a>
-</li> <li> <a href="#Important_Changes_since_Fosw_AN2"> Important Changes since Foswiki 1.0.5</a>
-</li> <li> <a href="#Important_Changes_since_Fosw_AN3"> Important Changes since Foswiki 1.0.4</a>
-</li> <li> <a href="#Important_Changes_since_Fosw_AN4"> Important Changes since Foswiki 1.0.0</a>
+</li> <li> <a href="#Important_Changes_since_Foswiki"> Important Changes since Foswiki 1.0.8</a>
+</li> <li> <a href="#Important_Changes_since_Fosw_AN1"> Important Changes since Foswiki 1.0.7</a>
+</li> <li> <a href="#Important_Changes_since_Fosw_AN2"> Important Changes since Foswiki 1.0.6</a>
+</li> <li> <a href="#Important_Changes_since_Fosw_AN3"> Important Changes since Foswiki 1.0.5</a>
+</li> <li> <a href="#Important_Changes_since_Fosw_AN4"> Important Changes since Foswiki 1.0.4</a>
+</li> <li> <a href="#Important_Changes_since_Fosw_AN5"> Important Changes since Foswiki 1.0.0</a>
 </li> <li> <a href="#Important_Changes_since_TWiki_4"> Important Changes since TWiki 4.2.3</a>
 </li> <li> <a href="#Foswiki_Release_1_0_0_Details"> Foswiki Release 1.0.0 Details</a> <ul>
 <li> <a href="#Fixes"> Fixes</a>
@@ -56,6 +57,9 @@
 <li> <a href="#Fixes_AN8"> Fixes</a>
 </li> <li> <a href="#Enhancements_AN8"> Enhancements</a>
 </li></ul> 
+</li> <li> <a href="#Foswiki_Patch_Release_1_0_9_Deta"> Foswiki Patch Release 1.0.9 Details</a>
+</li> <li> <a href="#Fixes_AN9"> Fixes</a>
+</li> <li> <a href="#Enhancements_AN9"> Enhancements</a>
 </li></ul> 
 </div>
 <p />
@@ -80,6 +84,7 @@ Foswiki is the old TWiki project under a new name. Restrictions on the use of th
 </li> <li> Foswiki 1.0.6 was built 21 Jun 2009. It is a patch release with more than 200 bug fixes relative to 1.0.0 and some enhancements. This version introduces a major enhancement in security against Cross-Site Request Forgery. Further more a central translation framework got introduced which ease the translation process and enables all users to contribute to translations.
 </li> <li> Foswiki 1.0.7 was built 20 Sep 2009. It is a patch release with more than 240 bug fixes relative to 1.0.0 and some enhancements. This release fixes some serious issues introduced by the CSRF fix and the redirect cache fix in 1.0.6. Major enhancement that also fixes many annoying editor bugs is the upgrade of the Tiny MCE editor to version 3.2.2. 
 </li> <li> Foswiki 1.0.8 was built 29 Nov 2009. It is a patch release with more than 280 bug fixes relative to 1.0.0 and some enhancements. This release fixes a short list of quite annoying old bugs incl a bug that prevented efficient use of <a href="http://foswiki.org/System/MailerContrib">MailerContrib</a> for producing newsletters. The Wysiwyg editor has been upgraded with the latest Tiny MCE editor release 3.2.7.
+</li> <li> Foswiki 1.0.9 was built 17 Jan 2010. It is a patch release with more than 320 bug fixes relative to 1.0.0 and several enhancements. This release fixes many bugs in the Wysiwyg editor, bugs related to more advanced wiki applications and bugs in the Plugin API. It contains several bug fixes and enhancements related to security and spam fighting.
 </li></ul> 
 <p />
 <h2><a name="Pre_installed_Extensions"></a> Pre-installed Extensions </h2>
@@ -116,7 +121,9 @@ Foswiki 1.0 is shipped with the following:
 </li></ul> 
 See <a class="interwikiLink" href="http://foswiki.org/Support.SecurityFeatures" title="'Support.SecurityFeatures' on foswiki.org">Foswiki:Support.SecurityFeatures</a> for more information on these, and other, Foswiki security features. This is recommended reading for all Foswiki administrators. <ul>
 <li> Foswiki 1.0.7 extends the strikeone protection to also include attachment of files
+</li> <li> Foswiki 1.0.9 extends the strikeone protection to also include user registration. Default minimum password length is now 7 characters (does not apply when upgrading)
 </li></ul> 
+<p />
 <p />
 <h3><a name="Upgrading_From_TWiki"></a> Upgrading From TWiki </h3>
 <p />
@@ -418,14 +425,27 @@ These changes have the following consequences when upgrading from TWiki to Foswi
 <p />
 Please see <a href="http://foswiki.org/System/UpgradeGuide#CopyUsersAndCustomizations">UpgradeGuide#CopyUsersAndCustomizations</a> for more information.
 <p />
-<h2><a name="Important_Changes_since_Foswiki"></a> Important Changes since Foswiki 1.0.7 </h2>
+<h2><a name="Important_Changes_since_Foswiki"></a> Important Changes since Foswiki 1.0.8 </h2>
+<p />
+This release fixes some of the new bugs that Tiny MCE Editor 3.2.7 introduced in previous release. This relates to bugs that are only seen in specific browser versions but are quite annoying to the users affected. This upgrade will improve the Wysiwyg experience.
+<p />
+The release includes many more minor bug fixes seen only by very advanced application developers and plugin developers.
+<p />
+It contains several bug fixes and enhancements related to security and spam fighting. The very advanced strikeone CSRF protection that was introduced in 1.0.6 has now also been implemented to make it harder to create registration bots. Reset of password and change of email address features are now both strike one protected and you can no longer change to an empty email address. Additionally logging has been added enabling the administrator to see both old and new email address after an email address change.
+<p />
+Default password length is now 7 instead of 1 character. Upgraders will be not be affected by this as the current used setting will already be in the LocalSite.cfg file.
+<p />
+A rare race condition has been identified where .htpasswd files could be truncated on a very busy site or during a spam robot attack. Foswiki now uses a file locking with a semaphore file to efficiently protect .htpasswd file from ever being changed by more than one process at a time.
+<p />
+<p />
+<h2><a name="Important_Changes_since_Fosw_AN1"></a> Important Changes since Foswiki 1.0.7 </h2>
 <p />
 The Wysiwyg editor is now using Tiny MCE editor version 3.2.7
 <p />
 The mailnotify feature has been fixed/enhanced so you can run newsletter in both 'changes' and 'news' mode so you can use the feature to automatically send newsletters independant of the normal change notices
 <p />
 <p />
-<h2><a name="Important_Changes_since_Fosw_AN1"></a> Important Changes since Foswiki 1.0.6 </h2>
+<h2><a name="Important_Changes_since_Fosw_AN2"></a> Important Changes since Foswiki 1.0.6 </h2>
 <p />
 The Wysiwyg editor has been upgraded to using Tiny MCE editor version 3.2.2 which solves many editor related bugs. The pickaxe icon has been replaced by a "Wiki Text" button as the pickaxe was hard to guess the function of. And the editor now has a full screen editing feature.
 <p />
@@ -442,7 +462,7 @@ Fixed a problem where Windows installations of Foswiki would create new users wi
 "Managing webs" feature redesigned for better usability
 <p />
 <p />
-<h2><a name="Important_Changes_since_Fosw_AN2"></a> Important Changes since Foswiki 1.0.5 </h2>
+<h2><a name="Important_Changes_since_Fosw_AN3"></a> Important Changes since Foswiki 1.0.5 </h2>
 <p />
 A major security enhancement against Cross-Site Request Forgery has been added. See Security Updates above.
 <p />
@@ -454,7 +474,7 @@ A new footer parameter has been added to SEARCH
 <p />
 Two new parameters $ntopics and $nhits can be used in formatted searches to show the number of found items.
 <p />
-<h2><a name="Important_Changes_since_Fosw_AN3"></a> Important Changes since Foswiki 1.0.4 </h2>
+<h2><a name="Important_Changes_since_Fosw_AN4"></a> Important Changes since Foswiki 1.0.4 </h2>
 <p />
 An additional security feature has been added so that saving data now requires the http method POST. This means that it is no longer possible to store data via an "&lt;a href=..." link or img tag. It also means that if you have an application with an HTML form that creates new topics you must specify in the form tag method="post". This change is done to further tighten the security of Foswiki.
 <p />
@@ -468,14 +488,14 @@ The template webs _default and _empty are frequent targets for spammers because 
 <p />
 <a href="http://foswiki.org/System/SpreadSheetPlugin">SpreadSheetPlugin</a> now has the new functions: $EMPTY(), $LEFTSTRING(), $RIGHTSTRING(), SUBSTRING(), $INSERTSTRING()
 <p />
-<h2><a name="Important_Changes_since_Fosw_AN4"></a> Important Changes since Foswiki 1.0.0 </h2>
+<h2><a name="Important_Changes_since_Fosw_AN5"></a> Important Changes since Foswiki 1.0.0 </h2>
 <p />
 Fixed 70 bugs since Foswiki 1.0.0. Quite many of these are bugs that originate from TWiki 4.2.3. The most important bugs are  <ul>
 <li> Fixed some bugs related to expired sessions and date in session cookies.
 </li> <li> Fixed a number of bugs in configure related to installation of extensions
 </li> <li> Fixed a bug that prevented proper operation with https
 </li> <li> Fixed a bug related to VIEW_TEMPLATE and preview
-</li> <li> Fixed a bug related to <span class="foswikiNewLink">RcsLite<a href="http://www.lavrsen.dk/foswiki10/bin/edit/System/RcsLite?topicparent=System.ReleaseNotes01x00" rel="nofollow" title="Create this topic">?</a></span> corrupting topic history
+</li> <li> Fixed a bug related to RcsLite corrupting topic history
 </li> <li> Enhanced the user interface of configure
 </li> <li> Added approx. 30 more bugs to the list of bugs fixed in 1.0.0 that we missed in the 1.0.0 version of these release notes.
 </li> <li> Foswiki ships with {Sessions}{UseIPMatching} disabled by default now because the problems are getting bigger than the minimal security it gives
@@ -937,7 +957,7 @@ Since the fork of Foswiki happened while TWiki 4.2.3 was the current release, al
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5939" target="_top">Item5939</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Rogue <p /> below </html> on every topic in every web </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Rogue &lt;p /&gt; below &lt;/html&gt; on every topic in every web </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5943" target="_top">Item5943</a> </td>
@@ -1262,158 +1282,158 @@ Since the fork of Foswiki happened while TWiki 4.2.3 was the current release, al
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Small docu update for JSCalendarContrib </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item923" target="_top">Item923</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Adding two new fields to the default response header: Action and URI. </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item923" target="_top">Item923</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Adding two new fields to the default response header: Action and URI. </td>
 		</tr>
-	</tbody></table>
-| <a href="http://foswiki.org/Tasks/Item926" target="_top">Item926</a> | Foswiki.spec {AccessibleENV} must list FOSWIKI_ACTION instead of TWIKI_ACTION
-<table cellspacing="0" id="table7" cellpadding="0" class="foswikiTable" rules="rows" border="1">
-	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item928" target="_top">Item928</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Update documentation of Foswiki::Request </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item926" target="_top">Item926</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Foswiki.spec {AccessibleENV} must list FOSWIKI_ACTION instead of TWIKI_ACTION </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item945" target="_top">Item945</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> RcsLite corrupts file's history </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item928" target="_top">Item928</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Update documentation of Foswiki::Request </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item952" target="_top">Item952</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> email failure for password reset, pwd change and i think rego too oops output broken </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item945" target="_top">Item945</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> RcsLite corrupts file's history </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item962" target="_top">Item962</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove  FOSWIKI_LAYOUT_URL, FOSWIKI_STYLE_URL, FOSWIKI_COLORS_URL from FINALPREFERENCES </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item952" target="_top">Item952</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> email failure for password reset, pwd change and i think rego too oops output broken </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item965" target="_top">Item965</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> {Register}{HidePassword} = $FALSE; not respected when the password is generated by Register.pm </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item962" target="_top">Item962</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove  FOSWIKI_LAYOUT_URL, FOSWIKI_STYLE_URL, FOSWIKI_COLORS_URL from FINALPREFERENCES </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item972" target="_top">Item972</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Undefined subroutine &amp;Foswiki::Form::Select::TAINT called </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item965" target="_top">Item965</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> {Register}{HidePassword} = $FALSE; not respected when the password is generated by Register.pm </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item973" target="_top">Item973</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> SEARCH adds extra separator for header </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item972" target="_top">Item972</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Undefined subroutine &amp;Foswiki::Form::Select::TAINT called </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item977" target="_top">Item977</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> WebChanges eats first word of link text </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item973" target="_top">Item973</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> SEARCH adds extra separator for header </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item980" target="_top">Item980</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Moving a topic doesn't update TOPICMOVED </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item977" target="_top">Item977</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> WebChanges eats first word of link text </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item990" target="_top">Item990</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Update graphics, html and css </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item980" target="_top">Item980</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Moving a topic doesn't update TOPICMOVED </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item995" target="_top">Item995</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> When editing a form only, "Save and Continue" leads to the full edit screen </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item990" target="_top">Item990</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Update graphics, html and css </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1002" target="_top">Item1002</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> System.InstallationGuide doesn't mention Development.FoswikiStandAlone </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item995" target="_top">Item995</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> When editing a form only, "Save and Continue" leads to the full edit screen </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1010" target="_top">Item1010</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure opening and closing of panels is clunky </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1002" target="_top">Item1002</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> System.InstallationGuide doesn't mention Development.FoswikiStandAlone </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1011" target="_top">Item1011</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure fails with cryptic error in Configure/Checker.pm line 315 when RCS is not available on the system </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1010" target="_top">Item1010</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure opening and closing of panels is clunky </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1014" target="_top">Item1014</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure complains when extra spaces are added in data structure </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1011" target="_top">Item1011</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure fails with cryptic error in Configure/Checker.pm line 315 when RCS is not available on the system </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1016" target="_top">Item1016</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> ISO time formats have no timezone designator </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1014" target="_top">Item1014</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure complains when extra spaces are added in data structure </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1017" target="_top">Item1017</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> EditTablePlugin again cannot save textareas with formatting because of wrong handling of new lines </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1016" target="_top">Item1016</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> ISO time formats have no timezone designator </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1018" target="_top">Item1018</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Protect verbatim class="xxx" when editing </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1017" target="_top">Item1017</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> EditTablePlugin again cannot save textareas with formatting because of wrong handling of new lines </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1020" target="_top">Item1020</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> TemplateLogin corrupts origurl param </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1018" target="_top">Item1018</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Protect verbatim class="xxx" when editing </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1022" target="_top">Item1022</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> ?logout=1 ignores the requested topic and returns to original topic </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1020" target="_top">Item1020</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> TemplateLogin corrupts origurl param </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1023" target="_top">Item1023</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> System.CommandAndCGIScripts is missing docco on ?logout=1 url param </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1022" target="_top">Item1022</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> ?logout=1 ignores the requested topic and returns to original topic </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1029" target="_top">Item1029</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> TemplateLogin provides status 200 if no username is give, changed to 400 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1023" target="_top">Item1023</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> System.CommandAndCGIScripts is missing docco on ?logout=1 url param </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1053" target="_top">Item1053</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Fix broken HTML </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1029" target="_top">Item1029</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> TemplateLogin provides status 200 if no username is give, changed to 400 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1070" target="_top">Item1070</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Line75 of Sandbox.pm has an excess $ </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1053" target="_top">Item1053</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Fix broken HTML </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1073" target="_top">Item1073</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure should not load Plugins that are hidden - ie files starting with a dot </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1070" target="_top">Item1070</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Line75 of Sandbox.pm has an excess $ </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1074" target="_top">Item1074</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove link from data form table in preview </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1073" target="_top">Item1073</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Configure should not load Plugins that are hidden - ie files starting with a dot </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1078" target="_top">Item1078</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove unwanted spaces in default templates </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1074" target="_top">Item1074</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove link from data form table in preview </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1094" target="_top">Item1094</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> invalid expiry date for session cookies </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1078" target="_top">Item1078</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove unwanted spaces in default templates </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1097" target="_top">Item1097</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> HIDECOMMENTS is broken </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1094" target="_top">Item1094</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> invalid expiry date for session cookies </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1121" target="_top">Item1121</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Sync the default apache config with the ApacheConfigGenerator </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1097" target="_top">Item1097</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> HIDECOMMENTS is broken </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5352" target="_top">Item5352</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Improve Email address validator to be more correct. </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1121" target="_top">Item1121</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Sync the default apache config with the ApacheConfigGenerator </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5853" target="_top">Item5853</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> PurePerl taint error inspired fix. </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5352" target="_top">Item5352</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Improve Email address validator to be more correct. </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5920" target="_top">Item5920</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> TWikiGroups shows all members twice </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5853" target="_top">Item5853</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> PurePerl taint error inspired fix. </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item6128" target="_top">Item6128</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Login names with dots not working properly </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5920" target="_top">Item5920</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> TWikiGroups shows all members twice </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item8051" target="_top">Item8051</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Use of uninitialized value in list assignment </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item6128" target="_top">Item6128</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Login names with dots not working properly </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item8051" target="_top">Item8051</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Use of uninitialized value in list assignment </td>
 		</tr>
 	</tbody></table>
 <p />
 <h3><a name="Enhancements_AN1"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table8" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table7" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item523" target="_top">Item523</a> </td>
@@ -1438,7 +1458,7 @@ Since the fork of Foswiki happened while TWiki 4.2.3 was the current release, al
 <p />
 <h3><a name="Fixes_AN2"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table9" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table8" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item630" target="_top">Item630</a> </td>
@@ -1486,7 +1506,7 @@ None
 <p />
 <h3><a name="Fixes_AN3"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table10" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table9" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1055" target="_top">Item1055</a> </td>
@@ -1534,7 +1554,7 @@ None
 <p />
 <h3><a name="Fixes_AN4"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table11" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table10" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item993" target="_top">Item993</a> </td>
@@ -1672,7 +1692,7 @@ None
 <p />
 <h3><a name="Enhancements_AN4"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table12" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table11" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item1604" target="_top">Item1604</a> </td>
@@ -1684,7 +1704,7 @@ None
 <p />
 <h3><a name="Fixes_AN5"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table13" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table12" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item647" target="_top">Item647</a> </td>
@@ -1810,7 +1830,7 @@ None
 <p />
 <h3><a name="Enhancements_AN5"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table14" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table13" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1374" target="_top">Item1374</a> </td>
@@ -1834,7 +1854,7 @@ None
 <p />
 <h3><a name="Fixes_AN6"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table15" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table14" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1013" target="_top">Item1013</a> </td>
@@ -2028,7 +2048,7 @@ None
 <p />
 <h3><a name="Enhancements_AN6"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table16" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table15" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item886" target="_top">Item886</a> </td>
@@ -2061,7 +2081,7 @@ None
 <p />
 <h3><a name="Fixes_AN7"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table17" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table16" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item966" target="_top">Item966</a> </td>
@@ -2080,22 +2100,16 @@ None
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Documentation bug in ManagingUsers, customizing registration emails </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item1729" target="_top">Item1729</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Have more flexibility in Twisty's remember setting </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1729" target="_top">Item1729</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Have more flexibility in Twisty's remember setting </td>
 		</tr>
-	</tbody></table>
-| <a href="http://foswiki.org/Tasks/Item1741" target="_top">Item1741</a> | <a href="http://foswiki.org/System/ReleaseNotes01x00" target="_top">http://foswiki.org/System/ReleaseNotes01x00</a> does not work correctly in 
-<p />
-<p />
-<span class='foswikiAlert'> <dl>
-<dt> Warning</dt><dd> Can't INCLUDE '', path is empty or contains illegal characters. 
-</dd></dl> 
-</span> |
-<table cellspacing="0" id="table18" cellpadding="0" class="foswikiTable" rules="rows" border="1">
-	<tbody>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1741" target="_top">Item1741</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> <code>%TOPICURL%</code> does not work correctly in <code>%INCLUDE%</code> </td>
+		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1766" target="_top">Item1766</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Redirecting to <a href="http://foswiki_redirect_cache" target="_top">http://foswiki_redirect_cache</a>... on first login of a browser session </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Redirecting to http://foswiki_redirect_cache... on first login of a browser session </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1768" target="_top">Item1768</a> </td>
@@ -2241,7 +2255,7 @@ None
 <p />
 <h3><a name="Enhancements_AN7"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table19" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table17" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item310" target="_top">Item310</a> </td>
@@ -2270,7 +2284,7 @@ None
 <p />
 <h3><a name="Fixes_AN8"></a> Fixes </h3>
 <p />
-<table cellspacing="0" id="table20" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table18" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item913" target="_top">Item913</a> </td>
@@ -2281,24 +2295,32 @@ None
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> mailnotify ignores -news operand </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1558" target="_top">Item1558</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> WYSIWYG does not work on Opera with Mac </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1438" target="_top">Item1438</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> <code>textareabuttons</code> are not displayed when <code>NOWYSIWYG</code> is 1 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1936" target="_top">Item1936</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Search.pm assumes the {editby} field is a cUID and tries to getWikiName before it finds the real cUID </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1558" target="_top">Item1558</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> WYSIWYG does not work on Opera with Mac </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2043" target="_top">Item2043</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> parseTime should return undef for invalid date </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1936" target="_top">Item1936</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Search.pm assumes the {editby} field is a cUID and tries to getWikiName before it finds the real cUID </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2130" target="_top">Item2130</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> TablePlugin initsort parameter is not tested before use </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2043" target="_top">Item2043</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> parseTime should return undef for invalid date </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2137" target="_top">Item2137</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> configure fails to show many many plugins in Find More Extensions </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2130" target="_top">Item2130</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> TablePlugin initsort parameter is not tested before use </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2137" target="_top">Item2137</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> configure fails to show many many plugins in Find More Extensions </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2148" target="_top">Item2148</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> If a user's loginname happens to be a wikiword reset pwd looks rubbish </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2151" target="_top">Item2151</a> </td>
@@ -2365,75 +2387,79 @@ None
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> WysiwygPlugin doesn't protect %Macros% with lowercase </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2377" target="_top">Item2377</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> don't use ref($this) to ASSERT on class, as it breaks subclasses </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2374" target="_top">Item2374</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> DocumentGraphics icons added to aid upgrading from old project </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2381" target="_top">Item2381</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> documentation updates for 1.0.8 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2377" target="_top">Item2377</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> don't use ref($this) to ASSERT on class, as it breaks subclasses </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2404" target="_top">Item2404</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Documentation of PatternSkinCustomization contains error about VIEW_TEMPLATE </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2381" target="_top">Item2381</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> documentation updates for 1.0.8 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2405" target="_top">Item2405</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Backlinks tempates show topic form and attachments </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2404" target="_top">Item2404</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Documentation of PatternSkinCustomization contains error about VIEW_TEMPLATE </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2406" target="_top">Item2406</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Allow the "allow non wiki word" message to be skinned </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2405" target="_top">Item2405</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Backlinks tempates show topic form and attachments </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2407" target="_top">Item2407</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove empty paragraph from login template </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2406" target="_top">Item2406</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Allow the "allow non wiki word" message to be skinned </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2408" target="_top">Item2408</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Make action buttons easier to skin </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2407" target="_top">Item2407</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove empty paragraph from login template </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2410" target="_top">Item2410</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove hardcoded padding setting in WebChangesAlert </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2408" target="_top">Item2408</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Make action buttons easier to skin </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2411" target="_top">Item2411</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> NOSEARCHALL not intuitive </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2410" target="_top">Item2410</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove hardcoded padding setting in WebChangesAlert </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2412" target="_top">Item2412</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Unable to select first attachment in TinyMCE insert image dialogue </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2411" target="_top">Item2411</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> NOSEARCHALL not intuitive </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2413" target="_top">Item2413</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> When I use a script that uses oops to show results, the web page title is wrong. </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2412" target="_top">Item2412</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Unable to select first attachment in TinyMCE insert image dialogue </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2414" target="_top">Item2414</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> configure crashes when some strange .po file exist </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2413" target="_top">Item2413</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> When I use a script that uses oops to show results, the web page title is wrong. </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2417" target="_top">Item2417</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Fix for horizontally compressed printing in Safari </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2414" target="_top">Item2414</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> configure crashes when some strange .po file exist </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5366" target="_top">Item5366</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> BulkResetPassword confirmation lacks an OK button </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2417" target="_top">Item2417</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Fix for horizontally compressed printing in Safari </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item8084" target="_top">Item8084</a> </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Confusing "Bad request" during upgrade when going 3048 =&gt; 3236 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item5366" target="_top">Item5366</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> BulkResetPassword confirmation lacks an OK button </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item8292" target="_top">Item8292</a> </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> System.MailerContrib in 1.07 and F.O needs URL typo to SubscribePlugin fixed </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item8084" target="_top">Item8084</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Confusing "Bad request" during upgrade when going 3048 =&gt; 3236 </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item8292" target="_top">Item8292</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> System.MailerContrib in 1.07 and F.O needs URL typo to SubscribePlugin fixed </td>
 		</tr>
 	</tbody></table>
 <p />
 <p />
 <h3><a name="Enhancements_AN8"></a> Enhancements </h3>
 <p />
-<table cellspacing="0" id="table21" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+<table cellspacing="0" id="table19" cellpadding="0" class="foswikiTable" rules="rows" border="1">
 	<tbody>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2245" target="_top">Item2245</a> </td>
@@ -2442,6 +2468,204 @@ None
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item2341" target="_top">Item2341</a> </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Add blockquote button to TinyMCE </td>
+		</tr>
+	</tbody></table>
+<p />
+<h2><a name="Foswiki_Patch_Release_1_0_9_Deta"></a> Foswiki Patch Release 1.0.9 Details </h2>
+<p />
+<h2><a name="Fixes_AN9"></a> Fixes </h2>
+<p />
+<table cellspacing="0" id="table20" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+	<tbody>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item446" target="_top">Item446</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Make redirectto aware of anchors in links </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1462" target="_top">Item1462</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> WYSIWYG-attaches to wrong topic when creating new autonumbered topic </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item1960" target="_top">Item1960</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Extension installer fails on FreeBSD </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2301" target="_top">Item2301</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> $LISTJOIN can't handle empty separator </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2305" target="_top">Item2305</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Setting $Foswiki::cfg{AllowInlineScript} = 0 will kill strikeone </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2337" target="_top">Item2337</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> ATTACHFILESIZELIMIT check fails confusingly if value is "0 " </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2423" target="_top">Item2423</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> getRevisionInfo can't deal with dots in the web name </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2434" target="_top">Item2434</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> BASE windowtitle </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2437" target="_top">Item2437</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> MailerContrib documentation points to a non existing PublishContrib </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2439" target="_top">Item2439</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> rewriteshbang typed wrong in installation guide </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2447" target="_top">Item2447</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Unable to apply "normal" format in wysiwyg editor </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2470" target="_top">Item2470</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove spurious newline from attachagain template </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2476" target="_top">Item2476</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Slow, erratic editing in plain textareas with IE8 </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2482" target="_top">Item2482</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Improved documentation for date formats in TablePlugin </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2494" target="_top">Item2494</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Document that registrationHandler does not trigger until activation key submitted </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2495" target="_top">Item2495</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> OopsException documents false example using macros in parameters </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2499" target="_top">Item2499</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Enabling a wrong language in the LocalSite.cfg breaks Foswiki </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2504" target="_top">Item2504</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Search for windows should be setup for Pureperl instead of Forking </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2506" target="_top">Item2506</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> ICONTOPIC setting is too literal, so a space at the end breaks the setting </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2510" target="_top">Item2510</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Universal Edit Button link does not append an accurate timestamp, so the browser loads a cached edit screen </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2512" target="_top">Item2512</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Remove photoshop files from distribution </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2520" target="_top">Item2520</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Reading form field values from topic happens with tainted topic name </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2529" target="_top">Item2529</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Issues with beforeSaveAttachment plugin dispatch (release 1.0.x scope) </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2532" target="_top">Item2532</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> InstallationGuide refers to <code>Foswikibug</code> instead of <code>Foswikitask</code> </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2534" target="_top">Item2534</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> TinyMCE FAQ mentions TINYMCEPLUGIN_DISABLE instead of NOWYSIWYG </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2537" target="_top">Item2537</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Race condition in updating htpasswd can cause truncated htpasswd file </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2542" target="_top">Item2542</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> empty paths in configure result in "NOT SET" </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2544" target="_top">Item2544</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> sync TWikiDocGraphics </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2551" target="_top">Item2551</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> The strikeone action parameter name clashes with manage script </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2559" target="_top">Item2559</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Some calls to checkValidationKey contains unused parameters </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2564" target="_top">Item2564</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Lots of broken parent links in System web </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2567" target="_top">Item2567</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Check for valid email address when changing email address </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2606" target="_top">Item2606</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Topics created on 29th of February in a leap year fails </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2609" target="_top">Item2609</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> extender.pl broken - Plugin installation fails if using tar instead of Archive::Tar </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2641" target="_top">Item2641</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Link to "more topic actions" on history page calls wrong template </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2647" target="_top">Item2647</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> RSS feed of search does not store excludetopic </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2649" target="_top">Item2649</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Search box in top bar does not keep search phrase </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2650" target="_top">Item2650</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Link to advanced search transfers limited number of search parameters </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2651" target="_top">Item2651</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Not all search parameters are used in search on WebSearch </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item8213" target="_top">Item8213</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Default settings for JSCalendarContrib are currently hard coded. Move them into a config.spec. </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item8354" target="_top">Item8354</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Newsletter mode fails if  %STARTPUBLISH%/%STOPPUBLISH% used in the topic </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item8374" target="_top">Item8374</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> "Delete last row" button removes newly added rows </td>
+		</tr>
+	</tbody></table>
+<p />
+<h2><a name="Enhancements_AN9"></a> Enhancements </h2>
+<p />
+<table cellspacing="0" id="table21" cellpadding="0" class="foswikiTable" rules="rows" border="1">
+	<tbody>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2497" target="_top">Item2497</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Add strikeone protection also for the register case </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2556" target="_top">Item2556</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> Increase default {MinPasswordLength} to 7 characters </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> <a href="http://foswiki.org/Tasks/Item2565" target="_top">Item2565</a> </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> Log when user changes email address </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> <a href="http://foswiki.org/Tasks/Item2568" target="_top">Item2568</a> </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> Add strikeone protection for reset password and change email on 1.0.9 </td>
 		</tr>
 	</tbody></table>
 <p />

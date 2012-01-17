@@ -31,8 +31,8 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Author | Foswiki:Main.PluginAuthor|
 |  Copyright | &copy; 2008, Foswiki Contributors |
 |  License | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version | 4684 (2009-08-18) |
-|  Release | $Date: 2009-08-18 17:13:53 +0200 (Tue, 18 Aug 2009) $ | 
+|  Version | 5770 (2009-12-11) |
+|  Release | $Date: 2009-12-11 09:52:40 +0100 (Fri, 11 Dec 2009) $ | 
 |  Home | http://foswiki.org/Extensions/%TOPIC%Dev |
 |  Support | http://foswiki.org/Support/%TOPIC% |
 

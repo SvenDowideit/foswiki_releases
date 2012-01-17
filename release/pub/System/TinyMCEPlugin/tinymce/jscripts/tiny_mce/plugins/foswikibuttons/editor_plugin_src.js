@@ -64,14 +64,21 @@
             });
 
             ed.addCommand('foswikibuttonsAttach', function() {
+                var htmpath = '/attach.htm',
+                    htmheight = 250;
+
+                if (null !== FoswikiTiny.foswikiVars.TOPIC.match(/(X{10}|AUTOINC[0-9]+)/)) {
+                    htmpath = '/attach_error_autoinc.htm',
+                    htmheight = 125;
+                }
                 ed.windowManager.open({
                     location: false,
                     menubar: false,
                     toolbar: false,
                     status: false,
-                    url : url + '/attach.htm',
+                    url : url + htmpath,
                     width : 350,
-                    height : 250,
+                    height : htmheight,
                     movable : true,
                     inline : true
                 }, {
@@ -125,24 +132,21 @@
             ed.addCommand('foswikibuttonsFormat', function(ui, fn) {
                 var format = null;
                 for (var i = 0; i < ed.fw_formats.length; i++) {
-                    if (ed.fw_formats[i].name == fn) {
+                    if (ed.fw_formats[i].name === fn) {
                         format = ed.fw_formats[i];
                         break;
                     }
                 }
-                if (format.el != null) {
-                    var fmt = format.el;
-                    if (fmt.length)
-                        fmt = '<' + fmt + '>';
-                    // SMELL: MIDAS command
-                    ed.execCommand('FormatBlock', false, fmt);
-                    if (format.el == '') {
+                if (format.el !== null) {
+                    ed.execCommand('FormatBlock', false, format.el);
+                    /* Item2447: We apply a <div> instead of null element
+                    if (format.el === '') {
                         var elm = ed.selection.getNode();
                         // SMELL: MIDAS command
                         ed.execCommand('removeformat', false, elm);
-                    }
+                    }*/
                 }
-                if (format.style != null) {
+                if (format.style !== null) {
                     // element is additionally styled
                     ed.execCommand('mceSetCSSClass', false,
                                    format.style);
@@ -228,6 +232,11 @@
                 } while (puck < 0 && (n = n.parentNode) != null);
                 if (puck >= 0) {
                     ed.fw_lb.selectByIndex(puck);
+                } else {
+                    // A region has been selected that doesn't match any known
+                    // foswiki formats, so select the first format in our list 
+                    // ('Normal').
+                    ed.fw_lb.selectByIndex(0);
                 }
             }
             return true;
