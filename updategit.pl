@@ -57,11 +57,10 @@ foreach my $zip (@releases) {
     `rm -r release`;
     mkdir('release');
     `cp -r Foswiki-$tag/* release`;
-    last;
     
-#    `git add -A release`;
-#    `git commit -m '$zip'`;
-#    `git tag -a $tag -m '$zip'`;
-    
-    last if ($count > 2);   #testing.
+    `git add -A release`;
+    `git commit -m '$zip'`;
+    `git tag -a $tag -m '$zip'`;
+
+    #last if ($count > 2);   #testing.
 }
