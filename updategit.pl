@@ -64,3 +64,6 @@ foreach my $zip (@releases) {
 
     #last if ($count > 2);   #testing.
 }
+
+#push it all to github
+`git push --tags`;
