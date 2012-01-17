@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2009-06-04 10:27:07 +0200 (Thu, 04 Jun 2009) $ (revision $Rev: 5061 (2009-09-20) $)
+API version $Date: 2009-10-21 21:34:35 +0200 (Wed, 21 Oct 2009) $ (revision $Rev: 5668 (2009-11-29) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -36,7 +36,7 @@ use strict;
 
 require Foswiki;
 
-our $VERSION = '$Rev: 5061 (2009-09-20) $'; # Subversion rev number
+our $VERSION = '$Rev: 5668 (2009-11-29) $'; # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -77,9 +77,11 @@ Handles the following formats:
 
 Default Foswiki format
    * 31 Dec 2001 - 23:59
+   * 31-Dec-2001 - 23:59
 
 Foswiki format without time (defaults to 00:00)
    * 31 Dec 2001
+   * 31-Dec-2001
 
 Date separated by '/', '.' or '-', time with '.' or ':'
 Date and time separated by ' ', '.' and/or '-'
@@ -111,13 +113,13 @@ If the date format was not recognised, will return 0.
 sub parseTime {
     my ( $date, $defaultLocal ) = @_;
 
-    $date =~ s/^\s*//;  #remove leading spaces without de-tainting.
+    $date =~ s/^\s*//;    #remove leading spaces without de-tainting.
     $date =~ s/\s*$//;
 
     require Time::Local;
 
     # NOTE: This routine *will break* if input is not one of below formats!
-    my $tzadj = 0;    # Zulu
+    my $tzadj = 0;        # Zulu
     if ($defaultLocal) {
 
         # Local time at midnight on the epoch gives us minus the
@@ -129,9 +131,10 @@ sub parseTime {
     # try "31 Dec 2001 - 23:59"  (Foswiki date)
     # or "31 Dec 2001"
     #TODO: allow /.: too
-    if ( $date =~ /(\d+)\s+([a-z]{3})\s+(\d+)(?:[-\s]+(\d+):(\d+))?/i ) {
+    if ( $date =~ /(\d+)[-\s]+([a-z]{3})[-\s]+(\d+)(?:[-\s]+(\d+):(\d+))?/i ) {
         my $year = $3;
         $year -= 1900 if ( $year > 1900 );
+
         #TODO: %MON2NUM needs to be updated to use i8n
         #TODO: and should really work for long form of the month name too.
         return Time::Local::timegm( 0, $5 || 0, $4 || 0, $1, $MON2NUM{ lc($2) },
@@ -140,9 +143,12 @@ sub parseTime {
 
     # ISO date 2001-12-31T23:59:59+01:00
     # Sven is going to presume that _all_ ISO dated must have a 'T' in them.
-    if (($date =~ /T/) && ( $date =~
+    if (
+        ( $date =~ /T/ )
+        && ( $date =~
 /(\d\d\d\d)(?:-(\d\d)(?:-(\d\d))?)?(?:T(\d\d)(?::(\d\d)(?::(\d\d(?:\.\d+)?))?)?)?(Z|[-+]\d\d(?::\d\d)?)?/
-      ) )
+        )
+      )
     {
         my ( $Y, $M, $D, $h, $m, $s, $tz ) =
           ( $1, $2 || 1, $3 || 1, $4 || 0, $5 || 0, $6 || 0, $7 || '' );
@@ -189,13 +195,13 @@ sub parseTime {
         $year -= 1900 if ( $year > 1900 );
 
         #range checks
-        return 0 if (defined($M) && ($M < 1 || $M > 12));
+        return undef if (defined($M) && ($M < 1 || $M > 12));
         my $month = ($M || 1)-1;
-        return 0 if (defined($D) && ($D < 0 || $D > $MONTHLENS[$month]));
-        return 0 if (defined($h) && ($h < 0 || $h > 24));
-        return 0 if (defined($m) && ($m < 0 || $m > 60));
-        return 0 if (defined($s) && ($s < 0 || $s > 60));
-        return 0 if ( defined($year) && $year < 60 ); 
+        return undef if (defined($D) && ($D < 0 || $D > $MONTHLENS[$month]));
+        return undef if (defined($h) && ($h < 0 || $h > 24));
+        return undef if (defined($m) && ($m < 0 || $m > 60));
+        return undef if (defined($s) && ($s < 0 || $s > 60));
+        return undef if ( defined($year) && $year < 60 ); 
 
         my $day = $D || 1;
         my $hour = $h || 0;
@@ -205,9 +211,8 @@ sub parseTime {
         return Time::Local::timegm( $sec, $min, $hour, $day, $month, $year ) - $tzadj;
     }
 
-    #TODO: returning  0 makes it very hard to detect parse errors :(
-    # give up, return start of epoch (01 Jan 1970 GMT)
-    return 0;
+    # give up, return undef
+    return undef;
 }
 
 =begin TML

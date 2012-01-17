@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-05-25 09:22:30 +0200 (Mon, 25 May 2009) $ (revision $Rev: 5061 (2009-09-20) $)
+API version $Date: 2009-10-17 04:38:59 +0200 (Sat, 17 Oct 2009) $ (revision $Rev: 5668 (2009-11-29) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -1905,18 +1905,7 @@ sub addToHEAD {
     my ( $tag, $header, $requires ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
-# addToHEAD may be called from a xxxTagsHandler of a plugin and addToHEAD
-# again calls xxxTagsHandlers via handleCommonTags causing deep recursion
-# we use $session->{_InsideFuncAddToHEAD} to block re-entry (Foswikitask:Item913)
-
-    my $session = $Foswiki::Plugins::SESSION;
-    return 0
-      if ( defined $session->{_InsideFuncAddToHEAD}
-        && $session->{_InsideFuncAddToHEAD} );
-
-    $session->{_InsideFuncAddToHEAD} = 1;
-    $session->addToHEAD(@_);
-    $session->{_InsideFuncAddToHEAD} = 0;
+    $Foswiki::Plugins::SESSION->addToHEAD(@_);
 }
 
 =begin TML

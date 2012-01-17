@@ -34,18 +34,18 @@ use Foswiki::Plugins                           ();    # For the API version
 use Foswiki::Plugins::WysiwygPlugin::Constants ();
 
 use vars qw( $html2tml $tml2html $recursionBlock $imgMap );
-use vars qw( %TWikiCompatibility @refs %xmltag %xmltagPlugin);
+use vars qw( %FoswikiCompatibility @refs %xmltag %xmltagPlugin);
 
 our $SHORTDESCRIPTION  = 'Translator framework for Wysiwyg editors';
 our $NO_PREFS_IN_TOPIC = 1;
-our $VERSION           = '$Rev: 4981 (2009-09-18) $';
+our $VERSION           = '$Rev: 5356 (2009-10-22) $';
 
 our $RELEASE = '18 Sep 2009';
 
 our $SECRET_ID =
 'WYSIWYG content - do not remove this comment, and never use this identical text in your topics';
 
-sub WHY { 1 }
+sub WHY { 0 }
 
 sub initPlugin {
     my ( $topic, $web, $user, $installWeb ) = @_;
@@ -105,6 +105,7 @@ sub _OTOPICTAG {
     return $topic;
 }
 
+$FoswikiCompatibility{startRenderingHandler} = 2.1;
 sub startRenderingHandler {
     $_[0] =~ s#</?sticky>##g;
 }
@@ -298,14 +299,6 @@ sub _JAVASCRIPT_TEXT {
     return _liftOut("'$html'");
 }
 
-# DEPRECATED in Dakar (postRenderingHandler does the job better)
-$TWikiCompatibility{endRenderingHandler} = 1.1;
-
-sub endRenderingHandler {
-    return postRenderingHandler(@_);
-}
-
-# Dakar handler, replaces endRenderingHandler above
 sub postRenderingHandler {
     return if ( $recursionBlock || !$tml2html );
 
@@ -313,18 +306,6 @@ sub postRenderingHandler {
     $_[0] = _dropBack( $_[0] );
 }
 
-# Commented out because of Bugs:Item1176
-# DEPRECATED in Dakar (modifyHeaderHandler does the job better)
-#$TWikiCompatibility{writeHeaderHandler} = 1.1;
-#sub writeHeaderHandler {
-#    my $query = shift;
-#    if( $query->param( 'wysiwyg_edit' )) {
-#        return "Expires: 0\nCache-control: max-age=0, must-revalidate";
-#    }
-#    return '';
-#}
-
-# Dakar modify headers.
 sub modifyHeaderHandler {
     my ( $headers, $query ) = @_;
 
@@ -596,6 +577,16 @@ sub notWysiwygEditable {
         }
     }
 
+    # Check that the topic text can be converted to HTML
+    eval {
+        TranslateTML2HTML( $_[0], 'Fakewebname', 'FakeTopicName', dieOnError => 1 );
+    };
+    if ($@) {
+        print STDERR "WYSIWYG_DEBUG: TML2HTML conversion threw an exception: $@\n"
+          if (WHY);
+        return "TML2HTML conversion fails";
+    }
+
     return 0;
 }
 
@@ -662,7 +653,7 @@ sub addXMLTag {
 }
 
 sub TranslateTML2HTML {
-    my ( $text, $web, $topic ) = @_;
+    my ( $text, $web, $topic, @extraConvertOptions ) = @_;
 
     # Translate the topic text to pure HTML.
     unless ($tml2html) {
@@ -677,6 +668,7 @@ sub TranslateTML2HTML {
             getViewUrl      => \&getViewUrl,
             expandVarsInURL => \&expandVarsInURL,
             xmltag          => \%xmltag,
+            @extraConvertOptions,
         }
     );
 }
@@ -702,7 +694,7 @@ br=clear;
 col=char,charoff,span,valign,width;
 colgroup=align,char,charoff,span,valign,width;
 dir=compact;
-div=align;
+div=align,style;
 dl=compact;
 font=size,face;
 h\d=align;
@@ -736,7 +728,10 @@ DEFAULT
     }
     foreach my $row (@protectedByAttr) {
         if ( $tag =~ /^$row->{tag}$/i ) {
-            return 1 if ( $attr =~ /^($row->{attrs})$/i );
+            if ( $attr =~ /^($row->{attrs})$/i ) {
+                #print STDERR "Protecting  $tag with $attr matches $row->{attrs} \n";    #debug
+                return 1;
+            }
         }
     }
     return 0;

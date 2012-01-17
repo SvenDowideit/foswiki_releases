@@ -119,9 +119,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 |  Copyright: | Copyright (C) 2001-2008 TWiki:Main/JohnTalintyre, Peter Thoeny, peter@thoeny.org and TWiki Contributors; &copy; 2008-2009 Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 4847 (2009-09-12) |
-|  Release: | 1.042 |
+|  Version: | 5078 (2009-09-21) |
+|  Release: | 1.043 |
 |  Change History: | <!-- specify latest version first -->&nbsp; |
+|  21 Sep 2009 | 1.043: Kenneth Lavrsen: Added check for valid value for initsort. Ignore if it is not a number. |
 |  12 Sep 2009 | 1.042: Kenneth Lavrsen: Added a new API call initialiseWhenRender which plugins like !CompareRevisionsAddOn can use to reset the table counters between two renderings of the same topic |
 |  03 Sep 2009 | 1.041: Kenneth Lavrsen: Fix for crash when cell contains the number 0. Allow sorting of negative numbers even when suffixed with unit. Treat whitespace as zero if pure numerical context. |
 |  02 Sep 2009 | 1.040: Kenneth Lavrsen: Fixed the fix of parsing date-time columns so that plain numbers are not interpreted as dates causing wrong sorting |

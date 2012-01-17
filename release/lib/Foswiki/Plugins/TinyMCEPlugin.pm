@@ -17,8 +17,8 @@ use strict;
 
 use Assert;
 
-our $VERSION           = '$Rev: 5054 (2009-09-20) $';
-our $RELEASE           = '20 Sep 2009';
+our $VERSION           = '$Rev: 5629 (2009-11-25) $';
+our $RELEASE           = '25 Nov 2009';
 our $SHORTDESCRIPTION  = 'Integration of the Tiny MCE WYSIWYG Editor';
 our $NO_PREFS_IN_TOPIC = 1;
 
@@ -66,8 +66,8 @@ paste_convert_headers_to_strong : false,
 paste_remove_spans: true,
 paste_remove_styles: true,
 paste_strip_class_attributes: "all",
-theme_advanced_buttons1 : "foswikiformat,separator,bold,italic,tt,colour,removeformat,separator,bullist,numlist,outdent,indent,separator,link,unlink,anchor,separator,attach,image,charmap,hr,separator,undo,redo,separator,search,replace",
-theme_advanced_buttons2: "tablecontrols,separator,code,hide,fullscreen",
+theme_advanced_buttons1 : "foswikiformat,separator,bold,italic,tt,colour,removeformat,separator,bullist,numlist,outdent,indent,blockquote,separator,link,unlink,anchor,separator,undo,redo,separator,search,replace",
+theme_advanced_buttons2: "tablecontrols,separator,attach,image,charmap,hr,separator,code,hide,fullscreen",
 theme_advanced_buttons3: "",
 theme_advanced_toolbar_location: "top",
 theme_advanced_resize_horizontal : false,
@@ -78,7 +78,7 @@ keep_styles : false,
 content_css : "%PUBURLPATH%/%SYSTEMWEB%/TinyMCEPlugin/wysiwyg%IF{"$TINYMCEPLUGIN_DEBUG" then="_src"}%.css,%PUBURLPATH%/%SYSTEMWEB%/SkinTemplates/base.css,%FOSWIKI_STYLE_URL%,%FOSWIKI_COLORS_URL%"
 HERE
 our %defaultINIT_BROWSER = (
-    MSIE   => 'paste_auto_cleanup_on_paste : true',
+    MSIE   => '',
     OPERA  => '',
     GECKO  => 'gecko_spellcheck : true',
     SAFARI => '',
@@ -138,7 +138,7 @@ sub _notAvailable {
 
     # Check the client browser to see if it is blacklisted
     my $ua = Foswiki::Func::getPreferencesValue('TINYMCEPLUGIN_BAD_BROWSERS')
-      || '(?i-xsm:Konqueror|Opera)';
+      || '(?i-xsm:Konqueror)';
     return 'Unsupported browser: ' . $query->user_agent()
       if $ua && $query->user_agent() && $query->user_agent() =~ /$ua/;
 

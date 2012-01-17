@@ -153,7 +153,7 @@ BEGIN {
         # ASSERTS are turned on by defining the environment variable
         # FOSWIKI_ASSERTS. If ASSERTs are off, this is assumed to be a
         # production environment, and no stack traces or paths are
-        # output to the browser. 
+        # output to the browser.
         $SIG{'__WARN__'} = sub { die @_ };
         $Error::Debug = 1;    # verbose stack traces, please
     }
@@ -163,8 +163,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-09-20 23:24:26 +0200 (Sun, 20 Sep 2009) $ $Rev: 5061 (2009-09-20) $ ';
-    $RELEASE = 'Foswiki-1.0.7';
+    $VERSION = '$Date: 2009-11-29 17:25:06 +0100 (Sun, 29 Nov 2009) $ $Rev: 5668 (2009-11-29) $ ';
+    $RELEASE = 'Foswiki-1.0.8';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -1266,7 +1266,7 @@ sub getIconUrl {
         $iconName =~ s/^.*\.(.*?)$/$1/;
         return $this->getPubUrl( $absolute, $web, $topic, $iconName . '.gif' );
     }
-    ele {
+    else {
         return '';
     }
 }
@@ -1393,6 +1393,7 @@ sub new {
 
     $query ||= new Foswiki::Request();
     my $this = bless( { sandbox => 'Foswiki::Sandbox' }, $class );
+
     $this->{request}  = $query;
     $this->{cgiQuery} = $query;    # for backwards compatibility in contribs
     $this->{response} = new Foswiki::Response();
@@ -1765,6 +1766,20 @@ sub net {
 
 =begin TML
 
+---++ ObjectMethod DESTROY()
+
+called by Perl when the Foswiki object goes out of scope
+(maybe should be used kist to ASSERT that finish() was called..
+
+=cut
+
+#sub DESTROY {
+#    my $this = shift;
+#    $this->finish();
+#}
+
+=begin TML
+
 ---++ ObjectMethod finish()
 Break circular references.
 
@@ -1778,17 +1793,31 @@ sub finish {
 
     $_->finish() foreach values %{ $this->{forms} };
     $this->{plugins}->finish()   if $this->{plugins};
+    undef $this->{plugins};
     $this->{users}->finish()     if $this->{users};
+    undef $this->{users};
     $this->{prefs}->finish()     if $this->{prefs};
+    undef $this->{prefs};
     $this->{templates}->finish() if $this->{templates};
+    undef $this->{templates};
     $this->{renderer}->finish()  if $this->{renderer};
+    undef $this->{renderer};
     $this->{net}->finish()       if $this->{net};
+    undef $this->{net};
     $this->{store}->finish()     if $this->{store};
+    undef $this->{store};
     $this->{search}->finish()    if $this->{search};
+    undef $this->{search};
     $this->{attach}->finish()    if $this->{attach};
+    undef $this->{attach};
     $this->{security}->finish()  if $this->{security};
+    undef $this->{security};
     $this->{i18n}->finish()      if $this->{i18n};
-
+    undef $this->{i18n};
+#TODO: the logger doesn't seem to have a finish...
+#    $this->{logger}->finish()      if $this->{logger};
+    undef $this->{logger};
+    
     undef $this->{_HTMLHEADERS};
     undef $this->{request};
     undef $this->{digester};
@@ -1807,7 +1836,7 @@ sub finish {
     undef $this->{_INCLUDES};
     undef $this->{response};
     undef $this->{evaluating_if};
-    undef $this->{_InsideFuncAddToHEAD};
+    undef $this->{_addedToHEAD};
 }
 
 =begin TML
@@ -3061,9 +3090,15 @@ sub ADDTOHEAD {
     my $requires = $args->{requires};
     if ( defined $topic ) {
         ( $web, $topic ) = $this->normalizeWebTopicName( $web, $topic );
-        my $dummy = undef;
-        ( $dummy, $text ) =
-          $this->{store}->readTopic( $this->{user}, $web, $topic );
+
+        # prevent deep recursion
+        $web =~ s/\//\./g;
+        unless ($this->{_addedToHEAD}{"$web.$topic"}) {
+          my $dummy = undef;
+          ( $dummy, $text ) =
+            $this->{store}->readTopic( $this->{user}, $web, $topic );
+          $this->{_addedToHEAD}{"$web.$topic"} = 1;
+        }
     }
     $text = $_DEFAULT unless defined $text;
     $text = ''        unless defined $text;

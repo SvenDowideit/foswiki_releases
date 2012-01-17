@@ -31,8 +31,8 @@ use Foswiki::Plugins ();    # For the API version
 
 use vars qw( $topic $installWeb $initialised );
 
-our $VERSION = '$Rev: 4847 (2009-09-12) $';
-our $RELEASE = '1.042';
+our $VERSION = '$Rev: 5078 (2009-09-21) $';
+our $RELEASE = '1.043';
 our $SHORTDESCRIPTION =
   'Control attributes of tables and sorting of table columns';
 our $NO_PREFS_IN_TOPIC = 1;

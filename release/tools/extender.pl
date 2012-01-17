@@ -33,14 +33,17 @@ use Cwd;
 use File::Temp;
 use File::Copy;
 use File::Path;
+use Getopt::Std;
 
 no warnings 'redefine';
 
-my $noconfirm  = 0;
-my $downloadOK = 0;
-my $alreadyUnpacked = 0;
-my $reuseOK    = 0;
-my $inactive   = 0;
+my $noconfirm;
+my $downloadOK;
+my $alreadyUnpacked;
+my $reuseOK;
+my $inactive;
+my $noCPAN;
+my $action;
 my $session;
 my %available;
 my $lwp;
@@ -57,6 +60,23 @@ BEGIN {
     $installationRoot =~ /^(.*)$/;
     $installationRoot = $1;
 
+    sub processParameters {
+        my %opts;
+        getopts('acdnru', \%opts);
+        $noconfirm = $opts{a};
+        $noCPAN = $opts{c};
+        $downloadOK = $opts{d};
+        $reuseOK = $opts{r};
+        $inactive = $opts{n};
+        $alreadyUnpacked = $opts{u};
+        if( @ARGV > 1 ) {
+            usage();
+            die 'Too many parameters: ' . join(" ", @ARGV);
+        }
+        $action = $ARGV[0];
+        $action ||= 'install';  # Default target is install
+    }
+
     # Check if we were invoked from configure
     # by looking at the call stack
     sub running_from_configure {
@@ -66,17 +86,15 @@ BEGIN {
                 return 1;
             }
         }
-        return 0;
+        return;
     }
+
     my $check_perl_module = sub {
         my $module = shift;
 
         if ( $module =~ /^CPAN/ ) {
-
-            # Check how we were invoked as CPAN shouldn't
-            # be loaded from the configure
-            if (running_from_configure) {
-                print "Running from configure, disabling $module\n";
+            if ($noCPAN) {
+                print "CPAN is disabled, disabling $module\n";
                 return $available{$module} = 0;
             }
         }
@@ -99,6 +117,7 @@ BEGIN {
           . ' of a Foswiki installation';
     }
 
+    processParameters();
     # read setlib.cfg
     chdir('bin');
     require 'setlib.cfg';
@@ -110,6 +129,8 @@ BEGIN {
         die "Can't find Foswiki: $@";
     }
 
+    # Use the CLI engine
+    $Foswiki::cfg{Engine} = 'Foswiki::Engine::CLI';
     require Foswiki;
 
     # We have to get the admin user, as a guest user may be blocked.
@@ -526,19 +547,19 @@ HERE
 
     my $response;
     foreach my $type (@$types) {
-        $response = $lwp->get( $url . $type );
+        $f = $downloadDir . '/' . $module . $type;
+        $response = $lwp->get( $url . $type,
+            ':content_file' => $f );
 
-        if ( $response->is_success() ) {
-            $f = $downloadDir . '/' . $module . $type;
-            open( F, ">$f" ) || die "Failed to open $f for write: $!";
-            binmode F;
-            print F $response->content();
-            close(F);
-            last;
+        if ( $response->header( "Client-Warning" ) ) {
+            print STDERR "Failed to download $module $what\n",
+              "LWP complains about: ", $response->header( "Client-Warning" );
+            return;
         }
+        last if $response->is_success();
     }
 
-    unless ( $f && -e $f ) {
+    unless ( $f && -s $f ) {
         print STDERR "Failed to download $module $what\n",
           $response->status_line(), "\n";
         return undef;
@@ -570,11 +591,12 @@ sub installPackage {
 
     my $script = getInstaller($module);
     if ( $script && -e $script ) {
-        my $cmd = "perl $script";
+        my $cmd = "$^X $script";
         $cmd .= ' -a' if $noconfirm;
         $cmd .= ' -d' if $downloadOK;
         $cmd .= ' -r' if $reuseOK;
         $cmd .= ' -n' if $inactive;
+        $cmd .= ' -c' if $noCPAN;
         $cmd .= ' install';
         local $| = 0;
 
@@ -646,8 +668,7 @@ sub unpackArchive {
 sub unzip {
     my $archive = shift;
 
-    eval 'require Archive::Zip';
-    if ( $@ ) {
+    if ( eval { require Archive::Zip } ) {
         my $zip           = Archive::Zip->new();
         my $err = $zip->read($archive);
         if ( $err ) {
@@ -689,8 +710,7 @@ sub untar {
 
     my $compressed = ( $archive =~ /z$/i ) ? 'z' : '';
 
-    eval 'require Archive::Tar';
-    if ( $@ ) {
+    if ( eval { require Archive::Tar } ) {
         my $tar = Archive::Tar->new();
         my $numberOfFiles = $tar->read( $archive, $compressed );
         unless ( $numberOfFiles > 0 ) {
@@ -716,12 +736,15 @@ sub untar {
     }
     else {
         print STDERR
-          "Archive::Tar is not installed; trying tar on the command-line\n";
-        print `tar xvf$compressed $archive`;
-        if ($?) {
-            print STDERR "tar failed: $?\n";
-            return 0;
+          "Archive::Tar is not installed: $@\n";
+        for my $tarBin ( qw( tar gtar ) ) {
+            print STDERR "Trying $tarBin on the command-line\n";
+            system $tarBin, "xvf$compressed", $archive and return 1;
+            if ($?) {
+                print STDERR "$tarBin failed: $?\n";
+            }
         }
+        return 0;
     }
 
     return 1;
@@ -845,7 +868,7 @@ sub _emplace {
         my $target = remap($file);
         print "Install $target, permissions $MANIFEST->{$file}->{perms}\n";
         unless ($inactive) {
-            if ( -e $target ) {
+            if ( -e $target && ! -d _ ) {
                 # Save current permissions, remove write protect for Windows sake,  
                 # Back up the file and then restore the original permissions
                 my $mode = (stat($file))[2];
@@ -857,13 +880,15 @@ sub _emplace {
                     print STDERR "Could not create $target.bak: $!\n";
                 }
             }
-            my @path = split( /[\/\\]+/, $target );
+            my @path = split( /[\/\\]+/, $target, -1 ); # -1 allows directories
             pop(@path);
             if ( scalar(@path) ) {
                 File::Path::mkpath( join( '/', @path ) );
             }
-            File::Copy::move( $source, $target )
-              || die "Failed to move $source to $target: $!\n";
+            unless( -d $source ) {
+                File::Copy::move( $source, $target )
+                    || print STDERR "Failed to move $source to $target: $!\n";
+            }
         }
         unless ($inactive) {
             chmod( oct( $MANIFEST->{$file}->{perms} ), $target )
@@ -906,6 +931,8 @@ You can update the revision histories of these files by:
 Ignore this warning unless you have modified the files locally.
 DONE
     }
+    $session->finish();
+    undef $session;
 }
 
 sub usage {
@@ -1067,8 +1094,8 @@ sub install {
                 {
                     name        => $module,
                     type        => $type,
-                    version     => $condition,    # version condition
-                    trigger     => 1,             # ONLYIF condition
+                    version     => $condition || 0,    # version condition
+                    trigger     => 1,                  # ONLYIF condition
                     description => $desc,
                 }
             );
@@ -1124,40 +1151,6 @@ DONE
     }
 
     unshift( @INC, 'lib' );
-
-    my $n      = 0;
-    my $action = 'install';
-    while ( $n < scalar(@ARGV) ) {
-        if ( $ARGV[$n] eq '-a' ) {
-            $noconfirm = 1;
-        }
-        elsif ( $ARGV[$n] eq '-d' ) {
-            $downloadOK = 1;
-        }
-        elsif ( $ARGV[$n] eq '-r' ) {
-            $reuseOK = 1;
-        }
-        elsif ( $ARGV[$n] eq '-n' ) {
-            $inactive = 1;
-        }
-        elsif ( $ARGV[$n] eq '-u' ) {
-            $alreadyUnpacked = 1;
-        }
-        elsif ( $ARGV[$n] =~ m/(install|uninstall|manifest|dependencies)/ ) {
-            $action = $1;
-        }
-
-# SMELL:   There really shouldn't be a null argument.  But installer breaks if it is there.
-        elsif ( $ARGV[$n] eq '' ) {
-            $n++;
-            next;
-        }
-        else {
-            usage();
-            die 'Bad parameter ' . $ARGV[$n];
-        }
-        $n++;
-    }
 
     if ( $action eq 'manifest' ) {
         foreach my $row ( split( /\r?\n/, $data{MANIFEST} ) ) {

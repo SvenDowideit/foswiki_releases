@@ -52,7 +52,7 @@ my $TT2 = chr(2);
 # is common for href attributes to contain macros. Users should
 # be encouraged to use square bracket formulations for links instead.
 my @PALATABLE_TAGS = qw(
-  ABBR ACRONYM ADDRESS B BDO BIG BLOCKQUOTE BR CAPTION CENTER CITE CODE COL
+  ABBR ACRONYM ADDRESS B BDO BIG BLOCKQUOTE BR CAPTION CITE CODE COL
   COLGROUP DD DEL DFN DIR DIV DL DT EM FONT H1 H2 H3 H4 H5 H6 HR HTML I IMG INS
   ISINDEX KBD LABEL LEGEND LI OL P PRE Q S SAMP SMALL SPAN STRONG SUB SUP TABLE
   TBODY TD TFOOT TH THEAD TITLE TR TT U UL STICKY
@@ -82,8 +82,18 @@ Convert a block of TML text into HTML.
 Options:
    * getViewUrl is a reference to a method:<br>
      getViewUrl($web,$topic) -> $url (where $topic may include an anchor)
-   * markVars is true if we are to expand macros to spans.
-     It should be false otherwise (macros will be left as text).
+   * expandVarsInURL is a reference to a static method:<br>
+     expandVarsInURL($url, \%options) -> $url<br>
+     that expands selected variables in URLs so that, for example,
+     <img> tags appear as pictures in the wysiwyg editor.
+   * xmltag is a reference to a hash. The keys are names of XML-like
+     tags. The values are references to a function to determine if the
+     content of the tag must be protected:<br>
+     fn($markup) -> $bool<br>
+     The $markup appears between the <tag></tag> delimiters.
+     The functions may modify the markup.
+   * dieOnError makes convert throw an exception if a conversion fails.
+     The default behaviour is to encode the whole topic as verbatim text.
 
 =cut
 
@@ -105,14 +115,13 @@ sub convert {
     if ($content =~ /[$TT0$TT1$TT2]/o) {
         # There should never be any of these in the text at this point.
         # If there are, then the conversion failed. 
-        # Encode the original TML as verbatim-style HTML and include it
-        # in an error log, so that the user at least has a chance to save
-        # his/her work.
+        die("Invalid characters in HTML after conversion") if $options->{dieOnError};
+        # Encode the original TML as verbatim-style HTML, 
+        # so that the user has uncorrupted TML, at least.
         my $originalContent = $_[1];
         $originalContent =~ s/[$TT0$TT1$TT2]/?/go;
         $originalContent = _protectVerbatimChars($originalContent);
-        $originalContent =~ s{/}{'&#'.ord('/').';'}ge; # </tag> looks like a path, but it isn't
-        throw Error::Simple( 'Conversion to HTML failed. TML:<br />'.$originalContent );
+        $content = CGI::div( { class => 'WYSIWYG_PROTECTED' }, $originalContent );
     }
 
     # DEBUG
@@ -187,13 +196,13 @@ sub _processTags {
         if ( $token =~ /^\n?%$/s ) {
             if ( $token eq '%' && $stackTop =~ /}$/ ) {
                 while ( scalar(@stack)
-                    && $stackTop !~ /^\n?%([A-Z0-9_:]+){.*}$/os )
+                    && $stackTop !~ /^\n?%($Foswiki::regex{tagNameRegex}){.*}$/os )
                 {
                     $stackTop = pop(@stack) . $stackTop;
                 }
             }
             if (   $token eq '%'
-                && $stackTop =~ m/^(\n?)%([A-Z0-9_:]+)({.*})?$/os )
+                && $stackTop =~ m/^(\n?)%($Foswiki::regex{tagNameRegex})({.*})?$/os )
             {
                 my $nl = $1;
                 my $tag = $2 . ( $3 || '' );

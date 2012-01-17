@@ -175,9 +175,10 @@ For further troubleshooting and feedback, go to http://foswiki.org/Support/%TOPI
 |  Screenshot: | <a href="%ATTACHURL%/patternskin_screenshot_full.png"><img src="%ATTACHURL%/patternskin_screenshot.jpg" style="border:1px solid #eee;" alt="Click for full screen image" width="600" /></a> |
 |  Preview: | [[%SCRIPTURL{view}%/%WEB%/%TOPIC%?skin=pattern][Preview with this skin]] |
 |  Base Name: | pattern |
-|  Version: | 4880 (2009-09-13) | 
+|  Version: | 5183 (2009-09-29) | 
 |  Release: | 4.0.5 |
 |  History: | <!-- specify latest version first -->&nbsp; |
+|  29 Sep 2009: | v.4.0.5 - Fixed broken link in !PatternSkinCustomization. Fix code/pre white-space styling. Make behaviour javascript work with IE8. Add clear:both to the css for the .foswikiContentFooter - that way it _could_ be over-ridden by a subskin. Made links in headers should look like links. |
 |  07 Sep 2009: | v.4.0.4 - Consolidated versions in trunk and release branch. Version for Foswiki 1.0.7. |
 |  26 Jul 2009: | v.4.0.3 - Fixes a couple of minor template/css bugs. |
 |  18 Jan 2009: | v.4.0.2 - Fix printing with theme =theme_foswiki= and =column_right=. |
