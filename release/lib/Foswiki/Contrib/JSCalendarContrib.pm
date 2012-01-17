@@ -18,8 +18,8 @@ use warnings;
 
 use Foswiki::Func ();    # The plugins API
 
-our $VERSION = '$Rev: 8912 (2010-09-05) $';
-our $RELEASE = '31 Jul 2010';
+our $VERSION = '$Rev: 11391 (2011-04-10) $';
+our $RELEASE = '11 Apr 2011';
 our $SHORTDESCRIPTION =
 "[[http://dynarch.com/mishoo/calendar.epl][Mishoo JSCalendar]], packaged for use by plugins, skins and add-ons";
 

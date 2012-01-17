@@ -34,35 +34,35 @@ our @ISA = ('Foswiki::Infix::Node');
 use Assert;
 use Error qw( :try );
 
-=begin TML
-
----++ PUBLIC $aliases
-A hash mapping short aliases for META: entry names. For example, this hash
-maps 'form' to 'META:FORM'. Published so extensions can extend the range
-of supported types.
-
----++ PUBLIC %isArrayType
-Maps META: entry type names to true if the type is an array type (such as
-FIELD, ATTACHMENT or PREFERENCE). Published so extensions can extend the range
-of supported types. The type name should be given without the leading 'META:'
-
-=cut
-
-our %aliases = (
-    attachments => 'META:FILEATTACHMENT',
-    fields      => 'META:FIELD',
-    form        => 'META:FORM',
-    info        => 'META:TOPICINFO',
-    moved       => 'META:TOPICMOVED',
-    parent      => 'META:TOPICPARENT',
-    preferences => 'META:PREFERENCE',
-);
-
-our %isArrayType =
-  map { $_ => 1 } qw( FILEATTACHMENT FIELD PREFERENCE );
+use Foswiki::Meta ();
 
 # Cache of the names of $Foswiki::cfg items that are accessible
 our $isAccessibleCfg;
+
+=begin TML
+
+---++ PUBLIC %aliases
+A hash mapping short aliases for META: entry names. For example, this hash
+maps 'form' to 'META:FORM'. Published because extensions (search
+implementations) have made use of it in the past, though not part of the
+offical API.
+
+This hash is maintained by Foswiki::Meta and is *strictly read-only*
+
+---++ PUBLIC %isArrayType
+Maps META: entry type names to true if the type is an array type (such as
+FIELD, ATTACHMENT or PREFERENCE). Published because extensions (search
+implementations) have made use of it in the past, though not part of the
+offical API. The type name should be given without the leading 'META:'
+
+This hash is maintained by Foswiki::Meta and is *strictly read-only*
+
+=cut
+
+# These used to be declared here, but have been refactored back into
+# Foswiki::Meta
+*aliases = \%Foswiki::Meta::aliases;
+*isArrayType = \%Foswiki::Meta::isArrayType;
 
 # <DEBUG SUPPORT>
 
@@ -139,15 +139,24 @@ sub evaluate {
         if ( $this->{op} == $Foswiki::Infix::Node::NAME
             && defined $domain{data} )
         {
-
-            # a name; look it up in $domain{data}
-            eval "require $Foswiki::cfg{Store}{QueryAlgorithm}";
-            die $@ if $@;
-            $result =
-              $Foswiki::cfg{Store}{QueryAlgorithm}
-              ->getField( $this, $domain{data}, $this->{params}[0] );
+	    print STDERR '.' if MONITOR_EVAL;
+	    if (lc($this->{params}[0]) eq 'now') {
+		$result = time();
+	    } elsif (lc($this->{params}[0]) eq 'undefined') {
+		$result = undef;
+	    } else {
+		# a name; look it up in $domain{data}
+		eval "require $Foswiki::cfg{Store}{QueryAlgorithm}";
+		if ($@) {
+            print STDERR ' BOOM ' if MONITOR_EVAL;
+    		die $@ ;
+		}
+		$result = $Foswiki::cfg{Store}{QueryAlgorithm}->getField(
+		    $this, $domain{data}, $this->{params}[0] );
+	    }
         }
         else {
+	    print STDERR ',' if MONITOR_EVAL;
             $result = $this->{params}[0];
         }
     }

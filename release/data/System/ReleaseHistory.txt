@@ -5,9 +5,13 @@
 
 %TOC%
 
----++ Foswiki Release 1.1.2 - 10 Nov 2010
+---++ Foswiki Release 1.1.3 - 16 Apr 2011
 
-Foswiki 1.1.2 was built 10 Nov 2010. It is a release that fixes some very important bugs incl. a security related bug. Installations running 1.1.0 and 1.1.1 should be upgraded to 1.1.2
+Foswiki 1.1.3 was built 16 Apr 2011. It is a release that fixes more than 150 bugs. jQuery has been updated to 1.4.3. The default PatternSkin has some usability improvements.
+
+---++ Foswiki Release 1.1.2 - 09 Nov 2010
+
+Foswiki 1.1.2 was built 09 Nov 2010. It is a release that fixes some very important bugs incl. a security related bug. Installations running 1.1.0 and 1.1.1 should be upgraded to 1.1.2
 
 ---++ Foswiki Release 1.1.1 - 25 Oct 2010
 
@@ -157,7 +161,7 @@ As part of the first Foswiki product release, various topics and terms were chan
      | TWiki Application | Wiki Application |
 
 #FreetownRelease 
----++ TWiki Release 4.2.1 (Freetown) released 2010-11-10T00:28:35Z
+---++ TWiki Release 4.2.1 (Freetown) released 2011-04-16T20:29:05Z
 
 Patch release following the 4.2.0 released 22 Jan 2008
 

@@ -29,9 +29,9 @@ use Assert;
 
 our $SHORTDESCRIPTION  = 'Translator framework for WYSIWYG editors';
 our $NO_PREFS_IN_TOPIC = 1;
-our $VERSION           = '$Rev: 8123 (2010-07-11) $';
+our $VERSION           = '$Rev: 11387 (2011-04-10) $';
 
-our $RELEASE = '28 Jun 2010';
+our $RELEASE = '1.1.2';
 
 our %xmltag;
 

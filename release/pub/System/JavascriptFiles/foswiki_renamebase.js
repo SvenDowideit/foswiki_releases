@@ -1,0 +1,1 @@
+function checkAll(d,b){if(d==undefined){return}var c,a=0;for(c=0;c<d.length;++c){if(d.elements[c].name.match("referring_topics")){d.elements[c].checked=b}}};

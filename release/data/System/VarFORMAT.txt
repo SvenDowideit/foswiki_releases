@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="$Rev$"}%
+%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Macros"}%
 #VarFORMAT
 ---+++ FORMAT{"list" format="" header="" footer="" separator=""} -- format a list of objects
@@ -6,9 +6,9 @@
    * Supported parameters:
      | *Parameter:* | *Description:* | *Default:* |
      | ="one, two, three"= | The list to be expanded into the format. Required. Currently only two types of list data are supported; topic names (=type="topic"=) and plain strings (=type="string"=). | =""= |
-     | =format="..."= | Format string | =""= |
-     | =header="..."= | Text to come before the formated output | =""= |
-     | =footer="..."= | Text to come after the formated output | =""= |
+     | =format="..."= | Format string; see [[%TOPIC%#FormatFormattingTokens][Supported formatting tokens]] for possible values. | =""= |
+     | =header="..."= | Text to come before the formatted output | =""= |
+     | =footer="..."= | Text to come after the formatted output | =""= |
      | =separator="n"= | Separator between formatted elements | ="$n"= |
      | =type=""= | Treat input list as either =topic= or =string= | ="topic"= |
    * Examples:
@@ -21,6 +21,7 @@
    }%</verbatim>
    * Related: [[%IF{"'%INCLUDINGTOPIC%'='Macros'" then="#"}%VarSEARCH][SEARCH]]
 
+#FormatFormattingTokens
 ---++++ Supported formatting tokens
 If =type="topic"= (the default) the format string can contain _any_ of the
 topic-specific format tokens

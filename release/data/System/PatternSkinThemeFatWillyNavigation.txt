@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.0" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
 %META:TOPICPARENT{name="PatternSkinFatwillyTheme"}%
 ---+!! <nop>PatternSkin theme: Foswiki "Fat Willy" Site Skin - Navigation
 
@@ -16,10 +16,6 @@ Include meta navigation with:
 ---++ Include sections
 <verbatim class="tml">
 %STARTSECTION{"main"}%<div id="patternTopBarButtons"><ul>
-%INCLUDE{
-    "%TOPIC%" section="topbarbutton"
-    ID="" DESTWEB="Home" DESTTOPIC="WebHome" LABEL="Home"
-}%
 %INCLUDE{
     "%TOPIC%" section="topbarbutton"
     ID="" DESTWEB="About" DESTTOPIC="WebHome" LABEL="About"
@@ -46,16 +42,20 @@ Include meta navigation with:
 }%
 %INCLUDE{
     "%TOPIC%" section="topbarbutton"
+    ID="" DESTWEB="Tasks" DESTTOPIC="WebHome" LABEL="Tasks"
+}%
+%INCLUDE{
+    "%TOPIC%" section="topbarbutton"
     ID="" DESTWEB="Download" DESTTOPIC="WebHome" LABEL="Download"
 }%
-</ul><br class="foswikiClear" /></div>%ENDSECTION{"main"}%
+</ul><div class="foswikiClear"></div></div>%ENDSECTION{"main"}%
 
 
 %STARTSECTION{"topbarbutton"}%<li%IF{
     "'$ID' and '%ID%'!=''"
     then=" id=\"%ID%\""
 }%><a href="%SCRIPTURL{"view"}%/%DESTWEB%/%DESTTOPIC%" class="%IF{
-    "'%DESTWEB%'='%WEB%'"
+    "'%DESTWEB%'='%BASEWEB%'"
     then="active"
     else="inactive"
 }%">%LABEL%</a></li>%ENDSECTION{"topbarbutton"}%
@@ -72,7 +72,7 @@ Include meta navigation with:
     then='<li>%LOGOUT%</li>'
 }%%IF{
     "$ LOGIN != '' and not context authenticated"
-    then='<li>You are visiting this site as: [[%WIKIUSERNAME%][%WIKINAME%]]</li>
+    then='<li>Hello [[%WIKIUSERNAME%][%WIKINAME%]]</li>
         <li>%LOGIN% %IF{
             "context registration_supported AND context registration_enabled"
             then="%MAKETEXT{"or"}% [[%SYSTEMWEB%.UserRegistration][%MAKETEXT{"Register"}%]]"

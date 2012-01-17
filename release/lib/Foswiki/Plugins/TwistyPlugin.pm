@@ -17,9 +17,9 @@ use warnings;
 use vars qw( @twistystack $doneHeader $doneDefaults $twistyCount
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-our $VERSION = '$Rev: 9875 (2010-11-05) $';
+our $VERSION = '$Rev: 11359 (2011-04-10) $';
 
-our $RELEASE = '1.6.10';
+our $RELEASE = '1.6.12';
 our $SHORTDESCRIPTION =
   'Twisty section Javascript library to open/close content dynamically';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -334,6 +334,7 @@ sub _createHtmlProperties {
     $mode ||= $prefMode;
 
     my @classList = ();
+    my @styleList = ();
     push( @classList, $class ) if $class && !$isTrigger;
     push( @classList, 'twistyRememberSetting' )
       if Foswiki::Func::isTrue($remember);
@@ -372,7 +373,7 @@ sub _createHtmlProperties {
         {
             $shouldHideTrigger = 0;
         }
-        push( @classList, 'foswikiHidden' ) if $shouldHideTrigger;
+        push( @styleList, 'display:none' ) if $shouldHideTrigger;
     }
 
     # assume content should be hidden
@@ -391,8 +392,13 @@ sub _createHtmlProperties {
     push( @classList, 'twistyInited' . $state );
 
     push( @propList, 'id="' . $idTag . '"' );
+
+    my $styleListString = join( ", ", @styleList );
+    push( @propList, 'style="' . $styleListString . '"' );
+
     my $classListString = join( " ", @classList );
     push( @propList, 'class="' . $classListString . '"' );
+
     return @propList;
 }
 
@@ -421,7 +427,7 @@ sub _readCookie {
     return unless ( defined($key) && defined($cookie) );
 
     my $value = '';
-    if ( $cookie =~ m/\b$key\=(.+?)\b/gi ) {
+    if ( $cookie =~ m/\b\Q$key=\E(.+?)\b/gi ) {
         $value = $1;
     }
 

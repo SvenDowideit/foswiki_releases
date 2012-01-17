@@ -43,6 +43,12 @@ sub buildNewTopic {
     my $topicExists =
       $session->topicExists( $topicObject->web, $topicObject->topic );
 
+    # Prevent creating a topic in a web without change access
+    unless ( $topicExists ) {
+        my $webObject = Foswiki::Meta->new( $session, $topicObject->web );
+        Foswiki::UI::checkAccess( $session, 'CHANGE', $webObject );
+        }
+
     # Prevent saving existing topic?
     my $onlyNewTopic = Foswiki::isTrue( $query->param('onlynewtopic') );
     if ( $onlyNewTopic && $topicExists ) {
@@ -510,7 +516,7 @@ WARN
         $p{template} = $edittemplate if $edittemplate;
 
         # Pass through selected parameters
-        foreach my $pthru qw(redirectto skin cover nowysiwyg) {
+        foreach my $pthru qw(redirectto skin cover nowysiwyg action) {
             $p{$pthru} = $query->param($pthru);
         }
 

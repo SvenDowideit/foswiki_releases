@@ -1,4 +1,8 @@
 SUBDIRS=\
+  empty \
+  themeswitcher \
+  popupwindow \
+  pnotify \
   masonry \
   autocomplete \
   bgiframe \

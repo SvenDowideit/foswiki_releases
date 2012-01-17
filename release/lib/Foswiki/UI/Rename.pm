@@ -51,10 +51,11 @@ parameters:
 sub rename {
     my $session = shift;
 
-    my $oldWeb   = $session->{webName};
-    my $oldTopic = $session->{topicName};
-    my $query    = $session->{request};
-    my $action   = $session->{cgiQuery}->param('action') || '';
+    my $oldWeb             = $session->{webName};
+    my $oldTopic           = $session->{topicName};
+    my $query              = $session->{request};
+    my $action             = $session->{cgiQuery}->param('action') || '';
+    my $redirectto_param   = $session->{cgiQuery}->param('redirectto') || '';
 
     Foswiki::UI::checkWebExists( $session, $oldWeb, 'rename' );
 
@@ -65,6 +66,11 @@ sub rename {
     else {
         $new_url = _renameTopicOrAttachment( $session, $oldWeb, $oldTopic );
     }
+
+    if ( $redirectto_param ne '' ) {
+        $new_url = $session->redirectto($redirectto_param);
+    }
+
     $session->redirect( $new_url, undef, 1 ) if $new_url;
 }
 
@@ -196,7 +202,8 @@ sub _renameTopicOrAttachment {
                         $newTopic,
                         $newAttachment,
                         $session->i18n->maketext(
-                            'An attachment with the same name already exists in this topic.')
+'An attachment with the same name already exists in this topic.'
+                        )
                     ]
                 );
             }
@@ -218,7 +225,12 @@ sub _renameTopicOrAttachment {
         }
     }
 
-    Foswiki::UI::checkAccess( $session, 'RENAME', $old );
+    if ( $newWeb || $newTopic ) {
+        Foswiki::UI::checkAccess( $session, 'RENAME', $old );
+    }
+    else {
+        Foswiki::UI::checkAccess( $session, 'CHANGE', $old );
+    }
 
     my $new = Foswiki::Meta->new(
         $session,
@@ -301,6 +313,8 @@ sub _renameTopicOrAttachment {
 
         # redirect to new topic
         $new_url = $session->getScriptUrl( 0, 'view', $newWeb, $newTopic );
+        $session->{webName} = $newWeb;
+        $session->{topicName} = $newTopic;
     }
 
     return $new_url;
@@ -663,6 +677,8 @@ sub _renameWeb {
         $new_url =
           $session->getScriptUrl( 0, 'view', $newWeb,
             $Foswiki::cfg{HomeTopicName} );
+        $session->{webName} = $newWeb;
+        $session->{topicName} = $Foswiki::cfg{HomeTopicName};
     }
 
     return $new_url;
@@ -853,23 +869,29 @@ sub _replaceTopicReferences {
     # Do any references for Templates
     if ( $oldTopic =~ m/(.*)Template$/ ) {
         my $ot = $1;
+
         # Only if the rename is also to a template, otherwise give up.
-        if ($repl =~ m/(.*)Template$/) {
+        if ( $repl =~ m/(.*)Template$/ ) {
             my $nt = $1;
 
             # Handle META Preference settings
-            if ( $nt && $args->{_type} && $args->{_type} eq 'PREFERENCE' && $args->{_key} eq 'value' ) {
-                $re = Foswiki::Render::getReferenceRE( $oldWeb, $ot,
-                  nosot => 1
-                );
+            if (   $nt
+                && $args->{_type}
+                && $args->{_type} eq 'PREFERENCE'
+                && $args->{_key}  eq 'value' )
+            {
+                $re =
+                  Foswiki::Render::getReferenceRE( $oldWeb, $ot, nosot => 1 );
                 $text =~ s/($re)/_doReplace($1, $newWeb, $nt)/ge;
-                }
+            }
 
             # Handle Set/Local statements inline
-            $re = Foswiki::Render::getReferenceRE( $oldWeb, $ot,
-              nosot    => 1,
-              template => 1
+            $re = Foswiki::Render::getReferenceRE(
+                $oldWeb, $ot,
+                nosot    => 1,
+                template => 1
             );
+
             # SMELL:  This will rewrite qualified topic names to be unqualified
             # But regex is matching too much to use the _doReplace routine
             $text =~ s/$re/$1$nt/g;
@@ -973,10 +995,12 @@ sub _replaceWebInternalReferences {
     $text =
       $renderer->forEachLine( $text || '', \&_replaceInternalRefs, $options );
 
+    $options->{inMeta} = 1;
     $to->forEachSelectedValue( qw/^(FIELD|TOPICPARENT)$/, undef,
         \&_replaceInternalRefs, $options );
     $to->forEachSelectedValue( qw/^TOPICMOVED$/, qw/^by$/,
         \&_replaceInternalRefs, $options );
+    $options->{inMeta} = 0;
     $to->forEachSelectedValue( qw/^FILEATTACHMENT$/, qw/^user$/,
         \&_replaceInternalRefs, $options );
 
@@ -1007,10 +1031,12 @@ sub _replaceWebInternalReferences {
 
     $to->text($text);
 
+    $options->{inMeta} = 1;
     $to->forEachSelectedValue( qw/^(FIELD|TOPICPARENT)$/, undef,
         \&_replaceInternalRefs, $options );
     $to->forEachSelectedValue( qw/^TOPICMOVED$/, qw/^by$/,
         \&_replaceInternalRefs, $options );
+    $options->{inMeta} = 0;
     $to->forEachSelectedValue( qw/^FILEATTACHMENT$/, qw/^user$/,
         \&_replaceInternalRefs, $options );
 
@@ -1109,8 +1135,18 @@ sub _newTopicOrAttachmentScreen {
 
     if ( !$attachment ) {
         my $refs;
-        my $search = '';
+        my $search      = '';
         my $resultCount = 0;
+        my $isDelete =
+          (      $to->web eq $Foswiki::cfg{TrashWebName}
+              && $from->web ne $Foswiki::cfg{TrashWebName} );
+        my $checkboxAttrs = {
+            type  => 'checkbox',
+            class => 'foswikiCheckBox foswikiGlobalCheckable',
+            name  => 'referring_topics'
+        };
+        $checkboxAttrs->{checked} = 'checked' if !$isDelete;
+
         if ($currentWebOnly) {
             $search = $session->i18n->maketext('(skipped)');
         }
@@ -1118,19 +1154,9 @@ sub _newTopicOrAttachmentScreen {
             $refs = _getReferringTopics( $session, $from, 1 );
             $resultCount += keys %$refs;
             foreach my $entry ( sort keys %$refs ) {
-                $search .= CGI::div(
-                    { class => 'foswikiTopRow' },
-                    CGI::input(
-                        {
-                            type    => 'checkbox',
-                            class   => 'foswikiCheckBox foswikiGlobalCheckable',
-                            name    => 'referring_topics',
-                            value   => $entry,
-                            checked => 'checked'
-                        }
-                      )
-                      . " [[$entry]] "
-                );
+                $checkboxAttrs->{value} = $entry;
+                $search .= CGI::div( { class => 'foswikiTopRow' },
+                    CGI::input($checkboxAttrs) . " [[$entry]] " );
             }
             unless ($search) {
                 $search = ( $session->i18n->maketext('(none)') );
@@ -1142,19 +1168,9 @@ sub _newTopicOrAttachmentScreen {
         $resultCount += keys %$refs;
         $search = '';
         foreach my $entry ( sort keys %$refs ) {
-            $search .= CGI::div(
-                { class => 'foswikiTopRow' },
-                CGI::input(
-                    {
-                        type    => 'checkbox',
-                        class   => 'foswikiCheckBox foswikiGlobalCheckable',
-                        name    => 'referring_topics',
-                        value   => $entry,
-                        checked => 'checked'
-                    }
-                  )
-                  . " [[$entry]] "
-            );
+            $checkboxAttrs->{value} = $entry;
+            $search .= CGI::div( { class => 'foswikiTopRow' },
+                CGI::input($checkboxAttrs) . " [[$entry]] " );
         }
         unless ($search) {
             $search = ( $session->i18n->maketext('(none)') );
@@ -1233,9 +1249,9 @@ sub _newWebScreen {
     $tmpl =~ s/%RENAMEWEB_SUBMIT%/$submitAction/go;
 
     my $refs;
-    my $search = '';
+    my $search      = '';
     my $resultCount = 0;
-    
+
     $refs = ${$infoRef}{referring}{refs1};
     $resultCount += keys %$refs;
     foreach my $entry ( sort keys %$refs ) {
@@ -1258,7 +1274,7 @@ sub _newWebScreen {
     }
     $tmpl =~ s/%GLOBAL_SEARCH%/$search/o;
 
-    $refs   = $infoRef->{referring}{refs0};
+    $refs = $infoRef->{referring}{refs0};
     $resultCount += keys %$refs;
     $search = '';
     foreach my $entry ( sort keys %$refs ) {
@@ -1280,8 +1296,8 @@ sub _newWebScreen {
         $search = ( $session->i18n->maketext('(none)') );
     }
     $tmpl =~ s/%LOCAL_SEARCH%/$search/go;
-	$tmpl =~ s/%SEARCH_COUNT%/$resultCount/go;
-	
+    $tmpl =~ s/%SEARCH_COUNT%/$resultCount/go;
+
     my $fromWebHome =
       new Foswiki::Meta( $session, $from->web, $Foswiki::cfg{HomeTopicName} );
     $tmpl = $fromWebHome->expandMacros($tmpl);
@@ -1355,16 +1371,17 @@ sub _getReferringTopics {
             interweb => $interWeb,
             url      => 1
           );
+
         # If the topic is a Template,  search for set or meta that references it
-        if ($om->topic() =~ m/(.*)Template$/) {
+        if ( $om->topic() && $om->topic() =~ m/(.*)Template$/ ) {
             my $refre = '(VIEW|EDIT)_TEMPLATE.*';
             $refre .= Foswiki::Render::getReferenceRE(
                 $om->web(), $1,
                 grep     => 1,
                 nosot    => 1,
                 interweb => $interWeb,
-              );
-            $searchString .= '|' . $refre
+            );
+            $searchString .= '|' . $refre;
         }
 
         my $matches =
@@ -1417,8 +1434,11 @@ sub _updateReferringTopics {
             $options->{inWeb} = $itemWeb;
             my $text =
               $renderer->forEachLine( $topicObject->text(), $fn, $options );
-            $topicObject->forEachSelectedValue( qw/^(FIELD|FORM|PREFERENCE|TOPICPARENT)$/,
+            $options->{inMeta} = 1;
+            $topicObject->forEachSelectedValue(
+                qw/^(FIELD|FORM|PREFERENCE|TOPICPARENT)$/,
                 undef, $fn, $options );
+            $options->{inMeta} = 0;
             $topicObject->text($text);
             $topicObject->save( minor => 1 );
         }

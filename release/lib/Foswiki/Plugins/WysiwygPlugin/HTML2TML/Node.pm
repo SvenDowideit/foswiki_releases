@@ -33,8 +33,8 @@ use Foswiki::Plugins::WysiwygPlugin::Constants;
 use Foswiki::Plugins::WysiwygPlugin::HTML2TML::WC;
 
 my %jqueryChiliClass = map { $_ => 1 }
-    qw( cplusplus csharp css bash delphi html java js 
-        lotusscript php-f php sql tml );
+  qw( cplusplus csharp css bash delphi html java js
+  lotusscript php-f php sql tml );
 
 my %tml2htmlClass = map { $_ => 1 }
     qw( WYSIWYG_PROTECTED WYSIWYG_STICKY TMLverbatim WYSIWYG_LINK
@@ -77,7 +77,7 @@ sub stringify {
         foreach my $attr ( sort keys %{ $this->{attrs} } ) {
             $r .= " " . $attr . "='" . $this->{attrs}->{$attr} . "'";
         }
-        $r .= ' /' if $WC::SELFCLOSING{ lc($this->{tag}) };
+        $r .= ' /' if $WC::SELFCLOSING{ lc( $this->{tag} ) };
         $r .= '>';
     }
     if ($shallow) {
@@ -90,7 +90,7 @@ sub stringify {
             $kid = $kid->{next};
         }
     }
-    if ( $this->{tag} and not $WC::SELFCLOSING{ lc($this->{tag}) } ) {
+    if ( $this->{tag} and not $WC::SELFCLOSING{ lc( $this->{tag} ) } ) {
         $r .= '</' . $this->{tag} . '>';
     }
     return $r;
@@ -346,6 +346,7 @@ s/$WC::CHECKw(($WC::PON|$WC::POFF)?[$WC::CHECKn$WC::CHECKs$WC::NBSP $WC::NBBR])/
         unless ($protect) {
             $tml =~ s/<br( \/)?>\n/\n/g;
         }
+
         #print STDERR WC::debugEncode($before);
         #print STDERR " -> '",WC::debugEncode($tml),"'\n";
         $text .= $tml;
@@ -494,7 +495,7 @@ sub generate {
     }
 
     if ( $this->hasClass('TMLhtml') ) {
-        return $this->_defaultTag($options & ~$WC::VERY_CLEAN);
+        return $this->_defaultTag( $options & ~$WC::VERY_CLEAN );
     }
 
     my $tag = $this->{tag};
@@ -618,26 +619,27 @@ sub _htmlParams {
 
     # Sort the attributes when converting back to TML
     # so that the conversion is deterministic
-    ATTR: for my $k ( sort keys %$attrs ) {
+  ATTR: for my $k ( sort keys %$attrs ) {
         next ATTR unless $k;
         my $v = $attrs->{$k};
         if ( $k eq 'class' ) {
             my @classes;
             $v =~ s/^\s*(.*?)\s*$/$1/;
-            CLASS: for my $class (split /\s+/, $v) {
+          CLASS: for my $class ( split /\s+/, $v ) {
                 next CLASS unless $class =~ /\S/;
                 next CLASS if $tml2htmlClass{$class};
 
                 # if cleaning aggressively, remove class attributes
                 # except for the JQuery "Chili" classes
-                next CLASS if ( $options & $WC::VERY_CLEAN
+                next CLASS
+                  if ( $options & $WC::VERY_CLEAN
                     and not $jqueryChiliClass{$class} );
 
                 push @classes, $class;
             }
             next ATTR unless @classes;
 
-            $v = join(' ', @classes);
+            $v = join( ' ', @classes );
         }
         my $q = $v =~ /"/ ? "'" : '"';
         push( @params, $k . '=' . $q . $v . $q );
@@ -952,6 +954,7 @@ sub _isConvertableTableRow {
             }
         }
         $text =~ s/&nbsp;/$WC::NBSP/g;
+        $text =~ s/&#160;/$WC::NBSP/g;
 
         #if (--$ignoreCols > 0) {
         #    # colspanned
@@ -1124,6 +1127,7 @@ sub _emphasis {
     # Remove whitespace from either side of the contents, retaining the
     # whitespace
     $contents =~ s/&nbsp;/$WC::NBSP/go;
+    $contents =~ s/&#160;/$WC::NBSP/go;
     $contents =~ /^($WC::WS)(.*?)($WC::WS)$/;
     my ( $pre, $post ) = ( $1, $3 );
     $contents = $2;

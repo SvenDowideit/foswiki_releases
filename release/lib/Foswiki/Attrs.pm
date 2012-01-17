@@ -20,7 +20,7 @@ values, spaces around the =, and commas as well as spaces separating values.
 The extended syntax has to be enabled by passing the =$friendly= parameter
 to =new=.
 
-API version $Date: 2010-05-18 10:53:32 +0200 (Tue, 18 May 2010) $ (revision $Rev: 9940 (2010-11-10) $)
+API version $Date: 2010-05-18 10:53:32 +0200 (Tue, 18 May 2010) $ (revision $Rev: 11475 (2011-04-16) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -50,7 +50,7 @@ use strict;
 use warnings;
 use Assert;
 
-our $VERSION = '$Rev: 9940 (2010-11-10) $';
+our $VERSION = '$Rev: 11475 (2011-04-16) $';
 
 our $ERRORKEY   = '_ERROR';
 our $DEFAULTKEY = '_DEFAULT';

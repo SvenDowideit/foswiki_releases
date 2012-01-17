@@ -96,7 +96,7 @@ sub _newLinkFormat {
     my $this = shift;
     unless ( $this->{NEWLINKFORMAT} ) {
         $this->{NEWLINKFORMAT} =
-             $this->{session}->{prefs}->getPreference('NEWLINKFORMAT')
+          $this->{session}->{prefs}->getPreference('NEWLINKFORMAT')
           || DEFAULT_NEWLINKFORMAT;
     }
     return $this->{NEWLINKFORMAT};
@@ -184,11 +184,11 @@ Render moved meta-data
 
 sub renderMoved {
     my ( $this, $topicObject, $params ) = @_;
-    my $text  = '';
-    my $moved = $topicObject->get('TOPICMOVED');
+    my $text   = '';
+    my $moved  = $topicObject->get('TOPICMOVED');
     my $prefix = $params->{prefix} || '';
     my $suffix = $params->{suffix} || '';
-    
+
     if ($moved) {
         my ( $fromWeb, $fromTopic ) =
           $this->{session}
@@ -223,9 +223,9 @@ sub renderMoved {
               );
         }
         $text = $this->{session}->i18n->maketext(
-                "[_1] was renamed or moved from [_2] on [_3] by [_4]",
-                "<nop>$toWeb.<nop>$toTopic", "<nop>$fromWeb.<nop>$fromTopic",
-                $date, $by
+            "[_1] was renamed or moved from [_2] on [_3] by [_4]",
+            "<nop>$toWeb.<nop>$toTopic", "<nop>$fromWeb.<nop>$fromTopic",
+            $date, $by
         ) . $putBack;
     }
     $text = "$prefix$text$suffix" if $text;
@@ -912,9 +912,9 @@ sub renderFORMFIELD {
 
     my $formField = $params->{_DEFAULT};
     return '' unless defined $formField;
-    my $altText = $params->{alttext};
-    my $default = $params->{default};
-    my $rev     = $params->{rev} || '';
+    my $altText = $params->{alttext} || '';
+    my $default = $params->{default} || '';
+    my $rev     = $params->{rev}     || '';
     my $format  = $params->{format};
 
     unless ( defined $format ) {
@@ -949,12 +949,9 @@ sub renderFORMFIELD {
         $title = $field->{title} || $name;
         if ( $title eq $formField || $name eq $formField ) {
             $found = 1;
-            $text =~ s/\$title/$title/go;
             my $value = $field->{value};
-
-            if ( !length($value) ) {
-                $value = defined($default) ? $default : '';
-            }
+            $text = $default if !length($value);
+            $text =~ s/\$title/$title/go;
             $text =~ s/\$value/$value/go;
             $text =~ s/\$name/$name/g;
             if ( $text =~ m/\$form/ ) {
@@ -1185,7 +1182,7 @@ sub getRenderedVersion {
         # Lists and paragraphs
         if ( $line =~ m/^\s*$/ ) {
             unless ( $tableRow || $isFirst ) {
-                $line = '<p />';    # SMELL: should be <p></p>
+                $line = '<p></p>';
             }
             $isList = 0;
         }
@@ -1377,12 +1374,10 @@ sub _filterScript {
 
 ---++ ObjectMethod TML2PlainText( $text, $topicObject, $opts ) -> $plainText
 
-Clean up TML for display as plain text without pushing it
-through the full rendering pipeline. Intended for generation of
-topic and change summaries. Adds nop tags to prevent
-subsequent rendering; nops get removed at the very end.
-
-Defuses TML.
+Strip TML markup from text for display as plain text without
+pushing it through the full rendering pipeline. Intended for 
+generation of topic and change summaries. Adds nop tags to 
+prevent subsequent rendering; nops get removed at the very end.
 
 $opts:
    * showvar - shows !%VAR% names if not expanded
@@ -1465,7 +1460,7 @@ sub TML2PlainText {
     $text =~ s/${STARTWW}\=(\S+?|\S[^\n]*?\S)\=$ENDWW/$1/gem;
 
     #SMELL: need to correct these too
-    $text =~ s/[\[\]\|\&\<\>]/ /g;    # remove remaining Wiki formatting chars
+    $text =~ s/[\[\]\|\&]/ /g;    # remove remaining Wiki formatting chars
 
     $text =~ s/^\-\-\-+\+*\s*\!*/ /gm;    # remove heading formatting and hbar
     $text =~ s/[\+\-]+/ /g;               # remove special chars
@@ -1481,6 +1476,9 @@ sub TML2PlainText {
                    ($Foswiki::regex{wikiWordRegex}
                    | $Foswiki::regex{abbrevRegex}))}
               {$2.<nop>$3}gx;
+    $text =~ s/\<nop\>//g;                # remove any remaining nops
+    $text =~ s/[\<\>]/ /g;                # remove any remaining formatting
+
 
     return $text;
 }
@@ -1592,7 +1590,6 @@ Obtain and render revision info for a topic.
    | =$web= | the web name |
    | =$topic= | the topic name |
    | =$rev= | the rev number |
-   | =$comment= | the comment |
    | =$username= | the login of the saving user |
    | =$wikiname= | the wikiname of the saving user |
    | =$wikiusername= | the web.wikiname of the saving user |
@@ -1607,17 +1604,16 @@ sub renderRevisionInfo {
     my $value = $format || 'r$rev - $date - $time - $wikiusername';
 
     # nop if there are no format tokens
-    return $value unless $value =~ /\$
-       (comment|date|day|dow|email|epoch|hou|http|iso|longdate
-       |min|mo|rcs|rev|sec|time|topic|tz|username|wday|web|week
-       |wikiname|wikiusername|ye)/x;
+    return $value
+      unless $value =~
+/\$(year|ye|wikiusername|wikiname|week|web|wday|username|tz|topic|time|seconds|sec|rev|rcs|month|mo|minutes|min|longdate|isotz|iso|http|hours|hou|epoch|email|dow|day|date)/x;
 
     my $users = $this->{session}->{users};
     if ($rrev) {
         my $loadedRev = $topicObject->getLoadedRev() || 0;
-        unless ($rrev == $loadedRev) {
+        unless ( $rrev == $loadedRev ) {
             $topicObject = Foswiki::Meta->new($topicObject);
-            $topicObject->load($rrev);
+            $topicObject = $topicObject->load($rrev);
         }
     }
     my $info = $topicObject->getRevisionInfo();
@@ -1668,10 +1664,13 @@ sub renderRevisionInfo {
     $value =~ s/\$date/
       Foswiki::Time::formatTime(
           $info->{date}, $Foswiki::cfg{DefaultDateFormat} )/ge;
-    $value =~ s/(\$(rcs|http|email|iso|longdate))/
+    $value =~ s/(\$(rcs|longdate|isotz|iso|http|email|))/
       Foswiki::Time::formatTime($info->{date}, $1 )/ge;
 
-    if ( $value =~ /\$(sec|min|hou|day|wday|dow|week|mo|ye|epoch|tz)/ ) {
+    if ( $value =~
+/\$(year|ye|week|web|wday|username|tz|seconds|sec|rcs|month|mo|minutes|min|longdate|hours|hou|epoch|dow|day)/
+      )
+    {
         $value = Foswiki::Time::formatTime( $info->{date}, $value );
     }
     $value =~ s/\$username/$un/g;
@@ -1755,6 +1754,7 @@ sub forEachLine {
       * =nosot= - If true, do not generate "Spaced out text" match
       * =template= - If true, match for template setting in Set/Local statement
       * =in_noautolink= - Only match explicit (squabbed) WikiWords.   Used in <noautolink> blocks
+      * =inMeta= - Re should match exact string. No delimiters needed.
       * =url= - if set, generates an expression that will match a Foswiki
         URL that points to the web/topic, instead of the default which
         matches topic links in plain text.
@@ -1776,6 +1776,12 @@ sub getReferenceRE {
     # special characters
     $matchWeb =~ s#[./]#$REMARKER#g;
     $matchWeb = quotemeta($matchWeb);
+
+# SMELL: Item10176 -  Adding doublequote as a WikiWord delimiter.   This causes non-linking quoted
+# WikiWords in tml to be incorrectly renamed.   But does handle quoted topic names inside macro parameters.
+# But this doesn't really fully fix the issue - $quotWikiWord for example.
+    my $reSTARTWW = qr/^|(?<=[\s\("])/m;
+    my $reENDWW   = qr/$|(?=[\s",.;:!?)])/m;
 
     # $REMARKER is escaped by quotemeta so we need to match the escape
     $matchWeb =~ s#\\$REMARKER#[./]#go;
@@ -1827,18 +1833,24 @@ sub getReferenceRE {
                     $re = "$bow$matchWeb\\.$topic$eow";
                 }
                 elsif ( $options{template} ) {
-                    # $1 is used in replace.  Can't use lookbehind because of variable length restriction
-                    $re = '('.$Foswiki::regex{setRegex}.'(?:VIEW|EDIT)_TEMPLATE\s*=\s*)('.$matchWeb.'\\.'.$topic.')\s*$';
+
+# $1 is used in replace.  Can't use lookbehind because of variable length restriction
+                    $re = '('
+                      . $Foswiki::regex{setRegex}
+                      . '(?:VIEW|EDIT)_TEMPLATE\s*=\s*)('
+                      . $matchWeb . '\\.'
+                      . $topic . ')\s*$';
                 }
                 elsif ( $options{in_noautolink} ) {
                     $re = "$squabo$matchWeb\\.$topic$squabc";
                 }
                 else {
-                    $re = "$STARTWW$matchWeb\\.$topic$ENDWW";
+                    $re = "$reSTARTWW$matchWeb\\.$topic$reENDWW";
                 }
 
                 # Matching of spaced out topic names.
                 if ($sot) {
+
                     # match spaced out in squabs only
                     $re .= "|$squabo$matchWeb\\.$sot$squabc";
                 }
@@ -1855,14 +1867,18 @@ sub getReferenceRE {
                         $re = "(($back\[^./])|^)$bow($matchWeb\\.)?$topic$eow";
                     }
                     elsif ( $options{template} ) {
-                        # $1 is used in replace.  Can't use lookbehind because of variable length restriction
-                        $re = '('.$Foswiki::regex{setRegex}.'(?:VIEW|EDIT)_TEMPLATE\s*=\s*)'."($matchWeb\\.)?$topic".'\s*$';
+
+# $1 is used in replace.  Can't use lookbehind because of variable length restriction
+                        $re = '('
+                          . $Foswiki::regex{setRegex}
+                          . '(?:VIEW|EDIT)_TEMPLATE\s*=\s*)'
+                          . "($matchWeb\\.)?$topic" . '\s*$';
                     }
                     elsif ( $options{in_noautolink} ) {
                         $re = "$squabo($matchWeb\\.)?$topic$squabc";
                     }
                     else {
-                        $re = "$STARTWW($matchWeb\\.)?$topic$ENDWW";
+                        $re = "$reSTARTWW($matchWeb\\.)?$topic$reENDWW";
                     }
 
                     if ($sot) {
@@ -1872,65 +1888,82 @@ sub getReferenceRE {
                     }
                 }
                 else {
+                    if ( $options{inMeta} ) {
+                        $re = "^($matchWeb\\.)?$topic\$"
+                          ;  # Updating a META item,  Exact match, no delimiters
+                    }
+                    else {
 
-                    # Non-wikiword; require web specifier or squabs
-                    $re = "$squabo$topic$squabc";
-                    $re .= "|(($back\[^./])|^)$bow$matchWeb\\.$topic$eow" unless ($options{in_noautolink});
+                        # Non-wikiword; require web specifier or squabs
+                        $re = "$squabo$topic$squabc";    # Squabbed topic
+                        $re .= "|\"($matchWeb\\.)?$topic\""
+                          ;    # Quoted string in Meta and Macros
+                        $re .= "|(($back\[^./])|^)$bow$matchWeb\\.$topic$eow"
+                          unless ( $options{in_noautolink} )
+                          ;    # Web qualified topic outside of autolink blocks.
+                    }
                 }
             }
         }
         else {
 
             # Searching for a web
+            # SMELL:  Does this web search also need to allow for quoted
+            # "Web.Topic" strings found in macros and META usage?
+
             if ( $options{interweb} ) {
 
-                if ( $options{in_noautolink}) {
+                if ( $options{in_noautolink} ) {
+
                     # web name used to refer to a topic
                     $re =
-                    $squabo
-                  . $matchWeb
-                  . "(\.[$Foswiki::regex{mixedAlphaNum}]+)"
-                  . $squabc;
-                } else {
+                        $squabo
+                      . $matchWeb
+                      . "(\.[$Foswiki::regex{mixedAlphaNum}]+)"
+                      . $squabc;
+                }
+                else {
                     $re =
-                    $bow
-                  . $matchWeb
-                  . "(\.[$Foswiki::regex{mixedAlphaNum}]+)"
-                  . $eow;
-               }
+                        $bow
+                      . $matchWeb
+                      . "(\.[$Foswiki::regex{mixedAlphaNum}]+)"
+                      . $eow;
+                }
             }
             else {
 
                 # most general search for a reference to a topic or subweb
                 # note that Foswiki::UI::Rename::_replaceWebReferences()
                 # uses $1 from this regex
-                if ( $options{in_noautolink}) {
+                if ( $options{in_noautolink} ) {
                     $re =
                         $squabo
                       . $matchWeb
                       . "(([\/\.][$Foswiki::regex{upperAlpha}]"
-                      . "[$Foswiki::regex{mixedAlphaNum}_]*)*"
-                      . "\.[$Foswiki::regex{mixedAlphaNum}]+)"
+                      . "[$Foswiki::regex{mixedAlphaNum}_]*)+"
+                      . "\.[$Foswiki::regex{mixedAlphaNum}]*)"
                       . $squabc;
-                } else {
+                }
+                else {
                     $re =
                         $bow
                       . $matchWeb
                       . "(([\/\.][$Foswiki::regex{upperAlpha}]"
-                      . "[$Foswiki::regex{mixedAlphaNum}_]*)*"
-                      . "\.[$Foswiki::regex{mixedAlphaNum}]+)"
+                      . "[$Foswiki::regex{mixedAlphaNum}_]*)+"
+                      . "\.[$Foswiki::regex{mixedAlphaNum}]*)"
                       . $eow;
                 }
             }
         }
     }
-    #my $optsx = '';
-    #$optsx .= "NOSOT=$options{nosot} " if ($options{nosot});
-    #$optsx .= "GREP=$options{grep} " if ($options{grep});
-    #$optsx .= "URL=$options{url} " if ($options{url});
-    #$optsx .= "INNOAUTOLINK=$options{in_noautolink} " if ($options{in_noautolink});
-    #$optsx .= "INTERWEB=$options{interweb} " if ($options{interweb});
-    #print STDERR "ReferenceRE returns $re $optsx  \n";
+
+#my $optsx = '';
+#$optsx .= "NOSOT=$options{nosot} " if ($options{nosot});
+#$optsx .= "GREP=$options{grep} " if ($options{grep});
+#$optsx .= "URL=$options{url} " if ($options{url});
+#$optsx .= "INNOAUTOLINK=$options{in_noautolink} " if ($options{in_noautolink});
+#$optsx .= "INTERWEB=$options{interweb} " if ($options{interweb});
+#print STDERR "ReferenceRE returns $re $optsx  \n";
     return $re;
 }
 
@@ -2087,7 +2120,7 @@ sub renderIconImage {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

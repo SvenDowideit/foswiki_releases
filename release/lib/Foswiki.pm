@@ -155,13 +155,13 @@ BEGIN {
         }
     }
     else {
-        $Error::Debug = 0;        # no verbose stack traces 
+        $Error::Debug = 0;        # no verbose stack traces
     }
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2010-11-10 01:28:35 +0100 (Wed, 10 Nov 2010) $ $Rev: 9940 (2010-11-10) $ ';
-    $RELEASE = 'Foswiki-1.1.2';
+    $VERSION = '$Date: 2011-04-16 22:29:05 +0200 (Sat, 16 Apr 2011) $ $Rev: 11475 (2011-04-16) $ ';
+    $RELEASE = 'Foswiki-1.1.3';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -325,7 +325,7 @@ BEGIN {
     # readConfig is defined in Foswiki::Configure::Load to allow overriding it
     if ( Foswiki::Configure::Load::readConfig() ) {
         $Foswiki::cfg{isVALID} = 1;
-        }
+    }
 
     if ( $Foswiki::cfg{WarningsAreErrors} ) {
 
@@ -728,8 +728,10 @@ sub writeCompletePage {
 
             # At least one form has been touched; add the validation
             # cookie
+            my $valCookie = Foswiki::Validation::getCookie($cgis);
+            $valCookie->secure( $this->{request}->secure );
             $this->{response}
-              ->cookies( [ Foswiki::Validation::getCookie($cgis) ] );
+              ->cookies( [ $this->{response}->cookies, $valCookie ] );
 
             # Add the JS module to the page. Note that this is *not*
             # incorporated into the foswikilib.js because that module
@@ -1143,15 +1145,12 @@ sub redirect {
         # goto oops if URL is trying to take us somewhere dangerous
         $url = $this->getScriptUrl(
             1, 'oops',
-            $this->{web}   || $Foswiki::cfg{UsersWebName},
-            $this->{topic} || $Foswiki::cfg{HomeTopicName},
-            template => 'oopsaccessdenied',
-            def      => 'topic_access',
-            param1   => 'redirect',
-            param2   => 'unsafe redirect to ' 
-              . $url
-              . ': host does not match {DefaultUrlHost} , and is not in {PermittedRedirectHostUrls}"'
-              . $Foswiki::cfg{DefaultUrlHost} . '"'
+            $this->{webName}   || $Foswiki::cfg{UsersWebName},
+            $this->{topicName} || $Foswiki::cfg{HomeTopicName},
+            template => 'oopsredirectdenied',
+            def      => 'redirect_denied',
+            param1   => "$url",
+            param2   => "$Foswiki::cfg{DefaultUrlHost}",
         );
     }
 
@@ -1426,7 +1425,7 @@ sub _make_params {
     my $anchor   = '';
     while ( my $p = shift @_ ) {
         if ( $p eq '#' ) {
-            $anchor .= '#' . urlEncode( shift(@_) );
+            $anchor = '#' . urlEncode( shift(@_) );
         }
         else {
             my $v = shift(@_);
@@ -1438,8 +1437,7 @@ sub _make_params {
         $ps =~ s/^;/?/ unless $notfirst;
         $url .= $ps;
     }
-    $url .= $anchor;
-    return $url;
+    return $url . $anchor;
 }
 
 =begin TML
@@ -1613,8 +1611,13 @@ sub new {
     }
     else {
 
-        # Otherwise define it for use in plugins
-        $Foswiki::cfg{LogFileName} = "$Foswiki::cfg{Log}{Dir}/events.log";
+        # Otherwise make sure it is defined for use in plugins,
+        # but don't overwrite the setting from configure, if there is one.
+        # This is especially important when the admin has *chosen*
+        # to use the compatibility logger.
+        if ( not defined $Foswiki::cfg{LogFileName} ) {
+            $Foswiki::cfg{LogFileName} = "$Foswiki::cfg{Log}{Dir}/events.log";
+        }
     }
 
     # Set command_line context if there is no query
@@ -2452,8 +2455,9 @@ sub expandMacrosOnTopicCreation {
         $p->{value} =
           _processMacros( $this, $p->{value}, \&_expandMacroOnTopicCreation,
             $topicObject, 16 );
+
         # kill markers used to prevent variable expansion
-        $p->{value} =~  s/%NOP%//g;
+        $p->{value} =~ s/%NOP%//g;
 
     }
 }

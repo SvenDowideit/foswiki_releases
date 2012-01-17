@@ -377,8 +377,10 @@ sub addUser {
                 $name  = $2;
                 $odate = $3;
 
-                # Filter-in date format dd Mmm yyyy
-                $odate = '' unless $odate =~ /^\d+\s+[A-Za-z]+\s+\d+$/;
+                # Filter-in date format matching {DefaultDateFormat}
+                # The admin may have changed the format at some point of time
+                # so we test with a generic format that matches all 4 formats.
+                $odate = '' unless $odate =~ /^\d+[- .\/]+[A-Za-z0-9]+[- .\/]+\d+$/;
                 $insidelist = 1;
             }
             elsif ( $line =~ /^\s+\*\s([A-Z]) - / ) {
@@ -1483,7 +1485,10 @@ sub _getListOfGroups {
         my $users = $this->{session}->{users};
         $this->{groupsList} = [];
 
+        #create a MetaCache _before_ we do silly things with the session's users
+        $this->{session}->search->metacache();
         # Temporarily set the user to admin, otherwise it cannot see groups
+        # where %USERSWEB% is protected from view
         local $this->{session}->{user} = $Foswiki::cfg{SuperAdminGroup};
 
         $this->{session}->search->searchWeb(

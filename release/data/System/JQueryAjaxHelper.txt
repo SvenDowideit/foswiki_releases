@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="save topic" date="1283353795" format="1.1" reprev="9" version="9"}%
+%META:TOPICINFO{author="ProjectContributor" comment="save topic" date="1283353795" format="1.1" reprev="9" version="1"}%
 %META:TOPICPARENT{name="JQueryPlugin"}%
 <!--
 Hidden form definition
@@ -113,6 +113,7 @@ Foswiki:Extensions.FlexWebListPlugin.
 <verbatim class="tml">
 %STARTSECTION{"web"}%%FLEXWEBLIST{
   include="^%URLPARAM{"q" default="does not exist"}%.*"
+  ignorecase="on"
   limit="%URLPARAM{"limit" default="10"}%"
   format="<nop>$web"
   separator="$n"

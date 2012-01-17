@@ -30,7 +30,7 @@ sub new {
         $class->SUPER::new(
             $session,
             name         => 'Tabpane',
-            version      => '1.2',
+            version      => '1.2.1',
             author       => 'Michael Daum',
             homepage     => 'http://michaeldaumconsutling.com',
             tags         => 'TABPABNE, ENDTABPANE, TAB, ENDTAB',
@@ -113,6 +113,7 @@ sub handleTab {
     }
     if ($url) {
         push @metaData, "url: '$url'";
+        $tabClass .= ' jqAjaxTab';
     }
     my $metaData = scalar(@metaData) ? ' {' . join( ',', @metaData ) . '}' : '';
 
@@ -122,7 +123,7 @@ sub handleTab {
     $style = "style='$style'" if $style;
 
     return
-"<!-- TAB --><div id='$tabId' class=\"$tabClass jqTab$metaData\">\n<h2 >$theName</h2>\n<div class='jqTabContents' $style>";
+"<!-- TAB --><div id='$tabId' class=\"$tabClass jqTab$metaData\">\n<h2 class='jqTabLabel'>$theName</h2>\n<div class='jqTabContents' $style>";
 }
 
 =begin TML

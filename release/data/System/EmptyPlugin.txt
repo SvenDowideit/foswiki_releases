@@ -37,7 +37,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 ---++ Plugin Info
 
 |  Author: | Foswiki:Main.PluginAuthor |
-|  Copyright: | &copy; 2009, Foswiki Contributors |
+|  Copyright: | &copy; 2011, Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
 |  Release: | 1.1.1 |
 |  Version: | 9772 (2010-10-27) |

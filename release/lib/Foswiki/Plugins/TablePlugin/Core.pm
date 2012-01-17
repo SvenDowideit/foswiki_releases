@@ -2,10 +2,11 @@
 
 use strict;
 use warnings;
-use Foswiki::Func;
 
 package Foswiki::Plugins::TablePlugin::Core;
 
+use Foswiki::Func;
+use Foswiki::Plugins::TablePlugin ();
 use Foswiki::Time;
 use Error qw(:try);
 
@@ -132,8 +133,9 @@ BEGIN {
 sub _initDefaults {
     _debug('_initDefaults');
     $defaultAttrs = {
-        headerrows    => 1,
+        headerrows    => 0,
         footerrows    => 0,
+        sort          => 1,
         class         => 'foswikiTable',
         sortAllTables => $sortTablesInText,
     };
@@ -142,6 +144,12 @@ sub _initDefaults {
         %{Foswiki::Plugins::TablePlugin::pluginAttributes} );
 
     $combinedTableAttrs = _mergeHashes( {}, $defaultAttrs );
+}
+
+sub _addDefaultStyles {
+
+    return if $Foswiki::Plugins::TablePlugin::writtenToHead;
+    $Foswiki::Plugins::TablePlugin::writtenToHead = 1;
 
     # create CSS styles tables in general
     my ( $id, @styles ) = _createCssStyles( 1, $defaultAttrs );
@@ -217,37 +225,11 @@ sub _parseTableSpecificTableAttributes {
 
 =cut
 
-sub _cleanParamValue {
-    my ($inValue) = @_;
-
-    return undef if !$inValue;
-
-    $inValue =~ s/ //go;    # remove spaces
-    return $inValue;
-}
-
-=pod
-
-=cut
-
-sub _arrayRefFromParam {
-    my ($inValue) = @_;
-
-    return undef if !$inValue;
-
-    $inValue =~ s/ //go;    # remove spaces
-    my @list = split( /,/, $inValue );
-    return \@list;
-}
-
-=pod
-
-=cut
-
 sub _parseAttributes {
-    my ( $modeSpecific, $inCollection, $inParams ) = @_;
+    my ( $isTableSpecific, $inCollection, $inParams ) = @_;
 
-    _debugData( "modeSpecific=$modeSpecific; _parseAttributes=", $inParams );
+    _debugData( "isTableSpecific=$isTableSpecific; _parseAttributes=",
+        $inParams );
 
     # include topic to read definitions
     my $includeTopicParam = $inParams->{include};
@@ -258,48 +240,51 @@ sub _parseAttributes {
 
     _storeAttribute( 'generateInlineMarkup',
         Foswiki::Func::isTrue( $inParams->{inlinemarkup} ),
-        $inCollection ) if defined $inParams->{inlinemarkup};
-            
+        $inCollection )
+      if defined $inParams->{inlinemarkup};
+
     # sort attributes
-    if ($modeSpecific) {
-        my $sort = Foswiki::Func::isTrue( $inParams->{sort} || 'on' );
-        _storeAttribute( 'sort', $sort, $inCollection );
-        _storeAttribute( 'initSort', $inParams->{initsort}, $inCollection )
-          if defined( $inParams->{initsort} )
-              and $inParams->{initsort} =~ /\s*[0-9]+\s*/;
+    if ( defined $inParams->{sort} ) {
+        my $sort = Foswiki::Func::isTrue( $inParams->{sort} );
+        _storeAttribute( 'sort',          $sort, $inCollection );
         _storeAttribute( 'sortAllTables', $sort, $inCollection );
-        if ( $inParams->{initdirection} ) {
-            _storeAttribute( 'initDirection', $SORT_DIRECTION->{'ASCENDING'},
-                $inCollection )
-              if $inParams->{initdirection} =~ /^down$/i;
-            _storeAttribute( 'initDirection', $SORT_DIRECTION->{'DESCENDING'},
-                $inCollection )
-              if $inParams->{initdirection} =~ /^up$/i;
-        }
-
-        # If EditTablePlugin is installed and we are editing a table,
-        # the CGI parameter 'sort' is defined as "off" to disable all
-        # header sorting ((Item5135)
-        my $cgi          = Foswiki::Func::getCgiQuery();
-        my $urlParamSort = $cgi->param('sort');
-        if ( $urlParamSort && $urlParamSort =~ /^off$/oi ) {
-            delete $inCollection->{sortAllTables};
-        }
-
-      # If EditTablePlugin is installed and we are editing a table, the
-      # 'disableallsort' TABLE parameter is added to disable initsort and header
-      # sorting in the table that is being edited. (Item5135)
-        if ( Foswiki::Func::isTrue( $inParams->{disableallsort} ) ) {
-            $inCollection->{sortAllTables} = 0;
-            delete $inCollection->{initSort};
-        }
+    }
+    _storeAttribute( 'initSort', $inParams->{initsort}, $inCollection )
+      if defined( $inParams->{initsort} )
+          and $inParams->{initsort} =~ /\s*[0-9]+\s*/;
+    if ( $inParams->{initdirection} ) {
+        _storeAttribute( 'initDirection', $SORT_DIRECTION->{'ASCENDING'},
+            $inCollection )
+          if $inParams->{initdirection} =~ /^down$/i;
+        _storeAttribute( 'initDirection', $SORT_DIRECTION->{'DESCENDING'},
+            $inCollection )
+          if $inParams->{initdirection} =~ /^up$/i;
     }
 
-    if ($modeSpecific) {
+    # If EditTablePlugin is installed and we are editing a table,
+    # the CGI parameter 'sort' is defined as "off" to disable all
+    # header sorting ((Item5135)
+    my $cgi          = Foswiki::Func::getCgiQuery();
+    my $urlParamSort = $cgi->param('sort');
+    if ( $urlParamSort && $urlParamSort =~ /^off$/oi ) {
+        delete $inCollection->{sortAllTables};
+    }
+
+    # If EditTablePlugin is installed and we are editing a table, the
+    # 'disableallsort' TABLE parameter is added to disable initsort and header
+    # sorting in the table that is being edited. (Item5135)
+    if ( Foswiki::Func::isTrue( $inParams->{disableallsort} ) ) {
+        $inCollection->{sortAllTables} = 0;
+        delete $inCollection->{initSort};
+    }
+
+    if ($isTableSpecific) {
 
         _storeAttribute( 'summary', $inParams->{summary}, $inCollection );
-        my $id = $inParams->{id}
-          || 'table'
+        my $id =
+          defined $inParams->{id}
+          ? $inParams->{id}
+          : 'table'
           . $Foswiki::Plugins::TablePlugin::topic
           . ( $tableCount + 1 );
         _storeAttribute( 'id',         $id,                     $inCollection );
@@ -560,7 +545,6 @@ sub _processTableRow {
             $currentSortDirection =
               _getCurrentSortDirection( $combinedTableAttrs->{initDirection} );
         }
-
     }
 
     $theRow =~ s/\t/   /go;    # change tabs to space
@@ -739,19 +723,21 @@ sub _processTableRow {
       . '<nop>';    # Avoid Foswiki converting empty lines to new paras
 }
 
-# Determine whether to generate sorting headers for this table. The header
-# indicates the context of the table (body or file attachment)
-sub _shouldISortThisTable {
-    my ($header) = @_;
+sub _headerRowCount {
+    my ($table) = @_;
 
-    return 0 unless $combinedTableAttrs->{sortAllTables};
+    my $count = 0;
 
     # All cells in header are headings?
-    #foreach my $cell (@$header) {
-    #return 0 if ( $cell->{type} ne 'th' );
-    #}
+    foreach my $row (@$table) {
+        my $isHeader = 1;
+        foreach my $cell (@$row) {
+            $isHeader = 0 if ( $cell->{type} ne 'th' );
+        }
+        $count++ if $isHeader;
+    }
 
-    return 1;
+    return $count;
 }
 
 =pod
@@ -1310,6 +1296,8 @@ sub addDefaultSizeUnit {
 
 sub emitTable {
 
+    _addDefaultStyles();
+
     _debug('emitTable');
 
     #Validate headerrows/footerrows and modify if out of range
@@ -1324,8 +1312,18 @@ sub emitTable {
           $combinedTableAttrs->{headerrows};    # and footer to whatever is left
     }
 
-    my $sortThisTable = _shouldISortThisTable(
-        $curTable[ $combinedTableAttrs->{headerrows} - 1 ] );
+    my $sortThisTable =
+      $combinedTableAttrs->{sortAllTables} == 0
+      ? 0
+      : $combinedTableAttrs->{sort};
+
+    if ( $combinedTableAttrs->{headerrows} == 0 ) {
+        my $headerRowCount = _headerRowCount( \@curTable );
+        $headerRowCount -= $combinedTableAttrs->{footerrows};
+
+        # override default setting with calculated header count
+        $combinedTableAttrs->{headerrows} = $headerRowCount;
+    }
 
     my $tableTagAttributes = {};
     $tableTagAttributes->{class}       = $combinedTableAttrs->{class};
@@ -1366,7 +1364,8 @@ sub emitTable {
 
     if (
         (
-               defined $sortCol
+               $sortThisTable
+            && defined $sortCol
             && defined $requestedTable
             && $requestedTable == $tableCount
         )
@@ -1416,7 +1415,9 @@ sub emitTable {
 
         _debug("currentSortDirection:$currentSortDirection");
 
-        if ( $currentSortDirection == $SORT_DIRECTION->{'ASCENDING'} ) {
+        if (   $combinedTableAttrs->{sort}
+            && $currentSortDirection == $SORT_DIRECTION->{'ASCENDING'} )
+        {
             @curTable = sort {
                      $a->[$sortCol]->{sortText} cmp $b->[$sortCol]->{sortText}
                   || $a->[$sortCol]->{number} <=> $b->[$sortCol]->{number}
@@ -1424,7 +1425,9 @@ sub emitTable {
                   cmp $b->[$sortCol]->{dateString}
             } @curTable;
         }
-        elsif ( $currentSortDirection == $SORT_DIRECTION->{'DESCENDING'} ) {
+        elsif ($combinedTableAttrs->{sort}
+            && $currentSortDirection == $SORT_DIRECTION->{'DESCENDING'} )
+        {
             @curTable = sort {
                      $b->[$sortCol]->{sortText} cmp $a->[$sortCol]->{sortText}
                   || $b->[$sortCol]->{number} <=> $a->[$sortCol]->{number}
@@ -1450,6 +1453,7 @@ sub emitTable {
     my $singleIndent     = "\n\t";
     my $doubleIndent     = "\n\t\t";
     my $tripleIndent     = "\n\t\t\t";
+
     # Only *one* row of the table has sort links, and it will either
     # be the last row in the header or the first row in the footer.
     my $sortLinksWritten = 0;
@@ -1460,8 +1464,8 @@ sub emitTable {
 
         # keep track of header cells: if all cells are header cells, do not
         # update the data color count
-        my $headerCellCount = 0;
-        my $numberOfCols    = scalar(@$row);
+        my $headerCellCount  = 0;
+        my $numberOfCols     = scalar(@$row);
         my $writingSortLinks = 0;
 
         foreach my $fcell (@$row) {
@@ -1556,10 +1560,13 @@ sub emitTable {
 
                 # END html attribute
 
-                if ( $sortThisTable
-                       && (!$combinedTableAttrs->{headerrows}
-                             || $rowCount == $combinedTableAttrs->{headerrows} - 1)
-                         && ($writingSortLinks || !$sortLinksWritten)) {
+                if (
+                    $sortThisTable
+                    && (  !$combinedTableAttrs->{headerrows}
+                        || $rowCount == $combinedTableAttrs->{headerrows} - 1 )
+                    && ( $writingSortLinks || !$sortLinksWritten )
+                  )
+                {
                     $writingSortLinks = 1;
                     my $linkAttributes = {
                         href => $url
@@ -1694,7 +1701,9 @@ sub emitTable {
         my $rowHTML =
           $doubleIndent . CGI::Tr( { class => $trClassName }, $rowtext );
 
-        my $isHeaderRow = ( $headerCellCount == $colCount );
+        my $isHeaderRow =
+          $rowCount <
+          $combinedTableAttrs->{headerrows}; #( $headerCellCount == $colCount );
         my $isFooterRow =
           ( ( $numberOfRows - $rowCount ) <=
               $combinedTableAttrs->{footerrows} );
@@ -1738,11 +1747,21 @@ sub emitTable {
       . "$singleIndent</tfoot>";
     $text .= $currTablePre . $tfoot if scalar @footerRowList;
 
-    my $tbody =
-        "$singleIndent<tbody>"
-      . join( "", @bodyRowList )
-      . "$singleIndent</tbody>";
-    $text .= $currTablePre . $tbody if scalar @bodyRowList;
+    my $tbody;
+    if ( scalar @bodyRowList ) {
+        $tbody =
+            "$singleIndent<tbody>"
+          . join( "", @bodyRowList )
+          . "$singleIndent</tbody>";
+    }
+    else {
+
+        # A HTML table requires a body, which cannot be empty (Item8991).
+        # So we provide one, but prevent it from being displayed.
+        $tbody =
+"$singleIndent<tbody>$doubleIndent<tr style=\"display:none;\">$tripleIndent<td></td>$doubleIndent</tr>$singleIndent</tbody>\n";
+    }
+    $text .= $currTablePre . $tbody;
 
     $text .= $currTablePre . CGI::end_table() . "\n";
 
@@ -1859,6 +1878,33 @@ sub _mergeHashes {
 
 =pod
 
+=cut
+
+sub _cleanParamValue {
+    my ($inValue) = @_;
+
+    return undef if !$inValue;
+
+    $inValue =~ s/ //go;    # remove spaces
+    return $inValue;
+}
+
+=pod
+
+=cut
+
+sub _arrayRefFromParam {
+    my ($inValue) = @_;
+
+    return undef if !$inValue;
+
+    $inValue =~ s/ //go;    # remove spaces
+    my @list = split( /,/, $inValue );
+    return \@list;
+}
+
+=pod
+
 Shorthand debugging call.
 
 =cut
@@ -1875,7 +1921,7 @@ sub _debugData {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

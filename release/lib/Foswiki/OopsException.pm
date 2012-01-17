@@ -35,17 +35,18 @@ This will raise an exception that uses the =bathplugin.tmpl= template. If
 <verbatim>
 oops?template=bathplugin;param1=bigtoe;param2=hot%20tap
 </verbatim>
-The =bathplugin.tmpl= might contain:
+The =bathplugin.tmpl= might contain: 
+(&lt;nop> inserted to prevent translation interface from extracting these examples)
 <verbatim>
 %TMPL:INCLUDE{"oops"}%
-%TMPL:DEF{"titleaction"}% %MAKETEXT{"Bathing problem"}% %TMPL:END%
-%TMPL:DEF{"heading"}%%MAKETEXT{"Problem filling bath"}%%TMPL:END%
+%TMPL:DEF{"titleaction"}% %<nop>MAKETEXT{"Bathing problem"}% %TMPL:END%
+%TMPL:DEF{"heading"}%%<nop>MAKETEXT{"Problem filling bath"}%%TMPL:END%
 %TMPL:DEF{"topicactionbuttons"}%%TMPL:P{"oktopicaction"}%%TMPL:END%
 %TMPL:DEF{"script"}%<meta http-equiv="refresh" content="0;url=%SCRIPTURL{view}%/%WEB%/%TOPIC%" />%TMPL:END%
 %TMPL:DEF{"pagetitle"}%%TMPL:P{"heading"}%%TMPL:END%
-%TMPL:DEF{"webaction"}% *%MAKETEXT{"Warning"}%* %TMPL:END%
+%TMPL:DEF{"webaction"}% *%<nop>MAKETEXT{"Warning"}%* %TMPL:END%
 %TMPL:DEF{"message"}%
-%MAKETEXT{"Your bath cannot be filled because your [_1] is [_2] the [_3]%TMPL:END%
+%<nop>MAKETEXT{"Your bath cannot be filled because your [_1] is [_2] the [_3]" args="drain,flooding,basement"}%%TMPL:END%
 </verbatim>
 In this case the =oops= page will be rendered with a 418 ("I'm a teapot")
 status in the HTTP header.
@@ -64,7 +65,7 @@ if you need messages to be automatically translated you either need to handle
 it in the perl code before throwing Foswiki::OopsException or put the %MAKETEXT
 in the template. You cannot pass macros through the parameters.
 
-API version $Date: 2010-09-06 15:38:10 +0200 (Mon, 06 Sep 2010) $ (revision $Rev: 9940 (2010-11-10) $)
+API version $Date: 2011-03-16 02:26:13 +0100 (Wed, 16 Mar 2011) $ (revision $Rev: 11475 (2011-04-16) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the

@@ -73,7 +73,7 @@ sub readTopic {
     my ( $this, $topicObject, $version ) = @_;
 
     ASSERT( $topicObject->isa('Foswiki::Meta') ) if DEBUG;
-    my $handler = $this->getHandler($topicObject);
+    my $handler  = $this->getHandler($topicObject);
     my $isLatest = 0;
 
     # check that the requested revision actually exists
@@ -83,8 +83,8 @@ sub readTopic {
         }
     }
 
-    (my $text, $isLatest) = $handler->getRevision($version);
-    return (undef, $isLatest) unless defined $text;
+    ( my $text, $isLatest ) = $handler->getRevision($version);
+    return ( undef, $isLatest ) unless defined $text;
 
     $text =~ s/\r//g;    # Remove carriage returns
     $topicObject->setEmbeddedStoreForm($text);
@@ -105,7 +105,7 @@ sub readTopic {
 
         # No revision from any other source; must be latest
         $gotRev = $handler->getLatestRevisionID();
-        ASSERT(defined $gotRev) if DEBUG;
+        ASSERT( defined $gotRev ) if DEBUG;
     }
 
     # Add attachments that are new from reading the pub directory.
@@ -141,7 +141,7 @@ sub readTopic {
           if @validAttachmentsFound;
     }
 
-    return ($gotRev, $isLatest);
+    return ( $gotRev, $isLatest );
 }
 
 sub moveAttachment {
@@ -347,6 +347,18 @@ sub webExists {
 
     return 0 unless defined $web;
     $web =~ s#\.#/#go;
+
+    # Foswiki ships with TWikiCompatibilityPlugin but if it is disabled we
+    # do not want the TWiki web to appear as a valid web to anyone.
+    if ( $web eq 'TWiki' ) {
+        unless ( exists $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}
+            && defined $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}{Enabled}
+            && $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}{Enabled} == 1 )
+        {
+            return 0;
+        }
+    }
+
     my $handler = $this->getHandler( $web, $Foswiki::cfg{WebPrefsTopicName} );
     return $handler->storedDataExists();
 }

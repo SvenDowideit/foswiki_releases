@@ -17,6 +17,7 @@ use Assert;
 
 use Foswiki       ();
 use Foswiki::Form ();
+use Foswiki::Func ();
 
 =begin TML
 
@@ -35,6 +36,9 @@ sub generate {
 
     my $formName = $q->param('formtemplate') || '';
     unless ($formName) {
+        if ( not defined $topicObject->getLoadedRev() ) {
+            $topicObject->load();
+        }
         my $form = $topicObject->get('FORM');
         $formName = $form->{name} if $form;
     }
@@ -48,6 +52,14 @@ sub generate {
     foreach my $form (@forms) {
         $formElemCount++;
         $formList .= CGI::br() if ($formList);
+        if ( $form ne 'none' ) {
+            $form = join(
+                '.',
+                Foswiki::Func::normalizeWebTopicName(
+                    $topicObject->web(), $form
+                )
+            );
+        }
         my $formElemId = 'formtemplateelem' . $formElemCount;
         my $props      = {
             type  => 'radio',

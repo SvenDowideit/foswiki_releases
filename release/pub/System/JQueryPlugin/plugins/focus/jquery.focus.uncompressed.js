@@ -1,17 +1,18 @@
 /* 
  * jquery.focus: 
  *   This sets the focus on a form input field
- *   or textarea of a form when the page is loade
+ *   or textarea of a form when the page is loaded
  * 
  */
-;(function($) {
-  $(function() {
+jQuery(function($) {
+  $(".jqFocus,.foswikiFocus").livequery(function() {
+    var $this = $(this);
     window.setTimeout(function() {
       try {
-        $('.jqFocus:first').focus();
+        $this.focus();
       } catch (error) {
         // ignore
       };
-    }, 200);
+    }, 100);
   });
-})(jQuery);
+});

@@ -202,19 +202,19 @@ The =ATTACH:row= macros are expanded for each file in the attachment table, usin
 
 ---++ Packaging and Publishing Skins
 
-See Foswiki:Extensions/SkinPackagingHowTo and Foswiki:Extensions/SkinDeveloperFAQ
+See Foswiki:Development/ExtensionDeveloperGuide
 
 For your own skin you are encouraged to show a small 88x31 pixel logo at the bottom of your skin:
 
 <verbatim class="tml"><a href="http://foswiki.org/">
-     <img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-poweredby.gif"\
-          alt="This site is powered by Foswiki" width="80" height="15"\
-          title="This site is powered by Forwiki" border="0" />
+     <img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif"\
+          alt="Powered by Foswiki" width="88" height="31"\
+          title="Powered by Foswiki" border="0" />
 </a></verbatim>
 
 Generating:
 
-<a href="http://foswiki.org/"><img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif" alt="This site is powered by Foswiki" width="88" height="31" title="This site is powered by Foswiki" border="0" /></a>
+<a href="http://foswiki.org/"><img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif" alt="Powered by Foswiki" width="88" height="31" title="Powered by Foswiki" border="0" /></a>
 
 The standard %WIKITOOLNAME% skins show the logo in the =%<nop>WEBCOPYRIGHT%=.
 

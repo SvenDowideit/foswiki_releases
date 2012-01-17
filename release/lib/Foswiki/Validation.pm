@@ -136,6 +136,9 @@ Get a double submission cookie
 The cookie is a non-HttpOnly cookie that contains the current session ID
 and a secret. The secret is constant for a given session.
 
+The caller should adjust the =-secure= flag of the cookie, according to the
+request being processed.
+
 =cut
 
 sub getCookie {
@@ -242,7 +245,7 @@ sub validate {
     my $topic     = $session->{topicName};
     my $cgis      = $session->getCGISession();
 
-    my $tmpl = $session->templates->readTemplate( 'validate' );
+    my $tmpl = $session->templates->readTemplate('validate');
 
     if ( $query->param('response') ) {
         my $cacheUID = $query->param('foswikioriginalquery');

@@ -42,8 +42,10 @@ use Error qw(:try);
 use Assert;
 use Foswiki::Configure::Dependency;
 use Foswiki::Configure::Util;
+use File::stat;
 
-our $VERSION = '$Rev: 9940 (2010-11-10) $';
+
+our $VERSION = '$Rev: 11475 (2011-04-16) $';
 
 my $depwarn = '';    # Pass back warnings from untaint validation routine
 
@@ -369,8 +371,7 @@ sub install {
         {                   # no extension found - need to download the package
             ( $err, $tmpfilename ) = $this->_fetchFile('.tgz');
             if ($err) {
-                $this->{_errors} .= "Download failure\n $err";
-                return ( $feedback, "Download failure\n $err" );
+                $feedback .= "Download failure fetching .tgz file - $err\n Trying .zip file\n";
             }
 
             unless ( $tmpfilename && !$err )
@@ -483,8 +484,9 @@ sub install {
 
             # Everything else
             $err = _moveFile( $this, "$dir/$file", "$target", $perms );
+
             $errors .= $err if ($err);
-            $feedback .= "${simulated}Installed:  $file\n";
+            $feedback .= "${simulated}Installed:  $file as $target\n";
             next;
         }
     }
@@ -495,7 +497,7 @@ sub install {
         "$pkgstore/$this->{_pkgname}_installer"
     );
     $errors .= $err if ($err);
-    $feedback .= "${simulated}Installed:  $this->{_pkgname}_installer\n";
+    $feedback .= "${simulated}Installed:  $this->{_pkgname}_installer to $pkgstore\n";
 
     return ( $feedback, $errors );
 
@@ -547,7 +549,7 @@ sub _installAttachments {
               $meta->get( 'FILEATTACHMENT', $key );  # Recover existing Metadata
             $this->{_manifest}->{$file}->{I} =
               1;    # Set this to installed (assuming it all works)
-            my @stats = stat "$dir/$file";
+            my $fstats = stat "$dir/$file";
             my %opts;
             $opts{name} = $key;
             $opts{file} = "$dir/$file";
@@ -555,8 +557,8 @@ sub _installAttachments {
             #$opts{dontlog} = 1;
             $opts{attr}     = $attachinfo->{attr};
             $opts{comment}  = $attachinfo->{comment};
-            $opts{filesize} = $stats[7];
-            $opts{filedate} = $stats[9];
+            $opts{filesize} = $fstats->size;
+            $opts{filedate} = $fstats->mtime;
             $meta->attach(%opts) unless ( $this->{_options}->{SIMULATE} );
             $feedback .= "Attached:   $file to $twebTopic\n";
         }
@@ -644,6 +646,7 @@ sub createBackup {
           unless ( $this->{_options}->{SIMULATE} );
 
         foreach my $file (@files) {
+            my $fstat = stat($file);
             my ($tofile) = $file =~ m/^$root(.*)$/
               ;    # Filename relative to root of Foswiki installation
             next
@@ -655,8 +658,8 @@ sub createBackup {
             if ( scalar(@path) ) {
                 File::Path::mkpath( join( '/', @path ) )
                   unless ( $this->{_options}->{SIMULATE} );
-                my $mode =
-                  ( stat($file) )[2];    # File::Copy doesn't copy permissions
+                my $mode = $fstat->mode;
+                  #( stat($file) )[2];    # File::Copy doesn't copy permissions
                 File::Copy::copy( "$file", "$pkgstore/$tofile" )
                   unless ( $this->{_options}->{SIMULATE} );
                 $mode =~ /(.*)/;
@@ -793,8 +796,8 @@ sub uninstall {
           Foswiki::Configure::Util::mapTarget( $this->{_root}, $key );
 
         if ($simulate) {
-            push( @removed, "$target" )   if ( -f "$target" );
-            push( @removed, "$target,v" ) if ( -f "$target,v" );
+            push( @removed, "simulated $target" )   if ( -f "$target" );
+            push( @removed, "simulated $target,v" ) if ( -f "$target,v" );
             $directories{$1}++ if $target =~ m!^(.*)/[^/]*$!;
         }
         else {
@@ -812,22 +815,32 @@ sub uninstall {
 
     my $pkgdata =
       "$Foswiki::cfg{WorkingDir}/configure/pkgdata/$this->{_pkgname}_installer";
-    push( @removed, $pkgdata );
     unless ($simulate) {
+        push( @removed, $pkgdata );
         unlink "$pkgdata";
         for ( keys %directories ) {
             while (rmdir) { s!/[^/]*$!!; }
         }
     }
+    else {
+        push( @removed, "simulated $pkgdata" );
+    }
+
     return sort(@removed);
 }
 
 =begin TML
 
 ---++ loadInstaller ([$options])
-This routine looks for the $extension_installer or 
+This routine looks for the $extension_installer or
 $extension_installer.pl file  and extracts the manifest,
-dependencies and pre/post Exit routines from the installer.  
+dependencies and pre/post Exit routines from the installer.
+
+The local search path is:
+   * Directory passed as parameter,  or root of installation
+      * This directory is _also_ examined for the .pl version of the _installer
+   * The =working/Configure/download= directory (recently downloaded)
+   * The =working/Configure/pkgdata= directory (previously installed)
 
 If the installer is not found and a repository is provided, the
 installer file will be retrieved from the repository.
@@ -860,31 +873,40 @@ sub loadInstaller {
     my $file;
     my $err;
 
+    my $downloadstore  = "$Foswiki::cfg{WorkingDir}/configure/download";
     my $pkgstore  = "$Foswiki::cfg{WorkingDir}/configure/pkgdata";
     my $extension = $this->{_pkgname};
     my $warn      = '';
     local $/ = "\n";
 
     if ($uselocal) {
+        #  The root for manually downloaded extensions
         if ( -e "$temproot/${extension}_installer" ) {
             $file = "$temproot/${extension}_installer";
         }
-        else {
-            if ( -e "$temproot/${extension}_installer.pl" ) {
-                $file = "$temproot/${extension}_installer.pl";
-            }
-            else {
-                if ( -e "$pkgstore/${extension}_installer" ) {
-                    $file = "$pkgstore/${extension}_installer";
-                }
-            }
+        elsif ( -e "$temproot/${extension}_installer.pl" ) {
+            $file = "$temproot/${extension}_installer.pl";
         }
-        $warn .= "Unable to find $extension locally in $temproot ..."
-          unless ($file);
+        #  The download directory for previously downloaded extensions
+        elsif ( -e "$downloadstore/${extension}_installer" ) {
+            $file = "$downloadstore/${extension}_installer";
+        }
+        #  The pkgdata directory for previously installed extensions
+        elsif ( -e "$pkgstore/${extension}_installer" ) {
+            $file = "$pkgstore/${extension}_installer";
+        }
+        else {
+        $warn .= "Unable to find $extension locally in $temproot ...";
+        }
     }
 
     if ($file) {
-        $warn .= "Using local $file for package manifest \n";
+        my $sb = stat("$file");
+        $warn .= "Using local $file, Size: "
+          . $sb->size
+          . " Modified: "
+          . scalar localtime( $sb->mtime )
+          . " for package manifest \n";
     }
     else {
         if ( defined $this->{_repository} ) {
@@ -915,7 +937,6 @@ sub loadInstaller {
     my $depth = 0;
     while (<$fh>) {
 
-        #if ( $_ =~ m/my PACKAGEURL
         if ( $_ eq "<<<< MANIFEST >>>>\n" ) {
             $found = 'M1';
             next;
@@ -944,7 +965,8 @@ sub loadInstaller {
                 next;
             }
             chomp $_;
-            _parseManifest( $this, $_, ( $found eq 'M2' ) );
+            my $e = _parseManifest( $this, $_, ( $found eq 'M2' ) );
+            $warn .= "$e";
             next;
         }
 
@@ -1065,7 +1087,7 @@ sub _parseManifest {
         ( $file, $perms, $desc ) = split( ',', $_[0], 3 );
     }
 
-    return unless ($file);
+    return "No file found in $_[1] - line bypassed" unless ($file);
 
     my $tweb    = '';
     my $ttopic  = '';
@@ -1073,10 +1095,19 @@ sub _parseManifest {
 
     if ( $file =~ m/^data\/.*/ ) {
         ( $tweb, $ttopic ) = $file =~ /^data\/(.*)\/(.*?).txt$/;
+        unless (length ($tweb) > 0 && length($ttopic) > 0) {
+            my $err = "$file is not a topic - file will be bypassed\n";
+            return $err;
+        }
     }
     if ( $file =~ m/^pub\/.*/ ) {
         ( $tweb, $ttopic, $tattach ) = $file =~ /^pub\/(.*)\/(.*?)\/([^\/]+)$/;
+        unless (length ($tweb) > 0 && length($ttopic) > 0 && length($tattach) > 0) {
+            my $err = "Unable to identify attachment $file name or location - file will be bypassed\n";
+            return $err;
+        }
     }
+
 
     $this->{_manifest}->{$file}->{ci}    = ( $desc =~ /\(noci\)/ ? 0 : 1 );
     $this->{_manifest}->{$file}->{perms} = $perms;
@@ -1086,6 +1117,8 @@ sub _parseManifest {
     $this->{_manifest}->{$file}->{desc} = $desc;
     $this->{_manifest}->{ATTACH}->{"$tweb/$ttopic"}->{$tattach} = $file
       if ($tattach);
+
+    return '';
 }
 
 =begin TML
@@ -1226,7 +1259,7 @@ sub checkDependencies {
             my $pack     = $2;
             my $packname = $3;
             $packname .= $pack
-              if ( $pack eq 'Contrib' && $packname !~ /Contrib$/ );
+              if ( $pack eq 'Contrib' && $packname !~ /Contrib$|AddOn$/ );
             $dep->{name} = $packname;
             push( @wiki, $dep )
               unless ( $dep->{description} =~ m/^[Oo]ptional/ );

@@ -554,8 +554,8 @@ sub formatResults {
 
     my ( $callback, $cbdata ) = setup_callback($params);
 
-    my $baseTopic = $params->{basetopic} || $session->{topicName};
-    my $baseWeb   = $params->{baseweb}   || $session->{webName};
+    my $baseTopic = $session->{topicName};
+    my $baseWeb   = $session->{webName};
     my $doBookView    = Foswiki::isTrue( $params->{bookview} );
     my $caseSensitive = Foswiki::isTrue( $params->{casesensitive} );
     my $doExpandVars  = Foswiki::isTrue( $params->{expandvariables} );
@@ -981,7 +981,17 @@ sub formatResults {
             &$callback( $cbdata, $out );
         } while (@multipleHitLines);    # multiple=on loop
 
-        last if ( $ttopics >= $limit );
+        if (
+            ( defined( $params->{pager_skip_results_from} )) or
+            (( defined( $params->{groupby} ) )
+                and($params->{groupby} ne 'web'))
+            ) {
+            last if ( $ttopics >= $limit );
+        } else {
+            if ( $ntopics >= $limit ) {
+                $infoCache->nextWeb();
+            }
+        }
     }    # end topic loop
 
     # output footer only if hits in web

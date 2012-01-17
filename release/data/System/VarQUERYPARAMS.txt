@@ -1,6 +1,6 @@
 %META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Macros"}%
-#VarINCLUDE
+#VarQUERYPARAMS
 ---+++ QUERYPARAMS -- show paramaters to the query
    * Expands the parameters to the query that was used to display the page.
    * Syntax: =%<nop>QUERYPARAMS{...}%=

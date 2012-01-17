@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1195487956" format="1.1" version="$Rev$"}%
+%META:TOPICINFO{author="ProjectContributor" date="1195487956" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Plugins"}%
 ---+!! <nop>%TOPIC%
 
@@ -490,9 +490,11 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Authors: | Foswiki:Main.RafaelAlvarez, Foswiki:Main.MichaelDaum, Foswiki:Main.ArthurClemens |
 |  Copyright  | Copyright (C) Rafael Alvarez; Michael Daum, Arthur Clemens |
 |  License: | [[http://www.gnu.org/copyleft/gpl.html][GPL]] |
-|  Version: | 9875 (2010-11-05) |
-|  Release: | 1.6.10 |
+|  Version: | 11359 (2011-04-10) |
+|  Release: | 1.6.12 |
 |  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
+|  10 Apr 2011 | 1.6.12 Foswikitask:Item10618: parenthesis (or other Regex characters) in topic name crashes Foswiki <br /> Foswikitask:Item10264: Change template-js-css logic from foswikiJs to foswikiNoJs <br /> Foswikitask:Item10506: Add !noci to avoid checkin of files during installation. |
+|  15 Dec 2010 | 1.6.11 Foswikitask:Item10161: improved compatibility with jquery-1.4.3/4 |
 |  06 Nov 2010 | 1.6.10 Foswikitask:Item9963: Revert usage of =$<nop>percent= back to =$<nop>percnt= |
 |  29 Oct 2010 | 1.6.9 Foswikitask:Item9918: fixed twisty animation on jquery-1.4.3 |
 |  27 Oct 2010 | 1.6.8 Foswikitask:Item9904: fixed compatibility with IE |

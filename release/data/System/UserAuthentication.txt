@@ -31,6 +31,10 @@ Please note FileAttachments are not protected by %WIKITOOLNAME% User Authenticat
 
 As shipped, %WIKITOOLNAME% supports the Apache 'htpasswd' password manager. This manager supports the use of =.htpasswd= files on the server. These files can be unique to %WIKITOOLNAME%, or can be shared with other applications (such as an Apache webserver). A variety of password encodings are supported for flexibility when re-using existing files. See the descriptive comments in the Security Settings section of the [[%SCRIPTURLPATH{"configure"}%][configure]] interface for more details.
 
+<div class=foswikiHelp>
+%X% *Caution:* Foswiki uses the =.htpasswd= file to also store the email addresses of registered users.  If the =.htpasswd= file will be shared with another application, it is critical to preserve the email address stored as the last field in each line of the file.
+</div>
+
 You can easily plug in alternate password management modules to support interfaces to other third-party authentication databases.
 
 The password manager is selected using the ={PasswordManager}= setting in =configure=.
@@ -212,9 +216,9 @@ If the ={PasswordManager}= does not support password changing, ChangeEmailAddres
 
 #IndividualScripts
 ---++ Controlling access to individual scripts
-You may want to add or remove scripts from the list of scripts that require authentication. The method for doing this is different for each of Template Login and Apache Login.
+You may want to add or remove scripts from the list of scripts that require authentication. The method for doing this is different for each of Template Login and Apache Login.  %T% Any scripts listed as requiring authentication will not be usable by the Guest user.  If you require that %USERSWEB%.WikiGuest be allowed to edit topics on your site, =edit= and =save= must be removed from the list of scripts requiring authentication.
    * For Template Login, update the ={AuthScripts}= list using [[%SCRIPTURLPATH{"configure"}%#Login$SecurityAndAuthentication][configure]]
-   * For Apache Login, add/remove the script from =.htaccess=
+   * For Apache Login, add/remove the script from =.htaccess=, or from the !FilesMatch line in the Apache configuration.
 #HowTo
 ---++ How to choose an authentication method
 

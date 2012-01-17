@@ -25,7 +25,7 @@ our %EXPORT_TAGS = (
     DEBUG  => [ 'ASSERT', 'UNTAINTED', 'TAINT', 'DEBUG' ],
 );
 
-our $VERSION = '$Rev: 9940 (2010-11-10) $';
+our $VERSION = '$Rev: 11475 (2011-04-16) $';
 our $DIRTY   = lc('x');          # Used in TAINT
 
 Exporter::export_tags(qw(NDEBUG DEBUG));

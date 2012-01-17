@@ -4,15 +4,17 @@ package Foswiki::Plugins::HistoryPlugin;
 
 use strict;
 use warnings;
-use Foswiki::Func;
+use Foswiki::Func ();
+use Error qw(:try);
+use Foswiki::AccessControlException ();
 
 # =========================
 use vars qw( $VERSION $RELEASE $NO_PREFS_IN_TOPIC $SHORTDESCRIPTION);
 
-$VERSION           = '$Rev: 8367 (2010-07-31) $';
-$RELEASE           = '1.6';
+$VERSION           = '$Rev: 11371 (2011-04-10) $';
+$RELEASE           = '1.10';
 $NO_PREFS_IN_TOPIC = 1;
-$SHORTDESCRIPTION  = 'Shows a complete history of a document';
+$SHORTDESCRIPTION  = 'Shows a complete history of a topic';
 
 # =========================
 sub initPlugin {
@@ -24,16 +26,92 @@ sub initPlugin {
         return 0;
     }
 
-    Foswiki::Func::registerTagHandler( 'HISTORY', \&handleHistory );
+    Foswiki::Func::registerTagHandler( 'HISTORY', \&_handleHistory );
 
     return 1;
 }
 
-sub handleHistory {
+sub _handleHistory {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
 
     my $web   = $params->{web}   || $theWeb;
     my $topic = $params->{topic} || $theTopic;
+    ( $web, $topic ) = Foswiki::Func::normalizeWebTopicName( $web, $topic );
+
+    # check topic exists
+    unless ( Foswiki::Func::topicExists( $web, $topic ) ) {
+        return
+"<noautolink><span class='foswikiAlert'>HistoryPlugin error: Topic $web.$topic does not exist</noautolink>";
+    }
+
+    # check access permissions
+    unless (
+        Foswiki::Func::checkAccessPermission(
+            "VIEW", $session->{user}, undef, $topic, $web
+        )
+      )
+    {
+        throw Foswiki::AccessControlException( "VIEW", $session->{user}, $web,
+            $topic, $Foswiki::Meta::reason );
+    }
+
+    my $reverse = Foswiki::Func::isTrue( $params->{reverse}, 1 );
+
+    my $versions = $params->{versions};
+    my $versionStart;
+    my $versionEnd;
+    my $maxrev = ( Foswiki::Func::getRevisionInfo( $web, $topic ) )[2];
+    my $rev1 = $params->{rev1} ? $params->{rev1} : 1;
+    my $rev2 = $params->{rev2} ? $params->{rev2} : $maxrev;
+    my $nrev = $params->{nrev} ? $params->{nrev} : 10;
+
+    if ($versions) {
+        $versions =~ /([0-9\-]*)(\.\.)*([0-9\-]*)/;
+        if ( defined $1 && length $1 ) {
+            $rev1 = $1;
+        }
+        if ( defined $2 && length $2 ) {
+
+            # dots
+            $rev2 = $3 if ( defined $3 && length $3 );
+        }
+        else {
+            $rev2 = $rev1;
+        }
+
+        # wrap
+        $rev1 = $maxrev + $rev1 if $rev1 < 0;
+        $rev2 = $maxrev + $rev2 if $rev2 < 0;
+
+        # normalize
+        $rev1 = 1       if $rev1 == 0;
+        $rev2 = 1       if $rev2 == 0;
+        $rev1 = $maxrev if $rev1 > $maxrev;
+        $rev2 = $maxrev if $rev2 > $maxrev;
+        if ( $rev1 > $rev2 ) {
+            $reverse = 0;
+            ( $rev1, $rev2 ) = ( $rev2, $rev1 );
+        }
+    }
+    else {
+        # deprecated syntax
+        
+        $rev1 = $params->{rev1};
+		$rev1 =~ s/1\.// if $rev1;
+		$rev2 = $params->{rev2};
+		$rev2 =~ s/1\.// if $rev2;
+		$nrev = $params->{nrev} || 10;
+	
+		$rev2 ||= $rev1 ? $rev1 + $nrev - 1 : $maxrev;
+		$rev1 ||= $rev2 - $nrev + 1;
+	
+		( $rev1, $rev2 ) = ( $rev2, $rev1 ) if $rev1 > $rev2;
+		$rev1 = $maxrev if $rev1 > $maxrev;
+		$rev1 = 1       if $rev1 < 1;
+		$rev2 = $maxrev if $rev2 > $maxrev;
+		$rev2 = 1       if $rev2 < 1;
+    }
+
     my $format =
          $params->{format}
       || $params->{_DEFAULT}
@@ -43,42 +121,18 @@ sub handleHistory {
     my $footer = $params->{footer};
     $footer = "\$previous{'...'}" unless defined($footer);
 
-    unless ( Foswiki::Func::topicExists( $web, $topic ) ) {
-        return "Topic $web.$topic does not exist";
-    }
-
-    # Get revisions
-
-    my $maxrev = ( Foswiki::Func::getRevisionInfo( $web, $topic ) )[2];
-    my $rev1 = $params->{rev1};
-    $rev1 =~ s/1\.// if $rev1;
-    my $rev2 = $params->{rev2};
-    $rev2 =~ s/1\.// if $rev2;
-    my $nrev = $params->{nrev} || 10;
-
-    $rev2 ||= $rev1 ? $rev1 + $nrev - 1 : $maxrev;
-    $rev1 ||= $rev2 - $nrev + 1;
-
-    ( $rev1, $rev2 ) = ( $rev2, $rev1 ) if $rev1 > $rev2;
-    $rev1 = $maxrev if $rev1 > $maxrev;
-    $rev1 = 1       if $rev1 < 1;
-    $rev2 = $maxrev if $rev2 > $maxrev;
-    $rev2 = 1       if $rev2 < 1;
-
     Foswiki::Func::setPreferencesValue( "HISTORY_MAXREV", $maxrev );
     Foswiki::Func::setPreferencesValue( "HISTORY_REV1",   $rev1 );
     Foswiki::Func::setPreferencesValue( "HISTORY_REV2",   $rev2 );
     Foswiki::Func::setPreferencesValue( "HISTORY_NREV",   $nrev );
 
     # Start the output
-    my $out = handleHeadFoot( $header, $rev1, $rev2, $nrev, $maxrev );
+    my $out = _handleHeadFoot( $header, $rev1, $rev2, $nrev, $maxrev );
 
     # Print revision info
 
     my @revs = ( $rev1 .. $rev2 );
 
-    my $reverse = $params->{reverse} || 1;
-    $reverse = 0 if $reverse =~ /off|no/i;
     @revs = reverse(@revs) if $reverse;
     my $mixedAlphaNum = Foswiki::Func::getRegularExpression('mixedAlphaNum');
     my $checkFlag     = 0;
@@ -99,8 +153,10 @@ sub handleHistory {
         $checkFlag++;
         $revinfo =~ s/\$web/$web/g;
         $revinfo =~ s/\$topic/$topic/g;
-        $revinfo =~ s/\$rev/$revout/g;
+        $revinfo =~ s/\$rev/$rev/g;
         $revinfo =~ s/\$date/Foswiki::Func::formatTime($date)/ge;
+        $revinfo =~
+s/\$(year|ye|week|web|wday|tz|topic|time|seconds|rev|rcs|month|mo|minutes|longdate|isotz|iso|http|hours|epoch|email|dow|day)/_formatTime("\$$1", $topic, $web)/ge;
         $revinfo =~ s/\$username/$user/g;
         $revinfo =~ s/\$wikiname/$wikiName/g;
         $revinfo =~ s/\$wikiusername/$wikiUserName/g;
@@ -114,13 +170,20 @@ sub handleHistory {
 
         $rev--;
     }
-    $out .= handleHeadFoot( $footer, $rev1, $rev2, $nrev, $maxrev );
+    $out .= _handleHeadFoot( $footer, $rev1, $rev2, $nrev, $maxrev );
     $out = Foswiki::Func::decodeFormatTokens($out);
 
     return $out;
 }
 
-sub handleHeadFoot {
+sub _formatTime {
+    my ( $format, $topic, $web ) = @_;
+
+    return Foswiki::Func::expandCommonVariables( '%REVINFO{"' . $format . '"}%',
+        $topic, $web );
+}
+
+sub _handleHeadFoot {
 
     my ( $text, $rev1, $rev2, $nrev, $maxrev ) = @_;
 
@@ -185,7 +248,7 @@ sub handleHeadFoot {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

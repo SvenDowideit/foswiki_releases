@@ -1,1 +1,1 @@
-(function(a){a(function(){window.setTimeout(function(){try{a(".jqFocus:first").focus()}catch(b){}},200)})})(jQuery);
+jQuery(function(a){a(".jqFocus,.foswikiFocus").livequery(function(){var b=a(this);window.setTimeout(function(){try{b.focus()}catch(c){}},100)})});

@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="reprev" date="1279640925" format="1.1" reprev="9" version="10"}%
+%META:TOPICINFO{author="ProjectContributor" comment="reprev" date="1279640925" format="1.1" reprev="9" version="1"}%
 ---+!! %TOPIC%
 <!--
    * Set SHORTDESCRIPTION = jQuery <nop>JavaScript library for Foswiki
@@ -143,11 +143,32 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Author(s): | Michael Daum |
 |  Copyright: | 2007-2010 Michael Daum http://michaeldaumconsulting.com |
 |  License: | GPL |
-|  Release: | 3.75 |
-|  Version: | 9769 (2010-10-27) |
+|  Release: | 4.03 |
+|  Version: | 11373 (2011-04-10) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  11 Apr 2011: | (4.03) jQuery default corrected to be 1.4.3. \
+                  Fixed syntax for accessing meta variables. \
+                  Improved iterating hash. \
+                  Updated forms jq plugin from 2.25 to 2.43. \
+                  Removed useless BOM code from blockUI. \
+                  Compress using utf8 encoding by default\
+                  This version is shipping with Foswiki 1.1.3 |
+|  02 Feb 2011: | (4.01) added pnotify, configure checker to check that \
+                  configured ={JQueryVersion}= is sane |
+|  13 Dec 2010: | (4.00) adding jquery-1.4.2/3/4 (default is 1.4.3); \
+                  removing jquery-1.2.6, deprecating jquery-1.3.x (incompatible with shipped jquery-ui); \
+                  upgraded to jquery-ui 1.8.5 (needs jquery-1.4+); \
+                  upgraded jquery-cookie; \
+                  added themeswitcher; \
+                  fixed spinner in autocomplete; \
+                  various fixes to jquery.tooltip; \
+                  improved tooltip themes (added blackbox theme); \
+                  fixed rating formfield; \
+                  improved printout of tabpanes; \
+                  added new jquery-ui theme flickr; \
+                  update forms plugin to 2.49 to improve jQuery 1.4 compatibility |
 |  27 Oct 2010: | (3.75) fixed IE error in chili recipe for TML |
-|  19 Oct 2010: | (3.74) Version included with Foswiki 1.1.0 + fix for code bug in SLIMBOX causing !ImageGalleryPlugin to fail |
+|  19 Oct 2010: | (3.74) Version included with Foswiki 1.1.0 + fix for code bug in SLIMBOX causing !ImageGalleryPlugin to fail |   
 |  19 Aug 2010: | (3.71) JQueryLiveQuery now loads by default; \
                   removed JQueryBgiframe and JQueryEasing plugins from default plugins |
 |  02 Jul 2010: | (3.70) removed outdated spinner and ifixpng plugins; \
@@ -167,7 +188,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  14 Mar 2010: | (3.30) upgraded =validate= to v1.7; added =wikiword= validation method; \
                   fixed computation of line-height in =fluidfont=; \
                   fixed height issue in =tabpane= |
-|  03 Mar 2010: | made ZonePlugin an optional dependency |
+|  03 Mar 2010: | made !ZonePlugin an optional dependency |
 |  01 Mar 2010: | improved js and css compression using yuicompressor; \
                   improved simplemodal integration to foswiki to create modal dialogs with less additional javascript; \
                   added custom events to textboxlist: <nop>AddValue, <nop>DeleteValue , Reset and Clear |
@@ -231,7 +252,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  15 Nov 2007: | use skin independent way to add javascript files to header |
 |  10 Oct 2007: | upgraded to jQuery-1.1.4; compressed js and css |
 |  12 Jul 2007: | initial package containing jQuery-1.1.3.1 |
-|  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Plugins::ZonePlugin</td><td align="left">&gt;=2.1</td><td align="left">Optional, required for Foswiki < 1.1</td></tr></table> |
+|  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Plugins::ZonePlugin</td><td align="left">&gt;=3.1</td><td align="left">Required. required for Foswiki < 1.1</td></tr></table> |
 |  Home: | Foswiki:Extensions/%TOPIC% |
 |  Support: | Foswiki:Support/%TOPIC% |
 

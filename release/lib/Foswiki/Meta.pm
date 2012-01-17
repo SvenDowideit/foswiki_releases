@@ -90,7 +90,7 @@ callers don't require them. For this reason, be *very careful* how you use
 =Foswiki::Meta=. Extension authors will almost always find the methods
 they want in =Foswiki::Func=, rather than in this class.
 
-API version $Date: 2010-10-28 14:15:54 +0200 (Thu, 28 Oct 2010) $ (revision $Rev: 9940 (2010-11-10) $)
+API version $Date: 2011-04-13 19:09:01 +0200 (Wed, 13 Apr 2011) $ (revision $Rev: 11475 (2011-04-16) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki release 4.2.3). The _date_ indicates the
@@ -119,7 +119,7 @@ use Assert;
 use Errno 'EINTR';
 
 our $reason;
-our $VERSION = '$Rev: 9940 (2010-11-10) $';
+our $VERSION = '$Rev: 11475 (2011-04-16) $';
 
 # Version for the embedding format (increment when embedding format changes)
 our $EMBEDDING_FORMAT_VERSION = 1.1;
@@ -136,48 +136,168 @@ our $SUMMARY_DEFAULT_CONTEXT = 30;
 our $CHANGES_SUMMARY_LINECOUNT  = 6;
 our $CHANGES_SUMMARY_PLAINTRUNC = 70;
 
-# META:x validation. See Foswiki::Func::registerMETA for more information.
-# Note that 'other' is *not* the same as 'allow'; it doesn't imply any
-# exclusion of tags that contain unaccepted params. It's really just for
-# documentation (and DB schema initialisation).
+=begin TML
+
+PUBLIC %VALIDATE;
+
+META:x validation. This hash maps from META: names to the type record
+registered by registerMETA. See registerMETA for more information on what
+these records contain.
+
+_default is set on base meta-data types (those not added by
+Foswiki::Func::registerMETA) to differentiate the minimum required
+meta-data and that added by extensions.
+
+=cut
+
 our %VALIDATE = (
     TOPICINFO => {
-        allow => [qw( author version date format reprev rev comment encoding )]
+        allow => [
+            qw( author version date format reprev
+              rev comment encoding )
+        ],
+        _default => 1,
+        alias => 'info',
     },
-    TOPICMOVED => { require => [qw( from to by date )] },
+    TOPICMOVED => {
+        require  => [qw( from to by date )],
+        _default => 1,
+        alias => 'moved',
+    },
 
     # Special case, see Item2554; allow an empty TOPICPARENT, as this was
     # erroneously generated at some point in the past
-    TOPICPARENT    => { allow => [qw( name )] },
+    TOPICPARENT => {
+        allow    => [qw( name )],
+        _default => 1,
+        alias => 'parent',
+    },
     FILEATTACHMENT => {
         require => [qw( name )],
         other   => [
             qw( version path size date user
               comment attr )
-        ]
+        ],
+        _default => 1,
+        alias    => 'attachments',
+        many     => 1,
     },
-    FORM  => { require => [qw( name )] },
+    FORM => {
+        require  => [qw( name )],
+        _default => 1,
+        alias => 'form',
+    },
     FIELD => {
-        require => [qw( name value )],
-        other   => [qw( title )]
+        require  => [qw( name value )],
+        other    => [qw( title )],
+        _default => 1,
+        alias    => 'fields',
+        many     => 1,
     },
     PREFERENCE => {
-        require => [qw( name value )],
-        other   => [qw( type )],
+        require  => [qw( name value )],
+        other    => [qw( type )],
+        _default => 1,
+        alias    => 'preferences',
+        many     => 1,
     }
 );
 
+our %aliases =
+    map { $VALIDATE{$_}->{alias} => "META:$_" }
+        grep { $VALIDATE{$_}->{alias} } keys %VALIDATE;
+
+our %isArrayType =
+    map { $_ => 1 }
+        grep { $VALIDATE{$_}->{many} } keys %VALIDATE;
+
 =begin TML
 
----++ StaticMethod registerMETA($name, $check)
+---++ StaticMethod registerMETA($name, %syntax)
 
-See Foswiki::Func::registerMETA for full doc of this function.
+Foswiki supports embedding meta-data into topics. For example,
+
+=%<nop>META:BOOK{title="Transit" author="Edmund Cooper" isbn="0-571-05724-1"}%=
+
+This meta-data is validated when it is read from the store. Meta-data
+that is not registered, or doesn't pass validation, is ignored. This
+function allows you to register a new META datum, passing the name in
+=$name=. =%syntax= contains information about the syntax and semantics of
+the tag.
+
+The following entries are supported in =%syntax=
+
+=many=>1=. By default meta-data are single valued i.e. can only occur once
+in a topic. If you require the meta-data to be repeated many times (like
+META:FIELD and META:ATTACHMENT) then you must set this option. For example,
+to declare a many-valued =BOOK= meta-data type:
+<verbatim>
+registerMeta('BOOK', many => 1)
+</verbatim>
+
+=require=>[]= is used to check that a list of named parameters are present on
+the tag. For example,
+<verbatim>
+registerMETA('BOOK', require => [ 'title', 'author' ]);
+</verbatim>
+can be used to check that both =title= and =author= are present.
+
+=allow=>[]= lets you specify other optional parameters that are allowed
+on the tag. If you specify =allow= then the validation will fail if the
+tag contains any parameters that are _not_ in the =allow= or =require= lists.
+If you don't specify =allow= then all parameters will be allowed.
+
+=require= and =allow= only verify the *presence* of parameters, and
+not their *values*.
+
+=other=[]= lets you declare other legal parameters, and is provided
+mainly to support the initialisation of DB schema. It it is like
+=allow= except that it doesn't imply any exclusion of META that contains
+unallowed params.
+
+=function=>\&fn= causes the function =fn= to be called when the
+datum is encountered when reading a topic, passing in the name of the
+macro and the argument hash. The function must return a non-zero/undef
+value if the tag is acceptable, or 0 otherwise. For example:
+<verbatim>
+registerMETA('BOOK', function => sub {
+    my ($name, $args) = @_;
+    # $name will be BOOK
+    return isValidTitle($args->{title});
+}
+</verbatim>
+can be used to check that =%META:BOOK{}= contains a valid title.
+
+Checks are cumulative, so if you:
+<verbatim>
+registerMETA('BOOK',
+    function => \&checkParameters,
+    require => [ 'title' ],
+    allow => [ 'author', 'isbn' ]);
+</verbatim>
+then all these conditions will be tested. Note that =require= and =allow=
+are tested _after_ =function= is called, to give the function a chance to
+rewrite the parameter list.
+
+If no checker is registered for a META tag, then it will automatically
+be accepted into the topic meta-data.
+
+=alias=>'name'= lets you set an alias for the datum that will be added to
+the query language. For example, =alias=>'info'= is used to alias
+'META:TOPICINFO' in queries.
+<verbatim>
+registerMeta('BOOK', alias => 'book', many => 1)
+</verbatim>
+This lets you use syntax such as =books[author='Anais Nin']= in queries.
+See QuerySearch for more on aliases.
 
 =cut
 
 sub registerMETA {
     my ( $name, %check ) = @_;
     $VALIDATE{$name} = \%check;
+    $aliases{$check{alias}} = "META:$name" if $check{alias};
+    $isArrayType{$name} = $check{many};
 }
 
 ############# GENERIC METHODS #############
@@ -681,43 +801,6 @@ s/($Foswiki::regex{setRegex}$key\s*=).*?$/$1 $opts->{$key}/gm
         $prefsTopicObject->text($text);
         $prefsTopicObject->save();
     }
-}
-
-=begin TML
-
----++ ObjectMethod searchInText($searchString, \@topics, \%options ) -> \%map
-
-Search for a string in the content of a web. The search must be over all
-content and all formatted meta-data, though the latter search type is
-deprecated (use queries instead).
-
-   * =$searchString= - the search string, in egrep format if regex
-   * =\@topics= - reference to a list of names of topics to search, or undef to search all topics in the web
-   * =\%options= - reference to an options hash
-The =\%options= hash may contain the following options:
-   * =type= - if =regex= will perform a egrep-syntax RE search (default '')
-   * =casesensitive= - false to ignore case (default true)
-   * =files_without_match= - true to return files only (default false)
-
-The return value is a reference to a hash which maps each matching topic
-name to a list of the lines in that topic that matched the search,
-as would be returned by 'grep'. If =files_without_match= is specified, it will
-return on the first match in each topic (i.e. it will return only one
-match per topic, and will not return matching lines).
-
-=cut
-
-sub THISISBEINGDELETEDsearchInText {
-    my ( $this, $searchString, $topics, $options ) = @_;
-    ASSERT( !$this->{_topic} ) if DEBUG;
-    unless ($topics) {
-        my $it   = $this->eachTopic();
-        my @list = $it->all();
-        $topics = \@list;
-    }
-    return $this->{_session}->{store}
-      ->searchInWebContent( $searchString, $this->{_web}, $topics,
-        $this->{_session}, $options );
 }
 
 =begin TML
@@ -2146,11 +2229,9 @@ sub deleteMostRecentRevision {
     # TODO: delete entry in .changes
 
     # write log entry
-    $this->{_session}->writeLog(
-        'cmd',
+    $this->{_session}->logEvent( 'cmd',
         $this->{_web} . '.' . $this->{_topic},
-        " delRev $rev by " . $this->{_session}->{user}
-    );
+        "delRev $rev by " . $this->{_session}->{user} );
 }
 
 =begin TML
@@ -2306,6 +2387,9 @@ sub getLoadedRev {
 Use with great care! Removes all trace of the given web, topic
 or attachment from the store, possibly including all its history.
 
+Also does not ensure consistency of the store 
+(for eg, if you delete an attachment, it does not update the intopic META)
+
 =cut
 
 sub removeFromStore {
@@ -2331,7 +2415,7 @@ sub removeFromStore {
               . $attachment );
     }
 
-    $store->remove( $this->{_session}->{user}, $this );
+    $store->remove( $this->{_session}->{user}, $this, $attachment );
 }
 
 =begin TML
@@ -3269,26 +3353,33 @@ sub summariseChanges {
 
     return '' if ( $orev == $nrev );    # same rev, no differences
 
-    my $metaPick = qr/^[A-Z](?!OPICINFO)/;    # all except TOPICINFO
+    my $nstring = $this->stringify();
+    $nstring =~ s/^%META:TOPICINFO{.*?}%//ms;
+    #print "SSSSSS nstring\n($nstring)\nSSSSSS\n\n";
 
-    $ntext =
-        $renderer->TML2PlainText( $ntext, $this, 'nonop' ) . "\n"
-      . $this->stringify($metaPick);
+    $ntext = $renderer->TML2PlainText( $nstring, $this, 'showvar showmeta' );
+    #print "SSSSSS ntext\n($ntext)\nSSSSSS\n\n";
 
-    my $oldTopicObject = $this->new( $session, $this->web, $this->topic );
+    my $oldTopicObject = Foswiki::Meta->load( $session, $this->web, $this->topic, $orev );
     unless ( $oldTopicObject->haveAccess('VIEW') ) {
 
         # No access to old rev, make a blank topic object
-        $oldTopicObject = $this->new( $session, $this->web, $this->topic, '' );
+        $oldTopicObject = Foswiki::Meta->new( $session, $this->web, $this->topic, '' );
     }
-    my $otext =
-      $renderer->TML2PlainText( $oldTopicObject->text(), $oldTopicObject,
-        'nonop' )
-      . "\n"
-      . $oldTopicObject->stringify($metaPick);
+
+    my $ostring = $oldTopicObject->stringify();
+    $ostring =~ s/^%META:TOPICINFO{.*?}%$//ms;
+    #print "SSSSSS ostring\n$ostring\nSSSSSS\n\n";
+
+    my $otext = $renderer->TML2PlainText( $ostring , $oldTopicObject, 'showvar showmeta' );
+    #print "SSSSSS otext\n($otext)\nSSSSSS\n\n";
 
     require Foswiki::Merge;
     my $blocks = Foswiki::Merge::simpleMerge( $otext, $ntext, qr/[\r\n]+/ );
+
+    #foreach $b ( @$blocks ) {
+    #   print "BBBB\n($b)\nBBBB\n\n";
+    #   }
 
     # sort through, keeping one line of context either side of a change
     my @revised;
@@ -3336,8 +3427,9 @@ sub summariseChanges {
     }
 
     unless ($summary) {
-        $summary = $this->summariseText( '', $ntext );
+        return $this->summariseText( '', $ntext );
     }
+    #print "SUMMARY\n===================\n($summary)\n============\n\n";
 
     if ( !$tml ) {
         $summary = $renderer->protectPlainText($summary);

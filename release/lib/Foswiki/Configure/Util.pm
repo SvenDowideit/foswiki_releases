@@ -5,6 +5,7 @@ package Foswiki::Configure::Util;
 use strict;
 use warnings;
 
+
 sub getScriptName {
     my @script = File::Spec->splitdir( $ENV{SCRIPT_NAME} || 'THISSCRIPT' );
     my $scriptName = pop(@script);
@@ -131,7 +132,11 @@ sub mapTarget {
     }
     elsif ( $file =~ s#^locale/#$Foswiki::cfg{LocalesDir}/# ) {
     }
-    elsif ( $file =~ s#^bin/(\w+)$#$Foswiki::cfg{ScriptDir}/$1$Foswiki::cfg{ScriptSuffix}# ) {
+    elsif ( $file =~ s#^lib/#$Foswiki::foswikiLibPath/# ) {
+    }
+    elsif ( $file =~
+        s#^bin/(.*)$#$Foswiki::cfg{ScriptDir}/$1$Foswiki::cfg{ScriptSuffix}# )
+    {
 
         #This makes a couple of bad assumptions
         #2. that any file going into there _is_ a script - making installing the
@@ -406,13 +411,23 @@ sub _unzip {
         my @members = $zip->members();
         foreach my $member (@members) {
             my $file = $member->fileName();
-            $file =~ /(.*)/;
+            $file =~ /^(.*)$/;
             $file = $1;    #yes, we must untaint
             my $target = $file;
-            my $err = $zip->extractMember( $file, $target );
-            if ($err) {
-                return "unzip failed: Failed to extract '$file' from zip file ",
-                  $zip, ". Archive may be corrupt.\n";
+            my $dest = Cwd::getcwd();
+            ($dest) = $dest =~ m/^(.*)$/;
+
+            #SMELL:  Archive::Zip->extractMember( $file)  would be better to use
+            # but it has taint issues on Perl 5.12.
+            my $contents = $zip->contents( $file );
+            if ( $contents) {
+                my ($vol,$dir,$fn) = File::Spec->splitpath( $file );
+                File::Path::mkpath( "$dest/$dir" );
+                open( my $fh, '>', "$dest/$file" )
+                 || die "Unable to open $dest/$file \n $! \n\n ";
+                binmode $fh;
+                print $fh $contents;
+                close($fh);
             }
         }
     }
@@ -542,15 +557,15 @@ specified, defaults to the configure script
 
 sub getPerlLocation {
 
-    my $file = shift || "$Foswiki::cfg{ScriptDir}/configure$Foswiki::cfg{ScriptSuffix}";
+    my $file = shift
+      || "$Foswiki::cfg{ScriptDir}/configure$Foswiki::cfg{ScriptSuffix}";
 
     local $/ = "\n";
-    open( my $fh, '<',
-        "$file" )
+    open( my $fh, '<', "$file" )
       || return "";
     my $Shebang = <$fh>;
     chomp $Shebang;
-    $Shebang =~ s/^#\!\s*(.*?)\s?(:?\s-.*)?$/$1/;
+    ($Shebang) = $Shebang =~ m/^#\!\s*(.*?perl.*?)\s?(?:\s-.*?)?$/;
     $Shebang =~ s/\s+$//;
     close($fh);
     return $Shebang;
@@ -566,30 +581,43 @@ with the specified script name.
 =cut
 
 sub rewriteShebang {
-    my $file      = shift;
+    my $file       = shift;
     my $newShebang = shift;
 
-    return unless ( -f $file );
-    return unless $newShebang;
+    return 'Not a file' unless ( -f $file );
+    return 'Missing Shebang' unless $newShebang;
 
     local $/ = undef;
     open( my $fh, '<', $file ) || return "Rewrite shebang failed:  $!";
     my $contents = <$fh>;
     close $fh;
 
+    my $firstline = substr( $contents, 0, index( $contents, "\n" ) );
+    ( my $match ) = $firstline =~ m/^#\!\s*(.*?perl.*?)\s?(?:\s-.*?)?$/ms;
+    $match = '' unless $match;
+
+    return "Not a perl script" unless ($match);
+
     # Note: space inserted after #! - needed on some flavors of Unix
-    if ( $contents =~ s/^#!\s*\S+/#! $newShebang/s ) {
-        my $mode = ( stat($file) )[2];
-        $file =~ /(.*)/;
-        $file = $1;
-        chmod( oct(600), "$file" );
-        open( my $fh, '>', $file ) || return "Rewrite shebang failed:  $!";
-        print $fh $contents;
-        close $fh;
-        $mode =~ /(.*)/;
-        $mode = $1;
-        chmod( $mode, "$file" );
-    }
+    my $perlIdx = index( $contents, $match );
+    substr( $contents, $perlIdx, length($match) ) =
+      ( substr( $contents, $perlIdx - 1, 1 ) eq ' ' ? '' : ' ' )
+      . "$newShebang";
+
+    return "No change required" if ($match eq $newShebang && substr( $contents, $perlIdx - 1, 1 ) eq ' ');
+
+    my $mode = ( stat($file) )[2];
+    $file =~ /(.*)/;
+    $file = $1;
+    chmod( oct(600), "$file" );
+    open( $fh, '>', $file ) || return "Rewrite shebang failed:  $!";
+    print $fh $contents;
+    close $fh;
+    $mode =~ /(.*)/;
+    $mode = $1;
+    chmod( $mode, "$file" );
+
+    return '';
 }
 
 1;

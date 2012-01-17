@@ -98,12 +98,12 @@ $Foswiki::cfg{ScriptUrlPaths}{view} = '$Foswiki::cfg{ScriptUrlPath}/view$Foswiki
 # **NUMBER EXPERT**
 # This is the maximum number of files and directories that will be checked 
 # for permissions for the pub and data Directory paths.  This limit is initially set to 
-# 4200, which should be reasonable for a default installation.  If it is 
+# 5000, which should be reasonable for a default installation.  If it is 
 # exceeded, then an informational message is returned stating that incomplete
 # checking was performed.  If this is set to a large number on large installations,
 # then a significant delay will be incurred when configure is run, due to the 
 # recursive directory checking.
-$Foswiki::cfg{PathCheckLimit} = 4200;
+$Foswiki::cfg{PathCheckLimit} = 5000;
 
 # **PATH M**
 # Attachments store (file path, not URL), must match /foswiki/pub e.g.
@@ -328,7 +328,9 @@ $Foswiki::cfg{LoginManager} = 'Foswiki::LoginManager::TemplateLogin';
 # authenticate. This setting is used with TemplateLogin; any time an
 # unauthenticated user attempts to access one of these scripts, they will be
 # required to authenticate. With ApacheLogin, the web server must be configured
-# to require a valid user for access to these scripts.
+# to require a valid user for access to these scripts.  <code>edit</code> and
+# <code>save</code> should be removed from this list if the guest user is permitted to
+# edit topics without authentication.
 $Foswiki::cfg{AuthScripts} = 'attach,edit,manage,rename,save,upload,viewauth,rdiffauth,rest';
 
 # **BOOLEAN EXPERT**
@@ -418,9 +420,9 @@ $Foswiki::cfg{UserMappingManager} = 'Foswiki::Users::TopicUserMapping';
 #   passwords encoded as per the HtpasswdEncoding
 # </li><li>
 # Foswiki::Users::ApacheHtpasswdUser - should behave identically to
-# HtpasswdUser, but uses the CPAN:Apache::Htpasswd package to interact
+# HtpasswdUser for crypt encoding, but uses the CPAN:Apache::Htpasswd package to interact
 # with Apache. It is shipped mainly as a demonstration of how to write
-# a new password manager.
+# a new password manager.  It is not recommended for production.
 # </li></ol>
 # You can provide your own alternative by implementing a new subclass of
 # Foswiki::Users::Password, and pointing {PasswordManager} at it in
@@ -448,9 +450,12 @@ $Foswiki::cfg{Htpasswd}{FileName} = '$Foswiki::cfg{DataDir}/.htpasswd';
 # **SELECT crypt,sha1,md5,plain,crypt-md5**
 # Password encryption, for the Foswiki::Users::HtPasswdUser password manager.
 # You can use the <tt>htpasswd</tt> Apache program to create a new
-# password file with the right encoding.
+# password file with the right encoding. <b>Caution:</b> Changing the password
+# encoding will invalidate all current passwords.
 # <dl>
-# <dt>crypt</dt><dd>is the default, and should be used on Linux/Unix.</dd>
+# <dt>crypt</dt><dd>is the default. <b>Caution:</b>
+# crypt encoding only uses the first 8 characters of the password. Extra characters
+# are silently discarded.</dd>
 # <dt>sha1</dt><dd> is recommended for use on Windows.</dd>
 # <dt>md5</dt><dd> htdigest format - useful on sites where password files are required
 # to be portable. In this case, the {AuthRealm} is used with the username
@@ -720,11 +725,13 @@ $Foswiki::cfg{Log}{Dir} = '$Foswiki::cfg{WorkingDir}/logs';
 # implementation to be used here. Most sites should be OK with the
 # PlainFile logger, which automatically rotates the logs every month.<p />
 # Note: the Foswiki 1.0 implementation of logfiles is still supported,
-# through use of the <tt>Foswiki::Logger::Compatibility</tt> logger. This
-# logger will automatically be selected if configure detects a setting for
-# <tt>{WarningFileName}</tt> in your LocalSite.cfg. You are recommended to
-# change to the PlainFile logger at your earliest convenience by removing this
-# setting from LocalSite.cfg and re-running configure.
+# through use of the <tt>Foswiki::Logger::Compatibility</tt> logger.
+# Foswiki will automatically select the Compatibility logger if it detects
+# a setting for <tt>{WarningFileName}</tt> in your LocalSite.cfg.
+# You are recommended to change to the PlainFile logger at your earliest 
+# convenience by removing <tt>{WarningFileName}</tt>, 
+# <tt>{LogFileName}</tt> and <tt>{DebugFileName}</tt>
+# from LocalSite.cfg and re-running configure.
 $Foswiki::cfg{Log}{Implementation} = 'Foswiki::Logger::PlainFile';
 
 # **PERL EXPERT**
@@ -736,6 +743,7 @@ $Foswiki::cfg{Log}{Action} = {
     search   => 1,
     changes  => 1,
     rdiff    => 1,
+    compare  => 1,
     edit     => 1,
     save     => 1,
     upload   => 1,
@@ -1077,6 +1085,7 @@ $Foswiki::cfg{RCS}{delRevCmd} =
 #---+ Tuning
 
 #---++ HTTP Compression
+# <p>Expert settings controlling compression of the generated HTML.</p>
 # **BOOLEAN EXPERT**
 # Enable gzip/deflate page compression. Modern browsers can uncompress content
 # encoded using gzip compression. You will save a lot of bandwidth by compressing
@@ -1087,6 +1096,7 @@ $Foswiki::cfg{RCS}{delRevCmd} =
 $Foswiki::cfg{HttpCompress} = $FALSE;
 
 #---++ HTML Page Layout
+# <p>Expert setting controlling the layout of the generated HTML.</p>
 # **BOOLEAN EXPERT**
 # <p><code>{MergeHeadAndScriptZones}</code> is provided to maintain compatibility with legacy extensions that use <code>ADDTOHEAD</code> to add <code>&lt;script&gt;</code> markup and require content that is now in the <code>script</code> zone.</p>
 # <p>Normally, dependencies between individual <code>ADDTOZONE</code> statements are resolved within each zone. However, if <code>{MergeHeadAndScriptZones}</code> is enabled, then <code>head</code> content which requires an <code>id</code> that only exists in <code>script</code> (and vice-versa) will be re-ordered to satisfy any dependency.</p>
@@ -1502,6 +1512,7 @@ $Foswiki::cfg{Plugins}{MailerContribPlugin}{Enabled} = 1;
 $Foswiki::cfg{Plugins}{MailerContribPlugin}{Module} = 'Foswiki::Plugins::MailerContribPlugin';
 
 #---++ Plugin settings
+#<p>Expert settings controlling extension operation.</p>
 # **STRING 80 EXPERT**
 # Search path (web names) for plugin topics. Note that the session web
 # is searched last, after this list.

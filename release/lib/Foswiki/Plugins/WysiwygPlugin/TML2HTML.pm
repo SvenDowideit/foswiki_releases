@@ -24,6 +24,7 @@ use Error qw( :try );
 
 use Foswiki;
 use Foswiki::Plugins::WysiwygPlugin::Constants;
+use Foswiki::Plugins::WysiwygPlugin::Handlers;
 
 use strict;
 use warnings;
@@ -120,7 +121,8 @@ WARNING
             _protectVerbatimChars($content) );
     }
     else {
-        my $tagsToProtect = Foswiki::Func::getPreferencesValue('WYSIWYGPLUGIN_PROTECT_EXISTING_TAGS')
+        my $tagsToProtect = Foswiki::Func::getPreferencesValue(
+            'WYSIWYGPLUGIN_PROTECT_EXISTING_TAGS')
           || 'div,span';
         for my $tag ( split /[,\s]+/, $tagsToProtect ) {
             next unless $tag =~ /^\w+$/;
@@ -391,7 +393,8 @@ sub _getRenderedVersion {
     $text =~ s/(<img [^>]*>)/$this->_takeOutIMGTag($1)/gei;
     $text =~ s/<\/img>//gi;
 
-    $text =~ s/<([A-Za-z]+[^>]*?)((?:\s+\/)?)>/"<" . $this->_appendClassToTag($1, 'TMLhtml') . $2 . ">"/ge;
+    $text =~
+s/<([A-Za-z]+[^>]*?)((?:\s+\/)?)>/"<" . $this->_appendClassToTag($1, 'TMLhtml') . $2 . ">"/ge;
 
     # Handle colour tags specially (hack, hack, hackity-HACK!)
     my $colourMatch = join( '|', grep( /^[A-Z]/, @WC::TML_COLOURS ) );
@@ -722,13 +725,14 @@ s/$WC::STARTWW(($Foswiki::regex{webNameRegex}\.)?$Foswiki::regex{wikiWordRegex}(
 }
 
 sub _appendClassToTag {
-    my $this = shift;
+    my $this         = shift;
     my $tagWithAttrs = shift;
-    my $class = shift;
-    if ( $tagWithAttrs =~ /^\s*(\w+)/ 
-        and exists $this->{protectExistingTags}->{$1} ) {
+    my $class        = shift;
+    if ( $tagWithAttrs =~ /^\s*(\w+)/
+        and exists $this->{protectExistingTags}->{$1} )
+    {
         $tagWithAttrs =~ s/(\sclass=)(['"])([^'"]*)\2/$1$2$3 $class$2/
-            or $tagWithAttrs .= " class='$class' ";
+          or $tagWithAttrs .= " class='$class' ";
     }
     return $tagWithAttrs;
 }

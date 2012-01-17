@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1191730164" format="1.1" version="$Rev$"}%
+%META:TOPICINFO{author="ProjectContributor" date="1191730164" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Plugins"}%
 ---+ Table Plugin
 
@@ -107,6 +107,23 @@ Results in:
 | ^ | Two Two | Two Three |
 | Three One | ^ | Three Three |
 
+*Note:* Row spans do not work across the header and body boundaries of a table. So it you have a header row, the row cells beneath (in the body section) cannot be merged with the header row cells. Row spans within header cells are possible.
+
+<verbatim class="tml">
+%TABLE{headerrows="2" sort="off"}%
+| *One One* | *One Two* | *One Three* |
+| ^ | *Two Two* | *Two Three* |
+| Two One | Two Two | Two Three |
+| Three One | ^ | Three Three |
+</verbatim>
+
+Results in:
+%TABLE{headerrows="2" sort="off"}%
+| *One One* | *One Two* | *One Three* | 
+| ^ | *Two Two* | *Two Three* | 
+| Two One | Two Two | Two Three | 
+| Three One | ^ | Three Three |
+
 ---+++ Col spans
 Col spans can be achieved by writing table cell separators without contents or spacing:
 <verbatim class="tml">
@@ -178,11 +195,20 @@ If you have any problems, or if the extension isn't available in =configure=, th
 ---++ Plugin Info
 
 %TABLE{columnwidths="10%,90%"}%
-|  Copyright: | Copyright (C) 2001-2008 TWiki:Main/JohnTalintyre, Peter Thoeny, peter@thoeny.org and TWiki Contributors; &copy; 2008-2010 Foswiki Contributors |
+|  Copyright: | Copyright (C) 2001-2008 TWiki:Main/JohnTalintyre, Peter Thoeny, peter@thoeny.org and TWiki Contributors; &copy; 2008-2011 Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 9152 (2010-09-16) |
-|  Release: | 1.126 |
+|  Version: | 11383 (2011-04-10) |
+|  Release: | 1.132 |
 |  Change History: | <!-- specify latest version first -->&nbsp; |
+|  11 Apr 2011 | 1.132: Version released with Foswiki 1.1.3. Only a minor change related to how the plugin is being upgraded |
+|  09 Mar 2011 | 1.131: Arthur Clemens: fix sorting bug that was not properly fixed in 1.128. |
+|  08 Mar 2011 | 1.130: Michael Daum: Foswikitask:Item10456: fixed initialization in persistent perl environments. |
+|  05 Mar 2011 | 1.129: Arthur Clemens: Foswikitask:Item8302: init sorting is broken if no header row. \
+Foswikitask:Item10016: No rowspan in header rows possible. \
+Foswikitask:Item5864: documentation needs better coverage of spans from header row. \
+Foswikitask:Item8991: header-only table violates XHTML DTD. |
+|  04 Mar 2011 | 1.128: Arthur Clemens: disable sorting if =sort="off"= is set in =TABLEPLUGIN_TABLEATTRIBUTES=. |
+|  16 Feb 2011 | 1.127: Michael Daum: Foswikitask:Item10357: only emit inline css when there's a foswikiTable on the current page |
 |  18 Aug 2010 | 1.126: Paul harvey: Foswikitask:Item9415: minor documentation changes |
 |  09 Aug 2010 | 1.125: Crawford Currie: Foswikitask:Item8303: fixed sorting with multiple headers |
 |  31 Jul 2010 | 1.124: Arthur Clemens: Added attribute =inlinemarkup= to optionally add HTML markup for better copy/pasting. |

@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="BaseUserMapping_333" comment="save topic" date="1270244482" format="1.1" reprev="1.2" version="1.2"}%
+%META:TOPICINFO{author="ProjectContributor" date="1270244482" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Skins"}%
 %STARTINCLUDE%
 <!--
@@ -161,13 +161,20 @@ For further troubleshooting and feedback, go to http://foswiki.org/Support/%TOPI
 
 ---++ Skin Info
 
-|  Copyright: | &copy; Arthur Clemens |
+|  Copyright: | &copy; 2004-2011 Arthur Clemens |
 |  Screenshot: | <a href="%ATTACHURL%/patternskin_screenshot_full.png"><img src="%ATTACHURL%/patternskin_screenshot.png" style="border:1px solid #eee;" alt="Click for full screen image" width="600" /></a> |
 |  Preview: | [[%SCRIPTURL{view}%/%WEB%/%TOPIC%?skin=pattern][Preview with this skin]] |
 |  Base Name: | pattern |
-|  Version: | 9926 (2010-11-09) | 
-|  Release: | 5.4.2 |
+|  Version: | 11024 (2011-03-12) | 
+|  Release: | 5.4.12 |
 |  History: | <!-- specify latest version first -->&nbsp; |
+|  12 Mar 2011: | v.5.4.12: Visual fixes for Fatwilly theme. |
+|  06 Mar 2011: | v.5.4.8: Now that !TablePlugin styles are not automatically loaded to every page, header style needs a small change. |
+|  30 Dec 2010: | v.5.4.7: Added custom login.sudo template. |
+|  26 Dec 2010: | v.5.4.6: Clean up templates regarding =foswikiFormStep= elements. |
+|  18 Dec 2010: | v.5.4.5: Link author names when =NOAUTOLINK= is set to on. |
+|  14 Dec 2010: | v.5.4.4: Fix check all / uncheck all checkboxes on rename and delete topic pages. |
+|  12 Dec 2010: | v.5.4.3: Fix trimming and stripping spaces in web topic creator javascript. |
 |  09 Nov 2010: | v.5.4.2: Remove redundant files from repository. v.5.4.1: Revert usage of =$<nop>percent= back to =$<nop>percnt= |
 |  19 Aug 2010: | v.5.4 - Version for Foswiki 1.1. |
 |  31 Jul 2010: | v.5.3.1 - Documentation updates |

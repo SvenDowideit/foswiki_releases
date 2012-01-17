@@ -48,7 +48,7 @@ sub available_languages {
 # also renove any character there is not a letter [a-z] or a hyphen.
 sub _normalize_language_tag {
     my $tag = shift;
-    $tag = lc($tag);
+    $tag = lc($tag || '');
     $tag =~ s/\_/-/g;
     $tag =~ s/[^a-z-]//g;
     return $tag;
@@ -248,7 +248,7 @@ sub maketext {
         import CGI();
 
         return CGI::span(
-            { -style => 'color:red;' },
+            { -class => 'foswikiAlert' },
             "Error: MAKETEXT argument's can't start with an underscore (\"_\")."
         );
     }
