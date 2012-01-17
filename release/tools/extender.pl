@@ -32,7 +32,6 @@ use Cwd;
 use File::Temp;
 use File::Copy;
 use File::Path;
-use UNIVERSAL::require;
 
 no warnings 'redefine';
 
@@ -79,10 +78,9 @@ BEGIN {
                 return $available{$module} = 0;
             }
         }
-        eval "use $module;";
-        if ($@) {
-            print
-"Warning: $module is not available, some installer functions have been disabled\n";
+        unless ( $module->use ) {
+            print "Warning: $module is not available,"
+              . " some installer functions have been disabled\n";
             $available{$module} = 0;
         }
         else {
@@ -95,13 +93,17 @@ BEGIN {
         && -d 'bin'
         && -e 'bin/setlib.cfg' )
     {
-        die
-'This installer must be run from the root directory of a Foswiki installation';
+        die 'This installer must be run from the root directory'
+          . ' of a Foswiki installation';
     }
 
     # read setlib.cfg
     chdir('bin');
     require 'setlib.cfg';
+
+    # This has to be read after setlib.cfg, as it might not exist in the system
+    # so we will use the one we ship
+    require UNIVERSAL::require;
 
     # See if we can make a Foswiki. If we can, then we can save topic
     # and attachment histories. Key off Foswiki::Merge because it is
@@ -166,6 +168,28 @@ sub remap {
       } return $file;
 }
 
+# Handles warnings when the VERSION string of a module
+# isn't numeric, like perl wants it to be
+my $moduleVersion;    # Global so that this handler can set it
+
+sub check_non_perl_versions {
+    my ($msg) = @_;
+    if ( $msg !~ /Version string '(.+)' contains invalid data; ignoring: '/ ) {
+        print STDERR $msg;
+    }
+    elsif ( $1 eq '$Rev$' ) {
+
+        # Setting version to an arbitary high number
+        # if it's supposed to be some subversion revision
+        $moduleVersion = 999999;
+    }
+    elsif ( $1 =~ /(\d+)/ ) {
+
+        # If the text contains a number, use the first one
+        $moduleVersion = $1;
+    }
+}
+
 sub check_dep {
     my ($dep) = @_;
     my ( $ok, $msg ) = ( 1, "" );
@@ -189,16 +213,67 @@ sub check_dep {
         return ( $ok, $msg );
     }
 
-    # check if the version satisfies the prerequisite
-    if ( defined $dep->{version} ) {
-        if ( not eval { $module->VERSION( $dep->{version} ) } ) {
-            $ok = 0;
-            ( $msg = $@ ) =~ s/ at .*$//;
-            return ( $ok, $msg );
-        }
+    # if the VERSION string isn't perl compatible (\d+\.\d+(\.\d+)?)
+    # perl will print out some message and test will fail
+    # Try to catch those until all VERSION are correct
+    $moduleVersion = 0;
+    {
+        local $SIG{__WARN__} = \&check_non_perl_versions;
+
+        # Providing 0 as version number as version checking is done below
+        # and without it, perl < 5.10 won't trigger the warning
+        my $version = $module->VERSION(0);
+        $moduleVersion ||= $version;
     }
 
-    $msg = "$module v" . $module->VERSION . " loaded\n";
+    # check if the version satisfies the prerequisite
+    if ( defined $dep->{version} ) {
+
+        # the version field is in fact a condition
+        if ( $dep->{version} =~ /^\s*(?:>=?)?\s*([0-9.]+)/ ) {
+
+            # Condition is >0 or >= 1.3
+            my $requiredVersion = $1;
+
+            # SMELL: Once all modules have proper version, this should be:
+            # if ( not eval { $module->VERSION( $requiredVersion ) } )
+            if ( $moduleVersion < $requiredVersion ) {
+
+                # But module doesn't meet this condition
+                $msg = "$module version $requiredVersion required"
+                  . "--this is only version $moduleVersion";
+                $ok = 0;
+                return ( $ok, $msg );
+            }
+        }
+        elsif ( $dep->{version} =~ /<\s*([0-9.]+)/ ) {
+
+            # Condition is < 2.7
+            if ( $moduleVersion >= $1 ) {
+
+                # But module doesn't meet this condition
+                $ok = 0;
+                $msg =
+                    "Module $module is version v"
+                  . $moduleVersion
+                  . " and the dependency wants "
+                  . $dep->{version};
+                return ( $ok, $msg );
+            }
+        }
+        else {
+            $ok = 0;
+            $msg =
+                "Module $module is version v"
+              . $moduleVersion
+              . " and the dependency wants "
+              . $dep->{version};
+            return ( $ok, $msg );
+        }
+
+    }
+
+    $msg = "$module v$moduleVersion loaded\n";
 
     return ( $ok, $msg );
 }
@@ -225,6 +300,7 @@ DONE
     my ( $ok, $msg ) = check_dep($dep);
 
     if ($ok) {
+        print $msg;
         return 1;
     }
 
@@ -242,8 +318,9 @@ DONE
         my $packname = $3;
         $packname .= $pack if ( $pack eq 'Contrib' && $packname !~ /Contrib$/ );
         if ( !$noconfirm || ( $noconfirm && $downloadOK ) ) {
-            my $reply = ask(
-'Would you like me to try to download and install the latest version of '
+            my $reply =
+              ask(  'Would you like me to try to download '
+                  . 'and install the latest version of '
                   . $packname
                   . ' from foswiki.org?' );
             if ($reply) {
@@ -260,8 +337,9 @@ can download and install it from here. The module will be installed
 to wherever you configured CPAN to install to.
 
 DONE
-        my $reply = ask(
-'Would you like me to try to download and install the latest version of '
+        my $reply =
+          ask(  'Would you like me to try to download '
+              . 'and install the latest version of '
               . $dep->{name}
               . ' from cpan.org?' );
         return 0 unless $reply;
@@ -467,6 +545,8 @@ sub installPackage {
     if ( $script && -e $script ) {
         my $cmd = "perl $script";
         $cmd .= ' -a' if $noconfirm;
+        $cmd .= ' -d' if $downloadOK;
+        $cmd .= ' -r' if $reuseOK;
         $cmd .= ' -n' if $inactive;
         $cmd .= ' install';
         local $| = 0;
@@ -539,8 +619,7 @@ sub unpackArchive {
 sub unzip {
     my $archive = shift;
 
-    eval 'use Archive::Zip';
-    unless ($@) {
+    unless ( 'Archive::Zip'->use ) {
         my $zip           = Archive::Zip->new();
         my $numberOfFiles = $zip->read($archive);
         unless ( $numberOfFiles > 0 ) {
@@ -582,8 +661,7 @@ sub untar {
 
     my $compressed = ( $archive =~ /z$/i ) ? 'z' : '';
 
-    eval 'use Archive::Tar';
-    unless ($@) {
+    unless ( 'Archive::Tar'->use ) {
         my $tar = Archive::Tar->new();
         my $numberOfFiles = $tar->read( $archive, $compressed );
         unless ( $numberOfFiles > 0 ) {
@@ -843,7 +921,7 @@ sub _install {
     my $path = $MODULE;
 
     if ( $path !~ /^(Foswiki|TWiki)::/ ) {
-        my $source = $1;
+        my $source = 'Foswiki';
         my $type   = 'Contrib';
         if ( $path =~ /Plugin$/ ) {
             $type = 'Plugins';
@@ -851,21 +929,30 @@ sub _install {
         $path = $source . '::' . $type . '::' . $rootModule;
     }
 
-    eval 'use ' . $path;
-    unless ($@) {
-        my $version = eval '$' . $path . '::VERSION';
-        if ($version) {
-            unless (
-                ask(
-"$MODULE version $version is already installed. Are you sure you want to re-install this module?"
-                )
-              )
-            {
-                return 0;
-            }
-            print <<DONE;
-I will keep a backup of any files I overwrite.
-DONE
+    if ( $path->use ) {
+
+        # Module is already installed
+        # XXX SMELL: Could be more user-friendly:
+        # test that current version isn't newest
+        $moduleVersion = 0;
+
+        # if the VERSION string isn't perl compatible (\d+\.\d+(\.\d+)?)
+        # perl will print out some message and test will fail
+        # Try to catch those until all VERSION are correct
+        {
+            local $SIG{__WARN__} = \&check_non_perl_versions;
+
+            # Providing 0 as version number as version checking is done below
+            # and without it, perl < 5.10 won't trigger the warning
+            my $version = $path->VERSION(0);
+            $moduleVersion ||= $version;
+        }
+
+        if ($moduleVersion) {
+            return 0
+              unless ask( "$MODULE version $moduleVersion is already installed."
+                  . " Are you sure you want to re-install this module?" );
+            print "I will keep a backup of any files I overwrite.";
         }
     }
 
@@ -903,9 +990,9 @@ sub _validatePerlModule {
     # Do not use \w as this is localized, and might be tainted
     my $replacements = $module =~ s/[^a-zA-Z:_0-9]//g;
     print STDERR 'validatePerlModule removed '
-          . $replacements
-          . ' characters, leading to '
-          . $module ."\n"
+      . $replacements
+      . ' characters, leading to '
+      . $module . "\n"
       if $replacements;
     return $module;
 }
@@ -927,8 +1014,7 @@ sub install {
     foreach my $row ( split( /\r?\n/, $data{DEPENDENCIES} ) ) {
         my ( $module, $condition, $trigger, $type, $desc ) =
           split( ',', $row, 5 );
-        $module =
-          Foswiki::Sandbox::untaint( $module, \&_validatePerlModule );
+        $module = Foswiki::Sandbox::untaint( $module, \&_validatePerlModule );
         if ( $trigger eq '1' ) {
 
             # ONLYIF usually isn't used, and is dangerous
@@ -946,9 +1032,9 @@ sub install {
         else {
 
             # There is a ONLYIF condition, warn user
-            print
-'The script uses an ONLYIF condition which is potentially insecure: "'
-              . $trigger . "\n";
+            print 'The script uses an ONLYIF condition'
+              . ' which is potentially insecure: "'
+              . $trigger . "\"\n";
             if ( $trigger =~ /^[a-zA-Z:\s<>0-9.()]*$/ ) {
 
                 # It looks more or less safe
@@ -966,9 +1052,10 @@ sub install {
             else {
                 print 'This ' . $trigger . ' condition does not look safe.';
                 if (running_from_configure) {
-                    print
-'Disabling this as we were invoked from configure. If you really want to install this module, do it from the command line.'
-                      . "\n";
+                    print <<DONE;
+Disabling this as we were invoked from configure.
+If you really want to install this module, do it from the command line.'
+DONE
                 }
                 else {
                     my $reply = ask('Do you want to run it anyway?');

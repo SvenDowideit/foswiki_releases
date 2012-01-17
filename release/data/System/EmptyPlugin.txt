@@ -30,7 +30,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Author: | Foswiki:Main.PluginAuthor|
 |  Copyright: | &copy; 2008, Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 1399 (28 Feb 2009) |
+|  Version: | 3048 (2009-03-12) |
 |  Home: | http://foswiki.org/Extensions/%TOPIC%Dev |
-|  Feedback: | http://foswiki.org/Extensions/%TOPIC%Dev |
+|  Support: | http://foswiki.org/Support/%TOPIC% |
 

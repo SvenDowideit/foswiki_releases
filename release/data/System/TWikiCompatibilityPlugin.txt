@@ -41,12 +41,11 @@ Many thanks to the following sponsors for supporting this work:
 |  Plugin Author(s): | Sven Dowideit, Michael Daum, Crawford Currie |
 |  Copyright: | &copy; SvenDowideit@fosiki.com |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL3 (Gnu General Public License)]] |
-|  Plugin Version: | 2621 (28 Feb 2009) |
+|  Plugin Version: | 3132 (2009-03-16) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
 |  Dependencies: | None |
-|  Plugin Home: | http://nextwiki.org/bin/view/Extensions/TWikiCompatibilityPlugin |
-|  Feedback: | http://nextwiki.org/bin/view/Extensions/TWikiCompatibilityPluginDev |
-|  Appraisal: | http://nextwiki.org/bin/view/Extensions/TWikiCompatibilityPluginAppraisal |
+|  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |
+|  Support: | http://foswiki.org/Support/%TOPIC% |
 
 ---
 *Related Topics:* [[%SYSTEMWEB%.Plugins][Plugins]], %SYSTEMWEB%.DeveloperDocumentationCategory, %SYSTEMWEB%.AdminDocumentationCategory, %SYSTEMWEB%.DefaultPreferences, %USERSWEB%.SitePreferences

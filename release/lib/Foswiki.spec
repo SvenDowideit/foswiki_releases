@@ -87,6 +87,21 @@ my $OS = $Foswiki::cfg{OS} || '';
 #  This is the root of all Foswiki URLs e.g. http://myhost.com:123.
 # $Foswiki::cfg{DefaultUrlHost} = 'http://your.domain.com';
 
+# **STRING**
+# If your host has aliases (such as both www.foswiki.org and foswiki.org
+# and some IP addresses) you need to tell Foswiki that redirecting to them
+# is OK. Foswiki uses redirection as part of its normal mode of operation
+# when it changes between editing and viewing.
+# To prevent Foswiki from being used in phishing attacks and to protect it
+# from middleman exploits, the security setting {AllowRedirectUrl} is by
+# default disabled, restricting redirection to other domains. If a redirection
+# to a different host is attempted, the target URL is compared against this
+# list of additional trusted sites, and only if it matches is the redirect
+# permitted.<br />
+# Enter as a comma separated list of URLs (protocol, hostname and (optional)
+# port) e.g. <code>http://your.domain.com:8080,https://other.domain.com</code>
+$Foswiki::cfg{PermittedRedirectHostUrls} = '';
+
 # **PATH M**
 # This is the 'cgi-bin' part of URLs used to access the Foswiki bin
 # directory e.g. <code>/foswiki/bin</code><br />
@@ -268,13 +283,18 @@ $Foswiki::cfg{Sessions}{ExpireCookiesAfter} = 0;
 $Foswiki::cfg{Sessions}{IDsInURLs} = 0;
 
 # **BOOLEAN EXPERT**
-# It's important to check that the user trying to use a session is the
-# same user who originally created the session. Foswiki does this by making
-# sure, before initializing a previously stored session, that the IP
-# address stored in the session matches the IP address of the user asking
-# for that session. Turn this off if a client IP address may change during
-# the lifetime of a session (unlikely)
-$Foswiki::cfg{Sessions}{UseIPMatching} = 1;
+# It is possible to enable a check that the user trying to use a session
+# is on the same IP address that was used when the session was created.
+# This gives a small increase in security. Public web sites can easily be
+# accessed by different users from the same IP address when they access
+# through the same proxy gateway, meaning that the protection is limited.
+# Additionally people get more and more mobile using a mix of LAN, WLAN, 
+# and 3G modems and they will often change IP address several times per day.
+# For these users IP matching causes the need to re-authenticate all the time.
+# IP matching is therefore disabled by default and should only be enabled if
+# you are sure the users IP address never changes during the lifetime of a
+# session.
+$Foswiki::cfg{Sessions}{UseIPMatching} = 0;
 
 # **BOOLEAN EXPERT**
 # For compatibility with older versions, Foswiki supports the mapping of the
@@ -554,21 +574,6 @@ $Foswiki::cfg{RemovePortNumber}  = $FALSE;
 # To enable redirection to a list of trusted URLs, keep this setting
 # disabled and set the {PermittedRedirectHostUrls}.
 $Foswiki::cfg{AllowRedirectUrl}  = $FALSE;
-
-# **STRING EXPERT**
-# If your host has aliases (such as both www.foswiki.org and foswiki.org
-# and some IP addresses) you need to tell Foswiki that redirecting to them
-# is OK. Foswiki uses redirection as part of its normal mode of operation
-# when it changes between editing and viewing.
-# To prevent Foswiki from being used in phishing attacks and to protect it
-# from middleman exploits, the security setting {AllowRedirectUrl} is by
-# default disabled, restricting redirection to other domains. If a redirection
-# to a different host is attempted, the target URL is compared against this
-# list of additional trusted sites, and only if it matches is the redirect
-# permitted.<br />
-# Enter as a comma separated list of URLs (protocol, hostname and (optional)
-# port) e.g. <code>http://your.domain.com:8080,https://other.domain.com</code>
-$Foswiki::cfg{PermittedRedirectHostUrls} = '';
 
 # **REGEX EXPERT**
 # Defines the filter-in regexp that must match the names of environment

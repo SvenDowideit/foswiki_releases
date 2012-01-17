@@ -26,7 +26,7 @@ use vars qw(
         $debug $pubUrl $attachUrl
     );
 
-$VERSION = '$Rev: 1840 (28 Feb 2009) $';
+$VERSION = '$Rev: 3048 (2009-03-12) $';
 $RELEASE = '2.1';
 $pluginName = 'RenderListPlugin';  # Name of this Plugin
 

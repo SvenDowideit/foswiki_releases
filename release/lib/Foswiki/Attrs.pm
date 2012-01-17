@@ -20,7 +20,7 @@ values, spaces around the =, and commas as well as spaces separating values.
 The extended syntax has to be enabled by passing the =$friendly= parameter
 to =new=.
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 2773 (28 Feb 2009) $)
+API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 3201 (2009-03-19) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -49,7 +49,7 @@ package Foswiki::Attrs;
 use strict;
 use Assert;
 
-our $VERSION = '$Rev: 2773 (28 Feb 2009) $';
+our $VERSION = '$Rev: 3201 (2009-03-19) $';
 
 our $ERRORKEY   = '_ERROR';
 our $DEFAULTKEY = '_DEFAULT';

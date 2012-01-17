@@ -18,7 +18,7 @@ use strict;
 
 use Assert;
 
-our $VERSION = '$Rev: 2114 (28 Feb 2009) $';
+our $VERSION = '$Rev: 3048 (2009-03-12) $';
 our $RELEASE = '21 Jan 2009';
 our $SHORTDESCRIPTION = 'Integration of TinyMCE with WysiwygPlugin';
 

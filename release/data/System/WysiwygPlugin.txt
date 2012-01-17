@@ -168,7 +168,7 @@ Many thanks to the following sponsors for supporting this work:
 |  Author: | [[http://c-dot.co.uk][Crawford Currie]] |
 |  Copyright | &copy; ILOG 2005 http://www.ilog.fr |
 |  License | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
-|  Plugin Version: | 1525 (28 Feb 2009) |
+|  Plugin Version: | 3048 (2009-03-12) |
 |  Change History: | |
 |  03 Dec 2008 | Foswikitask:Item6041: fixed empty bullet list problem. Foswiki version |
 |  22 Oct 2008 | Fixed TWikibug:Item5961 (emphasis), TWikibug:Item6089 (backslash in verbatim) |
@@ -194,7 +194,7 @@ Many thanks to the following sponsors for supporting this work:
 | See Subversion logs for earlier revisions ||
 |  Dependencies: | <table border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">HTML::Parser</td><td align="left">&gt;=3.28</td><td align="left">Required. Available from [[http://cpan.uwinnipeg.ca/search?query=HTML%3A%3AParser&mode=dist][CPAN]].</td></tr><tr><td align="left">HTML::Entities</td><td align="left">&gt;=1.25</td><td align="left">Required. Available from [[http://cpan.uwinnipeg.ca/search?query=HTML%3A%3AEntities&mode=dist][CPAN]].</td></tr><tr><td align="left">Encode</td><td align="left">&gt;=2.01</td><td align="left">Required.</td></tr></table> |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |
-|  Feedback: | http://foswiki.org/Extensions/%TOPIC%Dev |
+|  Support: | http://foswiki.org/Support/%TOPIC% |
 
 <!-- Do _not_ attempt to edit this topic; it is auto-generated. Please add comments/questions/remarks to the Dev topic instead. -->
 

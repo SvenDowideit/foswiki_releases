@@ -12,7 +12,8 @@
 <li> <a href="#Upgrade_requirements"> Upgrade requirements</a>
 </li> <li> <a href="#Upgrading_from_TWiki_to_Foswiki"> Upgrading from TWiki to Foswiki</a>
 </li></ul> 
-</li> <li> <a href="#Upgrade_procedure"> Upgrade procedure</a> <ul>
+</li> <li> <a href="#Upgrading_to_a_new_patch_release"> Upgrading to a new patch release</a>
+</li> <li> <a href="#Upgrade_procedure_upgrading_to_a"> Upgrade procedure: upgrading to a new major or minor version, or upgrading from TWiki</a> <ul>
 <li> <a href="#Prepare_for_all_upgrade_steps"> Prepare for all upgrade steps</a>
 </li> <li> <a href="#Installation"> Installation</a>
 </li> <li> <a href="#Install_extensions"> Install extensions</a>
@@ -64,8 +65,13 @@ Foswiki is a fork from TWiki 4.2.3. Upgrades from all TWiki versions and earlier
 <p />
 You are strongly advised to read the <a href="http://foswiki.org/System.ReleaseNotes01x00" title="'System.ReleaseNotes01x00' on foswiki.org" class="interwikiLink">Foswiki:System.ReleaseNotes01x00</a> (also available in an HTML file in the root of your installation), which contains a list of changes from TWiki 4.2.3 to Foswiki 1.0. A number of system topics and macros (formerly known as TWiki variables) have been renamed, to better describe their purpose and, where appropriate, to rebrand to the Foswiki name.
 <p />
+<h2><a name="Upgrading_to_a_new_patch_release"></a> Upgrading to a new patch release </h2>
 <p />
-<h2><a name="Upgrade_procedure"></a> Upgrade procedure </h2>
+To upgrade to a new patch release &mdash; for example, from Foswiki 1.0.0 to 1.0.3 &mdash; an upgrade package can be used that will not overwrite any of your customizations.
+<p />
+For patch releases you will find a brief upgrade procedure on the download page for the release. Follow this procedure to upgrade to the patch release. It may contain important steps that are unique to each patch release (for example, some configure settings may need to be changed).
+<p />
+<h2><a name="Upgrade_procedure_upgrading_to_a"></a> Upgrade procedure: upgrading to a new major or minor version, or upgrading from TWiki </h2>
 <p />
 The following is a high level view of the upgrade procedure:
 <p /> <ol>
@@ -108,7 +114,7 @@ The <code>configure</code> page mentioned in this document is accessible via you
 <p />
 <h3><a name="Installation"></a> Installation </h3>
 <p />
-<strong>Follow the installation instructions in INSTALL.html</strong> which you find in the root of the new installation. <strong>Install the new release in a new directory.</strong> Do not install on top of the old release. <ul>
+<strong>Follow the installation instructions in INSTALL.html</strong>, located in the root of the new installation. <strong>Install the new release in a new directory.</strong> Do not install on top of the old release. <ul>
 <li> For public or otherwise sensitive installations, ensure that your web server configuration is set to deny access to the new Foswiki installation for anyone except you.
 </li> <li> <strong>Configure Foswiki</strong> using the <code>configure</code> page. <ul>
 <li> <strong>If you are upgrading from an older Foswiki release</strong>, first copy your <code>&lt;oldwiki&gt;/lib/LocalSite.cfg</code> file to <code>&lt;newwiki&gt;/lib/LocalSite.cfg</code> in order to preserve your existing configuration settings. Alternatively, you can reconfigure the new installation from scratch (you can use your old <code>LocalSite.cfg</code> file as a reference).
@@ -171,9 +177,10 @@ Activate, and if required, configure the installed extensions in <code>configure
 </li> <li> <strong>Note:</strong> Foswiki's <code>WebChanges</code> topics depend on the file timestamp. If you touch the .txt files make sure to preserve the timestamp, or change them in the same chronological order as the old file timestamps.
 </li></ul> 
 <p />
+<a name="CopyUsersAndCustomizations"></a>
 <h3><a name="Copy_users_user_topics_and_site"></a> Copy users, user topics, and site customizations to <code>Main</code> web </h3>
 <p />
-<strong>Copy all topics and attachments from &lt;old_users_web&gt;:</strong> copy all files from <code>&lt;oldwiki&gt;/data/&lt;old_users_web&gt;/</code> to <code>&lt;newwiki&gt;/data/Main/</code>, and copy all files from <code>&lt;oldwiki&gt;/pub/&lt;old_users_web&gt;/</code> to <code>&lt;newwiki&gt;/pub/Main/</code> . Do not overwrite any topics already present in the <code>&lt;newwiki&gt;/data/Main/</code> directory. <ul>
+<strong>Copy all topics and attachments from &lt;old_users_web&gt;:</strong> copy all files from <code>&lt;oldwiki&gt;/data/&lt;old_users_web&gt;/</code> to <code>&lt;newwiki&gt;/data/Main/</code>, and copy all files from <code>&lt;oldwiki&gt;/pub/&lt;old_users_web&gt;/</code> to <code>&lt;newwiki&gt;/pub/Main/</code> . <strong>Do not overwrite any topics already present in the <code>&lt;newwiki&gt;/data/Main/</code> directory.</strong> <ul>
 <li> In addition to all the user topics, if you have created <code>&lt;old_users_web&gt;.NewUserTemplate</code> in the old installation, this step will copy over your template for user topics to the new installation.
 </li> <li> Ensure that the topic defining the admin group in your old installation is copied over. The admin group is defined in the <code>Security setup</code> pane of the <code>configure</code> page, in the {SuperAdminGroup} setting (visible when Expert mode is enabled). You can do either of the following: <ul>
 <li> Set the {SuperAdminGroup} setting in your new installation to the old admin group.
@@ -185,23 +192,27 @@ Activate, and if required, configure the installed extensions in <code>configure
 </li></ul> 
 <p />
 <strong>For upgrades from an older Foswiki installation:</strong> <ul>
-<li> Manually merge all users from the <code>&lt;old_users_web&gt;.WikiUsers</code> topic in the old installation to the <code>Main.WikiUsers</code> topic in the new installation. Note the new installation may not yet have an initial <code>Main.WikiUsers</code> topic, if you did not register a user as part of the install process. Ensure the following default users are present in the <code>Main.WikiUsers</code> topic: <ul>
+<li> Manually merge all users from the <code>&lt;old_users_web&gt;.WikiUsers</code> topic in the old installation to the <code>Main.WikiUsers</code> topic in the new installation. If the new installation does not yet have an initial <code>Main.WikiUsers</code> topic, then copy <code>&lt;oldwiki&gt;/data/&lt;old_users_web&gt;/WikiUsers.txt</code> to <code>&lt;newwiki&gt;/data/Main/WikiUsers.txt</code>.
+</li> <li> Verify that the following default users are present in the <code>Main.WikiUsers</code> topic: <ul>
 <li> <strong>ProjectContributor</strong> - the Foswiki documentation is attributed to this user
-</li> <li> <strong>WikiGuest</strong> - guest user; used as a fallback if the user can't be identified
 </li> <li> <strong>RegistrationAgent</strong> - special user used during the new user registration process
 </li> <li> <strong>UnknownUser</strong> - used where the author of a previously stored piece of data can't be determined
+</li> <li> <strong>WikiGuest</strong> - guest user; used as a fallback if the user can't be identified
 </li></ul> 
+</li> <li> If any of the default users are missing, then add them in manually to <code>Main.WikiUsers</code>, using the corresponding entries in <a href="http://foswiki.org/System.UsersTemplate" title="'System.UsersTemplate' on foswiki.org" class="interwikiLink">Foswiki:System.UsersTemplate</a> as an example.
 </li> <li> If you use <code>data/.htpasswd</code> for authentication, copy this file from the old installation to the new one.
 </li> <li> If you have customized <code>&lt;old_system_web&gt;.UserRegistration</code>, then either copy over <code>&lt;oldwiki&gt;/data/&lt;old_system_web&gt;/UserRegistration.txt</code> and <code>&lt;oldwiki&gt;/data/&lt;old_system_web&gt;/UserRegistration.txt,v</code> to the <code>&lt;newwiki&gt;/data/System/</code> directory, or modify <code>System.UserRegistration</code> in the new installation to contain your customizations.
 </li></ul> 
 <p />
 <strong>For upgrades from a TWiki installation:</strong> <ul>
-<li> Merge all users from the <code>&lt;old_users_web&gt;.TWikiUsers</code> topic in the old installation to the <code>Main.WikiUsers</code> topic in the new installation. Note the new installation may not yet have an initial <code>Main.WikiUsers</code> topic, if you did not register a user as part of the install process. Ensure the following default users are present in the <code>Main.WikiUsers</code> topic: <ul>
+<li> Manually merge all users from the <code>&lt;old_users_web&gt;.TWikiUsers</code> topic in the old installation to the <code>Main.WikiUsers</code> topic in the new installation. If the new installation does not yet have an initial <code>Main.WikiUsers</code> topic, then copy <code>&lt;oldwiki&gt;/data/&lt;old_users_web&gt;/TWikiUsers.txt</code> to <code>&lt;newwiki&gt;/data/Main/WikiUsers.txt</code>, and manually add the required default users (see the next steps).
+</li> <li> Verify that the following default users are present in the <code>Main.WikiUsers</code> topic: <ul>
 <li> <strong>ProjectContributor</strong> - the Foswiki documentation is attributed to this user
-</li> <li> <strong>WikiGuest</strong> - guest user; used as a fallback if the user can't be identified
 </li> <li> <strong>RegistrationAgent</strong> - special user used during the new user registration process
 </li> <li> <strong>UnknownUser</strong> - used where the author of a previously stored piece of data can't be determined
+</li> <li> <strong>WikiGuest</strong> - guest user; used as a fallback if the user can't be identified
 </li></ul> 
+</li> <li> If any of the default users are missing, then add them in manually to <code>Main.WikiUsers</code>, using the corresponding entries in <a href="http://foswiki.org/System.UsersTemplate" title="'System.UsersTemplate' on foswiki.org" class="interwikiLink">Foswiki:System.UsersTemplate</a> as an example.
 </li> <li> If you use <code>data/.htpasswd</code> for authentication, copy this file from the old installation to the new one.
 </li> <li> If you are upgrading from Cairo and are using the Htpasswd login manager, run the <code>tools/upgrade_emails.pl</code> script to move the user emails out of the user topics and into the password file.
 </li> <li> If you have customized <code>&lt;old_system_web&gt;.TWikiRegistration</code>, then modify <code>System.UserRegistration</code> in the new installation to contain your customizations.
@@ -215,11 +226,11 @@ Make sure the data and pub directories, as well as the files within them, are re
 <p />
 <h3><a name="Apply_preferences_from_old_insta"></a> Apply preferences from old installation </h3>
 <p />
-If you have not already set your desired site-wide preferences, as described in the section "<a href="http://foswiki.org/System/InstallationGuide#SetPreferences">Set Foswiki Preferences</a>" in the <a href="http://foswiki.org/System/InstallationGuide">InstallationGuide</a>, then set your preferences. The location of your site preferences is specified in the <code>Miscellaneous settings</code> pane of the <code>configure</code> page, in the {LocalSitePreferences} setting (visible when Expert mode is enabled) &mdash; the default location is <strong>Main.SitePreferences</strong>. If the site preferences in your old installation are stored in the &lt;old_users_web&gt; web, then you have transferred the site preferences over already when you transfered the contents of the &lt;old_users_web&gt; web. Otherwise, copy any customized preferences from the site preferences topic in your old installation to the site preferences topic in the new installation.
+If you have not already set your desired site-wide preferences, as described in the section "<a href="http://foswiki.org/System/InstallationGuide#SetPreferences">Set Foswiki Preferences</a>" in the <a href="http://foswiki.org/System/InstallationGuide">InstallationGuide</a>, then set your preferences. The location of your site preferences is specified in the <code>Miscellaneous settings</code> pane of the <code>configure</code> page, in the {LocalSitePreferences} setting (visible when Expert mode is enabled) &mdash; the default location is <strong>Main.SitePreferences</strong>. Copy any customized preferences from the site preferences topic in your old installation to the site preferences topic in the new installation. (Note you may have already copied over your customized preferences when you transfered the contents of the &lt;old_users_web&gt; web.)
 <p />
 If, in your old installation, you customized the default preferences in <code>&lt;old_system_web&gt;.DefaultPreferences</code>, then transfer your customizations from this topic to the site preferences topic instead (i.e. the topic specified in your {LocalSitePreferences} setting), so that your customizations will not get overwritten on the next upgrade.
 <p />
-<strong>If you are upgrading from TWiki</strong>, note that the default location of the default preferences in TWiki is <code>&lt;old_system_web&gt;.TWikiPreferences</code>, and the default location of the site preferences is <code>Main.TWikiPreferences</code>.
+<strong>If you are upgrading from TWiki</strong>, note that the default location of the default preferences in TWiki is <code>&lt;old_system_web&gt;.TWikiPreferences</code>, and the default location of the site preferences is <code>Main.TWikiPreferences</code>. Transfer any customized preferences from these topics to the site preferences topic in your new installation.
 <p />
 <h3><a name="Apply_additional_site_customizat"></a> Apply additional site customizations </h3>
 <p />

@@ -151,7 +151,7 @@ First choose the best configuration method for your web server. With Apache, the
 <li> The easiest and best way is to use the <a href="http://foswiki.org/Support.ApacheConfigGenerator" title="'Support.ApacheConfigGenerator' on foswiki.org" class="interwikiLink">Foswiki:Support.ApacheConfigGenerator</a> tool to generate a safe, working config file for your Foswiki installation, based on the options you choose in the tool.
 </li> <li> If you can't use the online configuration generator, a sample config file called <code>foswiki_httpd_conf.txt</code> can be found in the root of the foswiki installation.
 </li> <li> Ensure that web access is denied to all Foswiki subdirectories other than <code>bin</code> and <code>pub</code>. The <a href="http://foswiki.org/Support.ApacheConfigGenerator" title="'Support.ApacheConfigGenerator' on foswiki.org" class="interwikiLink">Foswiki:Support.ApacheConfigGenerator</a> tool will generate the appropriate settings; the <code>foswiki_httpd_conf.txt</code> file also has examples of configuring Apache appropriately.
-</li> <li> Ensure there is either a <code>ScriptAlias</code> directive or an <code>Options ExecCGI</code> directive for the <code>bin</code> subdirectory, so that the scripts there will be executed by Apache.
+</li> <li> Ensure there is either a <code>ScriptAlias</code> directive for the <code>bin</code> subdirectory, or an <code>Alias</code> directive with <code>SetHandler cgi-script</code> and <code>Options ExecCGI</code> directives for the <code>bin</code> subdirectory, so that the <code>bin</code> scripts will be executed by Apache.
 </li> <li> <strong>Note:</strong> you must restart Apache after making changes to your config files for the changes to take effect.
 </li></ul> 
 <p />
@@ -176,6 +176,8 @@ The <a href="http://foswiki.org/Support.ApacheConfigGenerator" title="'Support.A
 <p />
 <strong>Note:</strong> When you use the <code>configure</code> page for the first time to save any settings, you will be prompted to enter a password for the <code>configure</code> page. This password is used for all subsequent configuration changes, as well as for logging in via the internal admin link (see the section "<a href="http://foswiki.org/System/InstallationGuide#DefineAdminUser" class="foswikiCurrentTopicLink">Define the administrator user(s)</a>"). Even after a <code>configure</code> password has been set, access to the <code>configure</code> page should still be restricted by the web server, in order to avoid revealing internal information to potential attackers.
 <p />
+For more information, refer to <a href="http://foswiki.org/Support.ProtectingYourConfiguration" title="'Support.ProtectingYourConfiguration' on foswiki.org" class="interwikiLink">Foswiki:Support.ProtectingYourConfiguration</a>.
+<p />
 <a name="ConfigureFoswiki"></a>
 <h3><a name="Configure_Foswiki"></a> Configure Foswiki </h3>
 <p />
@@ -193,15 +195,18 @@ If there is a problem with your setup that prevents you from accessing the <code
 <p />
 By enabling authentication, you can control access to your site and track the activity of your users. <strong>This is particularly important for sites that are publicly accessible on the web.</strong>  You are strongly encouraged to read <a href="http://foswiki.org/System/UserAuthentication">System.UserAuthentication</a> and <a href="http://foswiki.org/Support.UserAuthenticationSupplement" title="'Support.UserAuthenticationSupplement' on foswiki.org" class="interwikiLink">Foswiki:Support.UserAuthenticationSupplement</a> for further information about managing users and access controls for your Foswiki site.
 <p />
-The most common authentication methods used for public Foswiki installations are Template Login and Apache Login. <ul>
-<li> The advantages of Template Login are that it can be set up without touching the web server configuration, and that users can log off without restarting the browser.
-</li> <li> The advantage of Apache Login is that if you have an existing website authentication scheme using Apache modules, such as <code>mod_auth_ldap</code> or <code>mod_auth_mysql</code>, you can just plug in directly to them. The disadvantage is that because the user identity is cached in the browser, you can log in, but you can't log out again unless you restart the browser.
-</li> <li> If the instructions below are followed for either of these authentication methods, the password databases will be compatible allowing you to switch between them at a later date. 
+The most common authentication methods used for public Foswiki installations are Template Login and Apache Login. They have the following relative advantages: <ul>
+<li> Template Login can be set up without any web server configuration, and users can log off without restarting the browser. As the login page is just a Wiki page, you can customize it to suit your needs.
+</li> <li> Apache Login allows you to use any Apache-module based authentication scheme, such as <code>mod_auth_ldap</code> or <code>mod_auth_mysql</code>. However, as your browser is caching your login, you must restart the browser to log out.
 </li></ul> 
+<p />
+Note that the password databases for both of these authentication mechanisms are compatible, so you can switch between them at a later date. 
+<p />
+To make it easier to follow the instructions in this section, you can view this installation guide using your Foswiki site by entering <code>System.InstallationGuide</code> into the "Jump" text box. By doing this instead of using the <code>INSTALL.html</code> file from the distribution, you will be able to use the embedded hyperlinks to jump directly to the referenced pages.
 <p />
 <h4><a name="Template_Login_authentication"></a> Template Login authentication </h4>
 <p />
-With Template Login enabled, when Foswiki needs to authenticate the user, it will redirect to a login web page. A list of all users is shown in the <span class="foswikiNewLink">Main.WikiUsers<a href="http://www.lavrsen.dk/foswiki10/bin/edit/Main/WikiUsers?topicparent=System.InstallationGuide" rel="nofollow" title="Create this topic">?</a></span> topic.
+With Template Login enabled, when Foswiki needs to authenticate the user, it will redirect to a login web page. A list of all users is shown in the <code>Main.WikiUsers</code> topic.
 <p />
 To setup Template Login, perform the following steps:
 <p /> <ol>
@@ -211,11 +216,11 @@ To setup Template Login, perform the following steps:
 </li> <li> Select <code>Foswiki::Users::TopicUserMapping</code> for <code>{UserMappingManager}</code>.
 </li> <li> Save your settings.
 </li></ol> 
-</li> <li> <strong>Verify that registration works.</strong> Register yourself using the <a href="http://foswiki.org/System/UserRegistration">System.UserRegistration</a> topic.<br /> Check that the password manager recognizes the new user by verifying that a new line is added to the <code>foswiki/data/.htpassswd</code> file, with the username and encrypted password. If the user and password information was not added, you probably got a path wrong, or the directory permissions on <code>foswiki/data</code> or <code>foswiki/data/.htpasswd</code> may not be set to allow the web server user to modify the file.
+</li> <li> <strong>Verify that registration works.</strong> Register yourself using the <code><a href="http://foswiki.org/System/UserRegistration">System.UserRegistration</a></code> topic in your Foswiki installation. Note if you are viewing this page via the <code>INSTALL.html</code> file, then you can access the user registration page by entering <code>System.UserRegistration</code> into the "Jump" text box at the top right of any Foswiki page in your installation.<br /> Check that the password manager recognizes the new user by verifying that a new line is added to the <code>foswiki/data/.htpassswd</code> file, with the username and encrypted password. If the user and password information was not added, you probably got a path wrong, or the directory permissions on <code>foswiki/data</code> or <code>foswiki/data/.htpasswd</code> may not be set to allow the web server user to modify the file.
 </li> <li> <strong>Check that authentication works.</strong> Edit a topic by clicking on the <code>Edit</code> link at the top or bottom of a topic. If you have been authenticated, then you will see the edit page; otherwise, you will see an error message.
 </li></ol> 
 <p />
-As Template Login uses a web page for its login prompt, there is a great deal of flexibility in customizing the login page for your purposes.
+As Template Login uses a wiki page for its login prompt, there is a great deal of flexibility in customizing the login page for your purposes.
 <p />
 <h4><a name="Apache_Login_authentication"></a> Apache Login authentication </h4>
 <p />
@@ -235,17 +240,22 @@ To setup Apache Login, perform the following steps:
       require valid-user
       &#60;/FilesMatch&#62;</pre>      You can also refer to the sample <code>foswiki_httpd_conf.txt</code> and <code>bin/.htaccess.txt</code> files to see how the appropriate Apache directives are specified.
 </li></ol> 
-</li> <li> <strong>Verify that registration works.</strong> Register yourself using the <a href="http://foswiki.org/System/UserRegistration">System.UserRegistration</a> topic.<br /> Check that the password manager recognizes the new user by verifying that a new line is added to the <code>foswiki/data/.htpassswd</code> file, with the username and encrypted password. If the user and password information was not added, you probably got a path wrong, or the directory permissions on <code>foswiki/data</code> or <code>foswiki/data/.htpasswd</code> may not be set to allow the web server user to modify the file.
+</li> <li> <strong>Verify that registration works.</strong> Register yourself using the <code><a href="http://foswiki.org/System/UserRegistration">System.UserRegistration</a></code> topic in your Foswiki installation. Note if you are viewing this page via the <code>INSTALL.html</code> file, then you can access the user registration page by entering <code>System.UserRegistration</code> into the "Jump" text box at the top right of any Foswiki page in your installation.<br /> Check that the password manager recognizes the new user by verifying that a new line is added to the <code>foswiki/data/.htpassswd</code> file, with the username and encrypted password. If the user and password information was not added, you probably got a path wrong, or the directory permissions on <code>foswiki/data</code> or <code>foswiki/data/.htpasswd</code> may not be set to allow the web server user to modify the file.
 </li> <li> <strong>Check that authentication works.</strong> Edit a topic by clicking on the <code>Edit</code> link at the top or bottom of a topic. If you have been authenticated, then you will see the edit page; otherwise, you will see an error message.
 </li></ol> 
 <p />
 <a name="DefineAdminUser"></a>
 <h3><a name="Define_the_administrator_user_s"></a> Define the administrator user(s) </h3>
 <p />
-Administrators have read and write access to any topic, regardless of any access controls that have been applied to the topic or its web. After installing Foswiki, you should register a user that you will use to administer Foswiki. To make this user an administrator, add the WikiName for the user to the <code>AdminGroup</code>, defined in the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> topic: <ul>
+Administrators have read and write access to any topic, regardless of any access controls that have been applied to the topic or its web. After installing Foswiki, you should register a user that you will use to administer Foswiki. To make this user an administrator, add the WikiName for the user to the <code>AdminGroup</code>, defined in the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> topic in your Foswiki installation.
+<p />
+To make it easier to follow the instructions in this section, you can view this installation guide using your Foswiki site by entering <code>System.InstallationGuide</code> into the "Jump" text box. By doing this instead of using the <code>INSTALL.html</code> file from the distribution, you will be able to use the embedded hyperlinks to jump directly to the referenced pages.
+<p />
+To add an initial administrator to the <code>AdminGroup</code>, perform the following steps:
+<p /> <ul>
 <li> If you are not already logged in with your WikiName, then login.
 </li> <li> Go to the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> topic and select the "internal admin login" link. Login using the password you set on the <code>configure</code> page.
-</li> <li> After logging as the internal admin, edit the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> topic. Follow the instructions on the page carefully and add your WikiName to the group.
+</li> <li> After logging as the internal admin, edit the <code>Main.AdminGroup</code> topic. Follow the instructions on the page carefully and add your WikiName to the group.
 </li> <li> Test that you have been added successfully: On the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> page, select the "Logout link" and logout from being the internal admin. Select the "Edit" link for the <code><a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a></code> page. If you successfully added yourself as an admin user, you should see the edit page.
 </li></ul> 
 <p />
@@ -459,58 +469,62 @@ The following Perl CPAN modules are used by Foswiki:
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.26 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Config </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=0 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> CGI::Session </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=4.30 (included with Foswiki) Versions 4.20 and before have Foswikibug:1306 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Cwd </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=3.05 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Config </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=0 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Data::Dumper </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.121 </td>
-		</tr>
-		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Error (included) </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &nbsp; </td>
-		</tr>
-		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Copy </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.06 </td>
-		</tr>
-		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Find </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.05 </td>
-		</tr>
-		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Spec </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Cwd </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=3.05 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> FileHandle </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.01 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Data::Dumper </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.121 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> IO::File </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.10 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Error (included) </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &nbsp; </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Text::Diff (included with Foswiki) </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &nbsp; </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Copy </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.06 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Time::Local </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.11 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Find </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.05 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> UNIVERSAL::require (included) </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> &gt;=0.11 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> File::Spec </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=3.05 </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> FileHandle </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=2.01 </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> IO::File </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.10 </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Text::Diff (included with Foswiki) </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &nbsp; </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Time::Local </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.11 </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> UNIVERSAL::require (included) </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> &gt;=0.11 </td>
 		</tr>
 	</tbody></table>
 <p />
 You can check version numbers from the command line (replace "ModuleName" with the name of the module):
 <p />
-<pre>perl -e 'use ModuleName; print $ModuleName::VERSION."\n"' </pre>
+<pre>perl -le 'use ModuleName; print "ModuleName"->VERSION' </pre>
 <p />
 <h3><a name="Optional_CPAN_modules"></a> Optional CPAN modules </h3>
 <p />
@@ -536,59 +550,54 @@ The following Perl modules may be used by Foswiki. See <a href="http://foswiki.o
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for session support </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> CGI::Session </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &gt;=3.95 </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Highly recommended for session support </td>
-		</tr>
-		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Digest::base </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &nbsp; </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> &nbsp; </td>
-		</tr>
-		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Digest::SHA1 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Digest::base </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &nbsp; </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> &nbsp; </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Jcode </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Digest::SHA1 </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &nbsp; </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> &nbsp; </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Locale::Maketext::Lexicon </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &gt;=0 </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support </td>
-		</tr>
-		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Net::SMTP </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &gt;=2.29 </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for sending mail </td>
-		</tr>
-		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::Map </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Jcode </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &nbsp; </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::Map8 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Locale::Maketext::Lexicon </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &gt;=0 </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support </td>
+		</tr>
+		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Net::SMTP </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &gt;=2.29 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for sending mail </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::Map </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &nbsp; </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::MapUTF8 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::Map8 </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &nbsp; </td>
 			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
 		</tr>
 		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::String </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::MapUTF8 </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1"> &nbsp; </td>
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> URI </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLast"> &nbsp; </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol foswikiLast"> Used for configure </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Unicode::String </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1"> &nbsp; </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol2 foswikiLastCol"> Used for I18N support with perl 5.6 </td>
+		</tr>
+		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> URI </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLast"> &nbsp; </td>
+			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol2 foswikiLastCol foswikiLast"> Used for configure </td>
 		</tr>
 	</tbody></table>
 <p />

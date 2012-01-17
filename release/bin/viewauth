@@ -35,7 +35,7 @@ BEGIN {
         require Carp;
         $SIG{__DIE__} = \&Carp::confess;
     }
-    $ENV{FOSWIKI_ACTION} = 'view';
+    $ENV{FOSWIKI_ACTION} = 'viewauth';
     @INC = ('.', grep { $_ ne '.' } @INC);
     require 'setlib.cfg';
 }

@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-02-28 11:34:26 +0100 (Sat, 28 Feb 2009) $ $Rev: 2773 (28 Feb 2009) $ ';
-    $RELEASE = 'Foswiki-1.0.3';
+    $VERSION = '$Date: 2009-03-19 21:16:41 +0100 (Thu, 19 Mar 2009) $ $Rev: 3201 (2009-03-19) $ ';
+    $RELEASE = 'Foswiki-1.0.4';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%

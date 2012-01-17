@@ -1,68 +1,54 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Arthur Clemens, arthur@visiblearea.com and Foswiki contributors
-# Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and
-# TWiki Contributors.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
-# This is the EditTablePlugin used to edit tables in place.
-
 package Foswiki::Plugins::EditTablePlugin::Core;
 
 use strict;
+use warnings;
 use Assert;
 use Foswiki::Func;
 use CGI qw( :all );
+use Foswiki::Plugins::EditTablePlugin::Data;
 
-our $RENDER_HACK                  = "\n<nop>\n";
-our $DEFAULT_FIELD_SIZE           = 16;
-our $PLACEHOLDER_BUTTONROW_TOP    = 'PLACEHOLDER_BUTTONROW_TOP';
-our $PLACEHOLDER_BUTTONROW_BOTTOM = 'PLACEHOLDER_BUTTONROW_BOTTOM';
-our $HTML_TAGS =
-'var|ul|u|tt|tr|th|td|table|sup|sub|strong|strike|span|small|samp|s|pre|p|ol|li|kbd|ins|img|i|hr|h|font|em|div|dfn|del|code|cite|center|br|blockquote|big|b|address|acronym|abbr|a';
+my $DEFAULT_FIELD_SIZE           = 16;
+my $PLACEHOLDER_BUTTONROW_TOP    = 'PLACEHOLDER_BUTTONROW_TOP';
+my $PLACEHOLDER_BUTTONROW_BOTTOM = 'PLACEHOLDER_BUTTONROW_BOTTOM';
+my $PLACEHOLDER_SEPARATOR_SEARCH_RESULTS =
+  'PLACEHOLDER_SEPARATOR_SEARCH_RESULTS';
+my $HTML_TAGS =
+qr'var|ul|u|tt|tr|th|td|table|sup|sub|strong|strike|span|small|samp|s|pre|p|ol|li|kbd|ins|img|i|hr|h|font|em|div|dfn|del|code|cite|center|br|blockquote|big|b|address|acronym|abbr|a';
 
-our $prefsInitialized;
-our $prefCHANGEROWS;
-our $prefEDIT_BUTTON;
-our $prefSAVE_BUTTON;
-our $prefQUIET_SAVE_BUTTON;
-our $prefADD_ROW_BUTTON;
-our $prefDELETE_LAST_ROW_BUTTON;
-our $prefCANCEL_BUTTON;
-our $prefMESSAGE_INCLUDED_TOPIC_DOES_NOT_EXIST;
-our $prefQUIETSAVE;
-our $preSp;
-our %params;
-our @format;
-our @formatExpanded;
-our $nrCols;
-our $warningMessage;
+my $prefCHANGEROWS;
+my $prefEDIT_BUTTON;
+my $prefSAVE_BUTTON;
+my $prefQUIET_SAVE_BUTTON;
+my $prefADD_ROW_BUTTON;
+my $prefDELETE_LAST_ROW_BUTTON;
+my $prefCANCEL_BUTTON;
+my $prefMESSAGE_INCLUDED_TOPIC_DOES_NOT_EXIST;
+my $prefQUIETSAVE;
+my $preSp;
+my %params;
+my @format;
+my @formatExpanded;
+my $nrCols;
+my $warningMessage;
 
-our $PATTERN_EDITTABLEPLUGIN = '%EDITTABLE{(.*?)}%';
-our $PATTERN_TABLEPLUGIN     = '%TABLE(?:{(.*?)})?%';
-our $PATTERN_TABLE_ROW_FULL  = '^(\s*)\|.*\|\s*$';
-our $PATTERN_TABLE_ROW       = '^(\s*)\|(.*)';
-our $MODE                    = {
+my $PATTERN_EDITTABLEPLUGIN =
+  $Foswiki::Plugins::EditTablePlugin::Data::PATTERN_EDITTABLEPLUGIN;
+my $PATTERN_TABLEPLUGIN =
+  $Foswiki::Plugins::EditTablePlugin::Data::PATTERN_TABLEPLUGIN;
+my $PATTERN_EDITCELL               = qr'%EDITCELL{(.*?)}%'o;
+my $PATTERN_TABLE_ROW_FULL         = qr'^(\s*)\|.*\|\s*$'o;
+my $PATTERN_TABLE_ROW              = qr'^(\s*)\|(.*)'o;
+my $PATTERN_SPREADSHEETPLUGIN_CALC = qr'%CALC(?:{(.*)})?%'o;
+my $MODE                           = {
     READ      => ( 1 << 1 ),
     EDIT      => ( 1 << 2 ),
     SAVE      => ( 1 << 3 ),
     SAVEQUIET => ( 1 << 4 ),
 };
-our %tableMatrix;
-our $query;
+my %tableMatrix;
+my $query;
 
-=pod
+=begin TML
 
 Resets variables.
 
@@ -73,7 +59,6 @@ sub init {
     %params                     = ();
     @format                     = ();
     @formatExpanded             = ();
-    $prefsInitialized           = undef;
     $prefCHANGEROWS             = undef;
     $prefEDIT_BUTTON            = undef;
     $prefSAVE_BUTTON            = undef;
@@ -86,120 +71,61 @@ sub init {
     $query                      = undef;
     $warningMessage             = '';
     %tableMatrix                = ();
+
+    getPreferencesValues();
 }
 
-=pod
+=begin TML
 
-StaticMethod prepareForView($text, $topic, $web)
+Init variables again. If called from INCLUDE this is the first time we init
 
 =cut
 
-sub prepareForView {
-
-    # my $text = $_[0]
-    # my $topic = $_[1]
-    # my $web = $_[2]
-    readTables(@_);
-
-    my $query     = Foswiki::Func::getCgiQuery();
-    my $isEditing = 0;
-    $isEditing = 1
-      if ( defined $query->param('etedit')
-        && defined $query->param('ettablenr') );
-
-    if ( !$isEditing ) {
-        handleTmlInViewMode(@_);
-    }
+sub initIncludedTopic {
+    $preSp = '' unless $preSp;
+    getPreferencesValues();
 }
 
-=pod
+=begin TML
 
-StaticMethod readTables($text, $topic, $web)
+StaticMethod parseTables($text, $topic, $web)
 
 Read and parse table data once for each topic.
-Stores data in hash $tableMatrix{webname}{topicname}
+Stores data in hash $tableMatrix{webname}{topicname}.
+Even if we are just viewing table data (not editing), we can deal with text inside edit tables in a special way. For instance by calling handleTmlInTables on the table text.
+
+View and edit mode act differently on the stored data:
+
+VIEW mode: 
+
+EDIT mode:
 
 =cut
 
-sub readTables {
+sub parseTables {
 
     # my $text = $_[0]
     # my $topic = $_[1]
     # my $web = $_[2]
 
     return if defined $tableMatrix{ $_[2] }{ $_[1] };
-    my $tableData = Foswiki::Plugins::TableData->new();
-    $tableData->parseText( $_[0] );
+
+    my $query     = Foswiki::Func::getCgiQuery();
+    my $tableNr   = $query->param('ettablenr');
+    my $isEditing = defined $query->param('etedit')
+      && defined $tableNr;
+
+    my $tableData = Foswiki::Plugins::EditTablePlugin::Data->new();
+    $_[0] = $tableData->parseText( $_[0] );
+
+    Foswiki::Func::writeDebug(
+        "EditTablePlugin::Core::parseTables - after parseText, text=$_[0]")
+      if $Foswiki::Plugins::EditTablePlugin::debug;
+
     $tableMatrix{ $_[2] }{ $_[1] } = $tableData;
 }
 
-=pod
-
-StaticMethod handleTmlInViewMode( $text, $topic, $web )
-
-=cut
-
-sub handleTmlInViewMode {
-
-    # my $text = $_[0]
-    # my $topic = $_[1]
-    # my $web = $_[2]
-
-    my $tableData          = $tableMatrix{ $_[2] }{ $_[1] };
-    my $tablesTakenOutText = $tableData->{tablesTakenOutText};
-    my $editTableObjects   = $tableData->{editTableObjects};
-
-    foreach my $editTableObject ( @{$editTableObjects} ) {
-        my $tableText = \$editTableObject->{'text'};
-
-        # add spaces around %BR%
-        $$tableText =~ s/(%BR%)/ $1 /gox;
-
-        # add spaces around TML next to HTML
-        addSpacesToTmlNextToHtml($tableText);
-    }
-}
-
-=pod
-
-StaticMethod addSpacesToTmlNextToHtml( \$text )
-
-So that:
-
-| *bold*<br />_italic_ |
-
-gets rendered as:
-
-|*bold* <br /> _italic_|
-
-=cut
-
-sub addSpacesToTmlNextToHtml {
-    my ($inTableTextRef) = @_;
-
-    # also remove spaces at both sides to prevent extra spaces are added to the
-    # cell, resulting in wrong alignment (when html tags are stripped in the
-    # core table renderer)
-
-    my $TMLpattern = '[_*=]*';
-    my $pattern    = "
-	[[:space:]]*		# any space
-	($TMLpattern)		# i1: optional TML syntax before html tag
-	(					# i2: html tag
-	<\/*				# start of tag (optional closing tag)
-	($HTML_TAGS)+		# i3: any of the html tags
-	[[:space:]]*     	# any space
-	.*?				    # anything before the end of tag
-	\/*>				# end of tag (optional closing tag)
-	)					# /i2
-	($TMLpattern)		# i4: optional TML syntax after html tag
-	[[:space:]]*		# any space
-	";
-
-    $$inTableTextRef =~ s/$pattern/$1 $2 $4/gox;
-}
-
-=pod
+=begin TML
 
 ---+++ process( $text, $topic, $web, $includingTopic, $includingWeb )
 
@@ -220,7 +146,7 @@ sub process {
     processText( $mode, $saveTableNr, @_ );
 }
 
-=pod
+=begin TML
 
 ---+++ processText( $mode, $saveTableNr, $text, $topic, $web, $includingTopic, $includingWeb )
 
@@ -238,22 +164,28 @@ sub processText {
       = @_;
 
     my $mode = $inMode;
-    my $doSave = ( $mode & $MODE->{SAVE} ) || 0;
+    my $doSave = ( $mode & $MODE->{SAVE} ) ? 1 : 0;
 
     $query = Foswiki::Func::getCgiQuery();
 
-    Foswiki::Func::writeDebug(
-        "- EditTablePlugin::commonTagsHandler( $_[2].$_[1] )")
-      if $Foswiki::Plugins::EditTablePlugin::debug;
-
-    getPreferencesValues() if !$prefsInitialized;
+    if ($Foswiki::Plugins::EditTablePlugin::debug) {
+        Foswiki::Func::writeDebug(
+"EditTablePlugin::Core::processText( inMode=$inMode; inSaveTableNr=$inSaveTableNr; inText=$inText; inTopic=$inTopic; inWeb=$inWeb; inIncludingTopic=$inIncludingTopic; inIncludingWeb=$inIncludingWeb"
+        );
+        Foswiki::Func::writeDebug("\t mode is READ")
+          if ( $mode & $MODE->{READ} );
+        Foswiki::Func::writeDebug("\t mode is EDIT")
+          if ( $mode & $MODE->{EDIT} );
+        Foswiki::Func::writeDebug("\t mode is SAVE")
+          if ( $mode & $MODE->{SAVE} );
+    }
 
     my $topic = $query->param('ettabletopic') || $inTopic;
     my $web   = $query->param('ettableweb')   || $inWeb;
 
-    my $paramTableNr  = 0;
-    my $tableNr       = 0;    # current EditTable table
-    my $isParamTable  = 0;
+    my $paramTableNr = $query->param('ettablenr') || 0;
+    my $tableNr      = 0;                              # current EditTable table
+    my $isParamTable = 0;
     my $rowNr         = 0;    # current row number; starting at 1
     my $doEdit        = 0;
     my $allowedToEdit = 0;
@@ -263,36 +195,44 @@ sub processText {
     my $etrowsParam;
     my $addedRowCount      = 0;
     my $addedRowCountParam = 0;
-    my $headerRowCount     = 0;
-    my $footerRowCount     = 0;
 
     my $includingTopic = $inIncludingTopic;
     my $includingWeb   = $inIncludingWeb;
     my $meta;
-    my $topicText;
+    my $topicText = $inText;
 
     if ($doSave) {
         ( $meta, $topicText ) = Foswiki::Func::readTopic( $web, $topic );
 
         # fill the matrix with fresh new table
         undef $tableMatrix{$web}{$topic};
-        readTables( $topicText, $topic, $web );
+        parseTables( $topicText, $topic, $web );
     }
     else {
-        readTables( $inText, $topic, $web );
+        parseTables( $inText, $topic, $web );
     }
-    my $tableData          = $tableMatrix{$web}{$topic};
-    my $tablesTakenOutText = $tableData->{tablesTakenOutText};
-    my $editTableObjects   = $tableData->{editTableObjects};
+    my $tableData = $tableMatrix{$web}{$topic};
+
+    handleSearchResultsBelowEditTables( $topicText, $paramTableNr, $tableData );
+
+    my $editTableObjects = $tableData->{editTableObjects};
 
     # ========================================
     # LOOP THROUGH TABLES
     foreach my $editTableObject ( @{$editTableObjects} ) {
 
         my $tableText    = $editTableObject->{'text'};
-        my $editTableTag = $editTableObject->{'tag'};
+        my $editTableTag = $editTableObject->{'tagline'};
 
-        # store processed lines of this tableText
+        if ($Foswiki::Plugins::EditTablePlugin::debug) {
+            use Data::Dumper;
+            Foswiki::Func::writeDebug(
+                "EditTablePlugin::Core::processText; editTableObject="
+                  . Dumper($editTableObject) );
+        }
+
+       # store processed lines of this tableText
+       # the list of lines will be put back into the topic text after processing
         my @result = ();
 
         $tableNr++;
@@ -303,15 +243,23 @@ sub processText {
         if ( $mode & $MODE->{READ} ) {
 
             # process the tag contents
-            my $editTablePluginRE = "(.*?)$PATTERN_EDITTABLEPLUGIN";
-            $editTableTag =~
-s/$editTablePluginRE/&handleEditTableTag( $web, $topic, $1, $2 )/geo;
+            handleEditTableTag( $web, $topic, $editTableObject->{'params'} );
+
+            # remove the original EDITTABLE{} in the tag pre_EDITTABLE{}_post
+            # so we just have pre__post
+            $editTableTag =
+              $editTableObject->{'pretag'} . $editTableObject->{'posttag'};
+
+            # expand macros in tagline without creating infinite recursion:
+            $editTableTag =~ s/%EDITTABLE{/%TMP_ETP_STUB_TAG{/o;
+            $editTableTag = Foswiki::Func::expandCommonVariables($editTableTag);
+
+            # put tag back
+            $editTableTag =~ s/TMP_ETP_STUB_TAG/EDITTABLE/o;
         }
 
         if ( ( $mode & $MODE->{READ} ) || ( $tableNr == $inSaveTableNr ) ) {
 
-            $paramTableNr = $query->param('ettablenr')
-              || 0;    # only on save and edit
             $etrowsParam = $query->param('etrows');
             $etrows =
               ( defined $etrowsParam )
@@ -351,7 +299,6 @@ s/$editTablePluginRE/&handleEditTableTag( $web, $topic, $1, $2 )/geo;
 
                     # [Cancel] button pressed
                     doCancelEdit( $web, $topic );
-                    ASSERT(0) if DEBUG;
                     return;    # in case browser does not redirect
                 }
                 elsif ( $query->param('etaddrow') ) {
@@ -385,22 +332,23 @@ s/$editTablePluginRE/&handleEditTableTag( $web, $topic, $1, $2 )/geo;
 
         my $doEdit = $isParamTable ? 1 : 0;
 
+        if ( !$doEdit && !( $mode & $MODE->{SAVE} ) ) {
+            handleTmlInTables($tableText);
+        }
+
         # END HANDLE EDITTABLE TAG
         # ========================================
 
         # ========================================
         # START FOOTER AND HEADER ROW COUNT
 
-        if ( $editTableTag =~ m/$PATTERN_TABLEPLUGIN/ ) {
+        my ( $headerRowCount, $footerRowCount ) =
+          getHeaderAndFooterCount($editTableTag);
 
-            # We want this info also when viewing, because the row count takes
-            # header and footer rows into account
-
-            # match with a TablePlugin line
-            # works when TABLE tag is just above OR just below the EDITTABLE tag
-            my %tablePluginParams = Foswiki::Func::extractParameters($1);
-            $headerRowCount = $tablePluginParams{'headerrows'} || 0;
-            $footerRowCount = $tablePluginParams{'footerrows'} || 0;
+        if ($Foswiki::Plugins::EditTablePlugin::debug) {
+            Foswiki::Func::writeDebug(
+"EditTablePlugin::Core::processText; headerRowCount=$headerRowCount; footerRowCount=$footerRowCount"
+            );
         }
 
         # END FOOTER AND HEADER ROW COUNT
@@ -445,15 +393,22 @@ s/$PATTERN_TABLE_ROW/handleTableRow( $1, $2, $tableNr, $isNewRow, $theRowNr, $do
 
                 next;
             }    # if ( $doEdit || $doSave )
-                 # just render the row: EDITCELL and format tokens
+
+            # just render the row: EDITCELL and format tokens
             my $isNewRow = 0;
-s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $doSave, $web, $topic )/eo;
+s/$PATTERN_TABLE_ROW/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $doSave, $web, $topic )/eo;
 
             push( @result, "$_\n" );
 
         }    # for (@lines)
              # END LOOP THROUGH LINES
              # ========================================
+
+        if ($Foswiki::Plugins::EditTablePlugin::debug) {
+            use Data::Dumper;
+            Foswiki::Func::writeDebug(
+                "EditTablePlugin::Core::processText; rows=" . Dumper(@rows) );
+        }
 
         # ========================================
         # WRITE OUT PROCESSED ROWS
@@ -528,6 +483,19 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
                 push @bodyRows, $newRow;
             }
 
+            if ($Foswiki::Plugins::EditTablePlugin::debug) {
+                use Data::Dumper;
+                Foswiki::Func::writeDebug(
+                    "EditTablePlugin::Core::processText; headerRows="
+                      . Dumper(@headerRows) );
+                Foswiki::Func::writeDebug(
+                    "EditTablePlugin::Core::processText; bodyRows="
+                      . Dumper(@bodyRows) );
+                Foswiki::Func::writeDebug(
+                    "EditTablePlugin::Core::processText; footerRows="
+                      . Dumper(@footerRows) );
+            }
+
             my @combinedRows = ( @headerRows, @bodyRows, @footerRows );
 
             # after re-ordering, renumber the cells
@@ -546,6 +514,19 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
         # ========================================
 
         # ========================================
+        # START PUT PROCESSED TABLE BACK IN TEXT
+        my $resultText = join( "", @result );
+
+        my $searchResultsText = $editTableObject->{'searchResults'} || '';
+        $resultText .= $searchResultsText;
+
+        $resultText = "$editTableTag\n$resultText";
+
+        Foswiki::Func::writeDebug(
+"EditTablePlugin::Core::processText - after processing, resultText before expandCommonVariables:$resultText"
+        ) if $Foswiki::Plugins::EditTablePlugin::debug;
+
+        # ========================================
         # FORM END
         my $rowCount = 0;
         if ( ( $mode & $MODE->{READ} ) && !$doEdit ) {
@@ -560,15 +541,11 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
                 $includingTopic, $rowCount,       $doEdit,
                 $headerRowCount, $footerRowCount, $addedRowCount
             );
-            push( @result, $tableEnd );
+            $resultText .= $tableEnd;
         }
 
         # END FORM END
         # ========================================
-
-        # ========================================
-        # START PUT PROCESSED TABLE BACK IN TEXT
-        my $resultText = join( "", @result );
 
         # button row at top or bottom
         if ( ( $mode & $MODE->{READ} ) ) {
@@ -586,22 +563,10 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
             }
         }
 
-        if (   $doEdit
-            && ( $mode & $MODE->{READ} )
-            && ( $paramTableNr == $tableNr ) )
-        {
-            insertTmpTagInTableTagLine( $editTableTag,
-                ' disableallsort="on" ' );
-        }
-        else {
-            removeTmpTagInTableTagLine($editTableTag);
-        }
-        $resultText = $editTableTag . "\n" . $resultText;
-
         # render variables (only in view mode)
         $resultText = Foswiki::Func::expandCommonVariables($resultText)
           if ( !$doEdit && ( $mode & $MODE->{READ} ) );
-        $tablesTakenOutText =~ s/<!--edittable$tableNr-->/$resultText\n/;
+        $topicText =~ s/<!--%EDITTABLESTUB\{$tableNr\}%-->/$resultText/;
 
         # END PUT PROCESSED TABLE BACK IN TEXT
         # ========================================
@@ -613,7 +578,6 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
         @rows           = ();
         @result         = ();
         $isParamTable   = 0;
-        $paramTableNr   = 0;
         $headerRowCount = 0;
         $footerRowCount = 0;
 
@@ -624,7 +588,7 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
 
     if ($doSave) {
         my $error =
-          Foswiki::Func::saveTopic( $web, $topic, $meta, $tablesTakenOutText,
+          Foswiki::Func::saveTopic( $web, $topic, $meta, $topicText,
             { dontlog => ( $mode & $MODE->{SAVEQUIET} ) } );
 
         Foswiki::Func::setTopicEditLock( $web, $topic, 0 );    # unlock Topic
@@ -638,55 +602,56 @@ s/^(\s*)\|(.*)/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr, $doEdit, $do
     }
 
     # update the text
-    $_[2] = $tablesTakenOutText;
+    $_[2] = $topicText;
 }
 
-=pod
+=begin TML
+
+Read preferences from plugin topic of preferences.
 
 =cut
 
 sub getPreferencesValues {
+
+    my $pluginName = $Foswiki::Plugins::EditTablePlugin::pluginName;
+
     $prefCHANGEROWS =
-         Foswiki::Func::getPreferencesValue('CHANGEROWS')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_CHANGEROWS')
-      || 'on';
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_CHANGEROWS") || 'on';
+
     $prefQUIETSAVE =
-         Foswiki::Func::getPreferencesValue('QUIETSAVE')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_QUIETSAVE')
-      || 'on';
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_QUIETSAVE") || 'on';
+
     $prefEDIT_BUTTON =
-         Foswiki::Func::getPreferencesValue('EDIT_BUTTON')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_EDIT_BUTTON')
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_EDIT_BUTTON")
       || 'Edit table';
+
     $prefSAVE_BUTTON =
-         Foswiki::Func::getPreferencesValue('SAVE_BUTTON')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_SAVE_BUTTON')
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_SAVE_BUTTON")
       || 'Save table';
+
     $prefQUIET_SAVE_BUTTON =
-         Foswiki::Func::getPreferencesValue('QUIET_SAVE_BUTTON')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_QUIET_SAVE_BUTTON')
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_QUIET_SAVE_BUTTON")
       || 'Quiet save';
+
     $prefADD_ROW_BUTTON =
-         Foswiki::Func::getPreferencesValue('ADD_ROW_BUTTON')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_ADD_ROW_BUTTON')
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_ADD_ROW_BUTTON")
       || 'Add row';
-    $prefDELETE_LAST_ROW_BUTTON =
-      Foswiki::Func::getPreferencesValue('DELETE_LAST_ROW_BUTTON')
-      || Foswiki::Func::getPreferencesValue(
-        'EDITTABLEPLUGIN_DELETE_LAST_ROW_BUTTON')
+
+    $prefDELETE_LAST_ROW_BUTTON = Foswiki::Func::getPreferencesValue(
+        "\U$pluginName\E_DELETE_LAST_ROW_BUTTON")
       || 'Delete last row';
+      
     $prefCANCEL_BUTTON =
-         Foswiki::Func::getPreferencesValue('CANCEL_BUTTON')
-      || Foswiki::Func::getPreferencesValue('EDITTABLEPLUGIN_CANCEL_BUTTON')
+      Foswiki::Func::getPreferencesValue("\U$pluginName\E_CANCEL_BUTTON")
       || 'Cancel';
+      
     $prefMESSAGE_INCLUDED_TOPIC_DOES_NOT_EXIST =
-      Foswiki::Func::getPreferencesValue('INCLUDED_TOPIC_DOES_NOT_EXIST')
-      || Foswiki::Func::getPreferencesValue(
-        'EDITTABLEPLUGIN_INCLUDED_TOPIC_DOES_NOT_EXIST')
+      Foswiki::Func::getPreferencesValue(
+        "\U$pluginName\E_INCLUDED_TOPIC_DOES_NOT_EXIST")
       || 'Warning: \'include\' topic does not exist!';
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -731,7 +696,7 @@ sub extractParams {
     return;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -757,14 +722,12 @@ sub parseFormat {
     return @aFormat;
 }
 
-=pod
+=begin TML
 
 =cut
 
 sub handleEditTableTag {
-    my ( $inWeb, $inTopic, $thePreSpace, $theArgs ) = @_;
-
-    my $preSp = $thePreSpace || '';
+    my ( $inWeb, $inTopic, $theArgs ) = @_;
 
     %params = (
         'header'              => '',
@@ -798,14 +761,15 @@ sub handleEditTableTag {
 
             my $text = Foswiki::Func::readTopicText( $inWeb, $iTopic );
             $text =~ /$PATTERN_EDITTABLEPLUGIN/os;
-            if ($1) {
-                my $args = $1;
+            if ($2) {
+                my $args = $2;
                 if (   $inWeb ne $Foswiki::Plugins::EditTablePlugin::web
                     || $iTopic ne $Foswiki::Plugins::EditTablePlugin::topic )
                 {
 
                     # expand common vars, unless oneself to prevent recursion
-                    $args = Foswiki::Func::expandCommonVariables( $1, $iTopic,
+                    $args =
+                      Foswiki::Func::expandCommonVariables( $args, $iTopic,
                         $inWeb );
                 }
                 extractParams( $args, \%params );
@@ -815,8 +779,8 @@ sub handleEditTableTag {
 
     # We allow expansion of macros in the EDITTABLE arguments so one can
     # set a macro that defines the arguments
-    $theArgs = Foswiki::Func::expandCommonVariables( $theArgs, $inTopic,
-                                                     $inWeb );
+    $theArgs =
+      Foswiki::Func::expandCommonVariables( $theArgs, $inTopic, $inWeb );
 
     extractParams( $theArgs, \%params );
 
@@ -837,12 +801,10 @@ sub handleEditTableTag {
 
     @format         = parseFormat( $params{format}, $inTopic, $inWeb, 0 );
     @formatExpanded = parseFormat( $params{format}, $inTopic, $inWeb, 1 );
-    $nrCols         = @format;
-
-    return "$preSp";
+    $nrCols         = scalar @format;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -890,7 +852,7 @@ sub handleTableStart {
     return $text;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -911,7 +873,7 @@ sub hiddenField {
       "$prefix<input type=\"hidden\" name=\"$name\" value=\"$value\" />$suffix";
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -932,11 +894,10 @@ sub handleTableEnd {
     $text .= "</div><!-- /editTable -->";
     $text .= "</noautolink>" if $doEdit;
 
-    #    $text .= "\n";
     return $text;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1011,7 +972,7 @@ sub createButtonRow {
     return $text;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1020,7 +981,7 @@ sub parseEditCellFormat {
     return '';
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1057,7 +1018,7 @@ sub viewEditCell {
     }
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1068,7 +1029,7 @@ sub saveEditCellFormat {
     return hiddenField( '', $theName, $theFormat, '' );
 }
 
-=pod
+=begin TML
 
 digestedCellValue: properly handle labels whose result may have been moved around by javascript, and therefore no longer correspond to the raw saved table text.
 
@@ -1089,7 +1050,7 @@ sub inputElement {
 
     my $cellFormat = '';
     $theValue =~
-      s/\s*%EDITCELL{(.*?)}%/&parseEditCellFormat( $1, $cellFormat )/eo;
+      s/\s*$PATTERN_EDITCELL/&parseEditCellFormat( $1, $cellFormat )/eo;
 
     # If cell is empty we remove the space to not annoy the user when
     # he needs to add text to empty cell.
@@ -1241,6 +1202,8 @@ sub inputElement {
         $isHeader = 1 if ( $theValue =~ s/^\s*\*(.*)\*\s*$/$1/o );
         $text = $theValue;
 
+#        $text =~ s/($PATTERN_SPREADSHEETPLUGIN_CALC)/handleSpreadsheetFormula($1)/geox;
+
         # To optimize things, only in the case where a read-only column is
         # being processed (inside of this unless() statement) do we actually
         # go out and read the original topic.  Thus the reason for the
@@ -1257,7 +1220,7 @@ sub inputElement {
                 $Foswiki::Plugins::EditTablePlugin::web,
                 $Foswiki::Plugins::EditTablePlugin::topic
             );
-            readTables( $topicContents, $inTopic, $inWeb );
+            parseTables( $topicContents, $inTopic, $inWeb );
         }
         my $table = $tableMatrix{$inWeb}{$inTopic};
         my $cell =
@@ -1269,9 +1232,8 @@ sub inputElement {
           unless ( $theValue eq '' );
 
         #$theValue = "\*$theValue\*" if ( $isHeader and $digestedCellValue );
-        $text = "\*$text\*" if ($isHeader);
+        $text = "\*$text\*" if $isHeader;
         $text .= ' ' . hiddenField( $preSp, $theName, $theValue );
-
     }
     elsif ( $type eq 'textarea' ) {
         my ( $rows, $cols ) = split( /x/, $size );
@@ -1312,7 +1274,7 @@ sub inputElement {
                 -name    => 'calendar',
                 -onclick => "return showCalendar('id$theName','$ifFormat')",
                 -src     => Foswiki::Func::getPubUrlPath() . '/'
-                  . Foswiki::Func::getTwikiWebname()
+                  . $Foswiki::cfg{SystemWebName}
                   . '/JSCalendarContrib/img.gif',
                 -alt   => 'Calendar',
                 -align => 'middle'
@@ -1340,7 +1302,7 @@ sub inputElement {
     return $text;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1349,12 +1311,37 @@ sub handleTableRow {
         $thePre, $theRow, $theTableNr, $isNewRow, $theRowNr,
         $doEdit, $doSave, $inWeb,      $inTopic
     ) = @_;
+
+    if ($Foswiki::Plugins::EditTablePlugin::debug) {
+        Foswiki::Func::writeDebug(
+                "EditTablePlugin::Core::handleTableRow; params="
+              . "\n\t thePre=$thePre"
+              . "\n\t theRow=$theRow"
+              . "\n\t theTableNr=$theTableNr"
+              . "\n\t isNewRow=$isNewRow"
+              . "\n\t theRowNr=$theRowNr"
+              . "\n\t doEdit=$doEdit"
+              . "\n\t doSave=$doSave"
+              . "\n\t inWeb=$inWeb"
+              . "\n\t inTopic=$inTopic" );
+    }
+
     $thePre |= '';
     my $text = "$thePre\|";
+
     if ($doEdit) {
         $theRow =~ s/\|\s*$//o;
+
+        # retrieve any params sent by javascript interface (see edittable.js)
         my $rowID = $query->param("etrow_id$theRowNr");
         $rowID = $theRowNr if !defined $rowID;
+
+        if ($Foswiki::Plugins::EditTablePlugin::debug) {
+            Foswiki::Func::writeDebug( "\t query->param(etrow_id$theRowNr)="
+                  . $query->param("etrow_id$theRowNr")
+                  . ";rowID=$rowID" );
+        }
+
         my @cells;
         my $isNewRowFromHeader = ( $theRowNr <= 1 ) && ( $params{'header'} );
         @cells =
@@ -1374,6 +1361,12 @@ sub handleTableRow {
             $col += 1;
             $cellDefined = 0;
             $val = $isNewRow ? undef : $query->param("etcell${rowID}x$col");
+
+            if ($Foswiki::Plugins::EditTablePlugin::debug) {
+                Foswiki::Func::writeDebug(
+                    "\t rowID=$rowID; isNewRow=$isNewRow; val=$val");
+            }
+
             if ( $val && $val =~ /^Chkbx: (etcell.*)/ ) {
 
       # Multiple checkboxes, val has format "Chkbx: etcell4x2x2 etcell4x2x3 ..."
@@ -1478,7 +1471,7 @@ sub handleTableRow {
     else {
 
         # render EDITCELL in view mode
-        $theRow =~ s/%EDITCELL{(.*?)}%/viewEditCell($1)/geo if !$doSave;
+        $theRow =~ s/$PATTERN_EDITCELL/viewEditCell($1)/geo if !$doSave;
         $text .= $theRow;
     }    # /if ($doEdit)
 
@@ -1486,10 +1479,15 @@ sub handleTableRow {
     Foswiki::Plugins::EditTablePlugin::decodeFormatTokens($text)
       if ( !$doSave && !$doEdit );
 
+    if ($Foswiki::Plugins::EditTablePlugin::debug) {
+        Foswiki::Func::writeDebug(
+            "EditTablePlugin::Core::handleTableRow; return text=$text");
+    }
+
     return $text;
 }
 
-=pod
+=begin TML
 
 Add one space to both sides of the text to allow TML expansion.
 Convert multiple (existing) spaces to one space.
@@ -1506,7 +1504,7 @@ sub addSpaceToBothSides {
     return $text;
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1514,7 +1512,7 @@ sub doCancelEdit {
     my ( $inWeb, $inTopic ) = @_;
 
     Foswiki::Func::writeDebug(
-        "- EditTablePlugin::doCancelEdit( $inWeb, $inTopic )")
+        "EditTablePlugin::Core::doCancelEdit( $inWeb, $inTopic )")
       if $Foswiki::Plugins::EditTablePlugin::debug;
 
     Foswiki::Func::setTopicEditLock( $inWeb, $inTopic, 0 );
@@ -1523,7 +1521,7 @@ sub doCancelEdit {
         Foswiki::Func::getViewUrl( $inWeb, $inTopic ) );
 }
 
-=pod
+=begin TML
 
 =cut
 
@@ -1531,7 +1529,7 @@ sub doEnableEdit {
     my ( $inWeb, $inTopic, $doCheckIfLocked ) = @_;
 
     Foswiki::Func::writeDebug(
-        "- EditTablePlugin::doEnableEdit( $inWeb, $inTopic )")
+        "EditTablePlugin::Core::doEnableEdit( $inWeb, $inTopic )")
       if $Foswiki::Plugins::EditTablePlugin::debug;
 
     my $wikiUserName = Foswiki::Func::getWikiName();
@@ -1585,17 +1583,7 @@ sub doEnableEdit {
     return 1;
 }
 
-sub insertTmpTagInTableTagLine {
-    $_[0] =~
-s/( "START_EDITTABLEPLUGIN_TMP_TAG")("END_EDITTABLEPLUGIN_TMP_TAG")/$1$_[1]$2/;
-}
-
-sub removeTmpTagInTableTagLine {
-    $_[0] =~
-      s/ "START_EDITTABLEPLUGIN_TMP_TAG"(.*?)"END_EDITTABLEPLUGIN_TMP_TAG"//go;
-}
-
-=pod
+=begin TML
 
 stripCommentsFromRegex($pattern) -> $pattern
 
@@ -1610,242 +1598,187 @@ sub stripCommentsFromRegex {
     return $cleanRegex;
 }
 
-=pod
+=begin TML
 
-Helper class parses tables to take out table texts, and stores table cell data.
+StaticMethod _handleSpreadsheetFormula( $text ) -> $htmlTextfield
 
-=cut
-
-package Foswiki::Plugins::TableData;
-
-use vars qw(
-  %regex
-);
-
-BEGIN {
-    $PATTERN_EDITTABLEPLUGIN = '%EDITTABLE{(.*?)}%';
-    $PATTERN_TABLEPLUGIN     = '%TABLE(?:{(.*?)})?%';
-}
-
-=pod
+Puts a SpreadSheetPlugin formula inside a read-only textfield to limit the screen size and keep it visible.
+Should be done only for label fields because the text is otherwise not editable.
 
 =cut
 
-sub new {
-    my ($class) = @_;
-    my $this = {};
-    $this->{parsed} = 0;
-    bless $this, $class;
-    return $this;
+# unused until bug free
+
+sub handleSpreadsheetFormula {
+    my ($inFormula) = @_;
+
+    my $textfield = CGI::textfield(
+        {
+            class    => 'foswikiInputFieldReadOnly',
+            size     => 12,
+            value    => $inFormula,
+            readonly => 'readonly',
+            style    => 'font-weight:bold;',
+        }
+    );
+    return $textfield;
 }
 
-=pod
+=begin TML
 
-parseText($text)
+StaticMethod handleTmlInTables( $text )
 
-The guts of this routine was initially copied from SpreadSheetPlugin.pm
-and were used in the ChartPlugin Table object which this was copied from,
-but this has been modified to support the functionality needed by the
-EditTablePlugin.  One major change is to only count and save tables
-following an %EDITTABLE{.*}% tag.
+Users using the plugin would be confused when they enter newlines,
+which get replaced with %BR%, and thus might not render their TML
 
-This routine basically returns an array of hashes where each hash
-contains the information for a single table.  Thus the first hash in the
-array represents the first table found on the topic page, the second hash
-in the array represents the second table found on the topic page, etc.
+So we hack it here so that all TML and HTML tags have spaces around them:
+- adds spaces around %BR% to render TML around linebreaks
+- add spaces around TML next to HTML tags, again to render TML
+- expands variables, for example %CALC% 
+Check Foswikibug:Item1017
 
 =cut
 
-sub parseText {
+sub handleTmlInTables {
 
-    my ( $this, $topicText ) = @_;
+    # my $text = $_[0]
 
-    my $tableNum = 1;    # Table number (only count tables with EDITTABLE tag)
-    my @tableMatrix;     # Currently parsed table.
+    # add spaces around %BR%
+    $_[0] =~ s/(%BR%)/ $1 /gox;
 
-    my $inEditTable    = 0;    # Flag to keep track if in an EDITTABLE table
-    my $insidePRE      = 0;
-    my $insideTABLE    = 0;
-    my $line           = '';
-    my @row            = ();
-    my @tableLines     = ();
-    my $editTableTag   = '';
-    my $storedTableRow = '';
-
-    my $tablesTakenOutText = '';
-    my $editTableObjects;
-
-    $topicText =~
-      s/\r//go;    # strip out all \r chars (may be pasted into a table cell)
-    $topicText =~ s/\\\n//go;    # Join lines ending in "\"
-    $topicText .= $RENDER_HACK
-      ;    # appended stuff is a hack to handle EDITTABLE correctly if at end
-
-    foreach ( split( /\n/, $topicText ) ) {
-
-        my $doCopyLine      = 1;
-        my $hasEditTableTag = 0;
-
-        # change state:
-        m|<pre\b|i      && ( $insidePRE = 1 );
-        m|<verbatim\b|i && ( $insidePRE = 1 );
-        m|</pre>|i      && ( $insidePRE = 0 );
-        m|</verbatim>|i && ( $insidePRE = 0 );
-
-        if ( !$insidePRE ) {
-
-            if ( /$PATTERN_EDITTABLEPLUGIN/ && /$PATTERN_TABLEPLUGIN/ ) {
-
-                # EDITTABLE and TABLE on one line (order does not matter)
-                _putTmpTagInTableTagLine($_);
-                $inEditTable = 1;
-                $tablesTakenOutText .= "<!--edittable$tableNum-->";
-                $doCopyLine = 0;
-                $editTableTag .= $_;
-                $hasEditTableTag = 1;
-            }
-            elsif (/$PATTERN_EDITTABLEPLUGIN/) {
-
-                # only EDITTABLE
-                if ( $storedTableRow ne '' ) {
-
-# store the TABLE tag from the previous line together with the current EDITTABLE tag
-                    _putTmpTagInTableTagLine($storedTableRow);
-                    $editTableTag .= $storedTableRow . "\n";
-                    $storedTableRow = '';
-                }
-                $inEditTable = 1;
-                $tablesTakenOutText .= "<!--edittable$tableNum-->";
-                $doCopyLine = 0;
-                $editTableTag .= $_;
-                $hasEditTableTag = 1;
-            }
-            elsif ( $inEditTable && /$PATTERN_TABLEPLUGIN/ ) {
-
-                # TABLE on the line after EDITTABLE
-                # we will include it in the editTableTag
-                _putTmpTagInTableTagLine($_);
-                $doCopyLine = 0;
-                $editTableTag .= "\n" . $_;
-                $hasEditTableTag = 1;
-            }
-            elsif ( !$inEditTable && /$PATTERN_TABLEPLUGIN/ ) {
-
-         # this might be TABLE on the line before EDITTABLE, but we are not sure
-                $storedTableRow = $_;
-                $doCopyLine     = 0;
-            }
-            elsif ( $storedTableRow ne '' ) {
-
-# we had stored the TABLE tag, but no EDITTABLE tag was just below it; add it to the text and clear
-                $tablesTakenOutText .= $storedTableRow . "\n";
-                $storedTableRow = '';
-            }
-            if ( $inEditTable && !$hasEditTableTag ) {
-
-                if (/^\s*\|.*\|\s*$/) {
-
-                    $doCopyLine = 0;
-                    push( @tableLines, $_ );
-
-                    # inside | table |
-                    $insideTABLE = 1;
-                    $line        = $_;
-                    $line =~ s/^(\s*\|)(.*)\|\s*$/$2/o;    # Remove starting '|'
-                    @row = split( /\|/o, $line, -1 );
-                    _trimCellsInRow( \@row );
-                    push( @tableMatrix, [@row] );
-
-                }
-                else {
-
-                    # outside | table |
-                    if ($insideTABLE) {
-
-                        # We were inside a table and are now outside of it so
-                        # save the table info into the Table object.
-                        $insideTABLE = 0;
-                        $inEditTable = 0;
-
-                        if ( @tableMatrix != 0 ) {
-
-                            # Save the table via its table number
-                            $$this{"TABLE_$tableNum"} = [@tableMatrix];
-                        }
-                        undef @tableMatrix;    # reset table matrix
-                    }
-                    else {
-
-                        # not (or no longer) inside a table
-                        $doCopyLine  = 1;
-                        $inEditTable = 0;
-                    }
-                    my $tableRef;
-                    $tableRef->{'text'} = join( "\n", @tableLines );
-                    $tableRef->{'tag'} = $editTableTag;
-                    push( @{$editTableObjects}, $tableRef );
-                    $tableNum++;
-
-                    @tableLines   = ();
-                    $editTableTag = '';
-                }
-            }
-        }    # if ( !$insidePRE )
-
-        $tablesTakenOutText .= $_ . "\n" if $doCopyLine;
-    }    # foreach
-
-    # clean up hack that handles EDITTABLE correctly if at end
-    $tablesTakenOutText =~ s/($RENDER_HACK)+$//go;
-    $this->{parsed}             = 1;
-    $this->{tablesTakenOutText} = $tablesTakenOutText;
-    $this->{editTableObjects}   = $editTableObjects;
+    # add spaces around TML next to HTML
+    addSpacesToTmlNextToHtml( $_[0] );
 }
 
-=pod
+=begin TML
 
-_trimCellsInRow (\@rowCells)
+Handles search results that is formatted as table below an EDITTABLE tag.
 
-Trim any leading and trailing white space and/or '*'.
+For instance:
+
+%EDITTABLE{}%
+| *Project* | *Assignee* | *Launch Date* |
+%SEARCH{search="test" topic="*" format="| $formfield(name) | $formfield(author) | $formfield(date) |" nonoise="on" limit="5"}%
 
 =cut
 
-sub _trimCellsInRow {
-    my ($rowCells) = @_;
-    for my $cell ( @{$rowCells} ) {
-        $cell =~ s/^[[:space:]]+(.*?)$/$1/s;    # trim at start
-        $cell =~ s/^(.*?)[[:space:]]+$/$1/s;    # trim at end
-    }
-}
+sub handleSearchResultsBelowEditTables {
 
-sub _putTmpTagInTableTagLine {
+    # my $text = $_[0]
+    # my $editTableNr = $_[1]
+    # my $tableData = $_[2]
+
     $_[0] =~
-s/(%TABLE{.*?)(}%)/$1 "START_EDITTABLEPLUGIN_TMP_TAG""END_EDITTABLEPLUGIN_TMP_TAG"$2/;
+s/(<!--%EDITTABLESTUB{([0-9]+)}%-->\s+)((\s*)\|.*\|)\s+/addSearchResultsTableTextToTableObject($_[2], $_[1], $1, $2, $3)/geos;
 }
 
-=pod
+sub addSearchResultsTableTextToTableObject {
+    my ( $inTableData, $inEditTableNr, $inTag, $inTableNumber, $inTableText ) =
+      @_;
 
-Return the contents of the specified cell
+    # do not offer expanded table in edit mode
+    return "$inTag$inTableText\n" if ( $inEditTableNr == $inTableNumber );
+
+    $inTableData->{editTableObjects}->[ $inTableNumber - 1 ]->{searchResults} =
+      "$inTableText\n";
+
+    return $inTag;
+}
+
+=begin TML
+
+StaticMethod addSpacesToTmlNextToHtml( \$text )
+
+So that:
+
+| *bold*<br />_italic_ |
+
+gets rendered as:
+
+|*bold* <br /> _italic_|
 
 =cut
 
-sub getCell {
-    my ( $this, $tableNum, $row, $column ) = @_;
+sub addSpacesToTmlNextToHtml {
 
-    my @selectedTable = $this->getTable($tableNum);
-    my $value         = $selectedTable[$row][$column];
-    return $value;
+    # my $text = $_[0]
+
+    # also remove spaces at both sides to prevent extra spaces are added to the
+    # cell, resulting in wrong alignment (when html tags are stripped in the
+    # core table renderer)
+
+    my $TMLpattern = qr/[_*=]*/o;
+    my $pattern    = qr(
+	[[:space:]]*		# any space
+	($TMLpattern)		# i1: optional TML syntax before html tag
+	(					# i2: html tag
+	</*				# start of tag (optional closing tag)
+	(?:$HTML_TAGS)+		# any of the html tags
+	[[:space:]]*     	# any space
+	.*?				    # anything before the end of tag
+	/*>				# end of tag (optional closing tag)
+	)					# /i2
+	($TMLpattern)		# i3: optional TML syntax after html tag
+	[[:space:]]*		# any space
+	)ox;
+
+    $_[0] =~ s/$pattern/$1 $2 $3/go;
 }
 
-=pod
+=begin TML
 
+StaticMethod getHeaderAndFooterCount( $text ) -> ($headerRowCount, $footerRowCount)
+
+Reads the headerrows and footerrows parameters from the TABLE macro (if any) and returns them as tuple.
+
+If no TABLE tag is present, returns (0,0).
 =cut
 
-sub getTable {
-    my ( $this, $tableNumber ) = @_;
-    my $table = $$this{"TABLE_$tableNumber"};
-    return @$table if defined($table);
-    return ();
+sub getHeaderAndFooterCount {
+    my ($inTag) = @_;
+
+    my $tag = $inTag;
+
+    # expand macros in tagline without creating infinite recursion,
+    # so delete EDITTABLE as we won't need it here
+    $tag =~ s/%EDITTABLE{/_DELETED_/o;
+    $tag = Foswiki::Func::expandCommonVariables($tag);
+
+    my $headerRowCount = 0;
+    my $footerRowCount = 0;
+
+    if ( $tag =~ m/$PATTERN_TABLEPLUGIN/ ) {
+
+        # We want this info also when viewing, because the row count takes
+        # header and footer rows into account
+        # match with a TablePlugin line
+        # works when TABLE tag is just above OR just below the EDITTABLE tag
+        my %tablePluginParams = Foswiki::Func::extractParameters($1);
+        $headerRowCount = $tablePluginParams{'headerrows'} || 0;
+        $footerRowCount = $tablePluginParams{'footerrows'} || 0;
+    }
+    return ( $headerRowCount, $footerRowCount );
 }
 
 1;
+
+__DATA__
+# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+#
+# Copyright (C) 2008-2009 Arthur Clemens, arthur@visiblearea.com and Foswiki contributors
+# Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and
+# TWiki Contributors.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version. For
+# more details read LICENSE in the root of this distribution.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+#
+# As per the GPL, removal of this notice is prohibited.
+#
+# This is the EditTablePlugin used to edit tables in place.

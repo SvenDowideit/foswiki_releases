@@ -27,7 +27,7 @@ require Foswiki::Contrib::MailerContrib::UpData;
 
 use vars qw ( $VERSION $RELEASE $verbose );
 
-$VERSION = '$Rev: 1437 (28 Feb 2009) $';
+$VERSION = '$Rev: 3048 (2009-03-12) $';
 $RELEASE = '03 Dec 2008';
 
 # PROTECTED STATIC ensure the contrib is initernally initialised

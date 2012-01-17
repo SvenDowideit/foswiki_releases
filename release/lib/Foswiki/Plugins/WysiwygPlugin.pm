@@ -39,7 +39,7 @@ use vars qw( %TWikiCompatibility @refs );
 
 $SHORTDESCRIPTION = 'Translator framework for Wysiwyg editors';
 $NO_PREFS_IN_TOPIC = 1;
-$VERSION = '$Rev: 1525 (28 Feb 2009) $';
+$VERSION = '$Rev: 3048 (2009-03-12) $';
 
 $RELEASE = '03 Aug 2008';
 

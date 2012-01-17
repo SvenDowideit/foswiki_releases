@@ -38,7 +38,7 @@ Pictorially,
 As well as the meta-data, the object also stores the web name, topic
 name and topic text.
 
-API version $Date: 2009-02-24 05:18:50 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 2773 (28 Feb 2009) $)
+API version $Date: 2009-02-24 05:18:50 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 3201 (2009-03-19) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -64,7 +64,7 @@ use strict;
 use Error qw(:try);
 use Assert;
 
-our $VERSION = '$Rev: 2773 (28 Feb 2009) $';
+our $VERSION = '$Rev: 3201 (2009-03-19) $';
 
 =begin TML
 
