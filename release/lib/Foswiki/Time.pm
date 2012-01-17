@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2010-06-13 14:26:03 +0200 (Sun, 13 Jun 2010) $ (revision $Rev: 9743 (2010-10-25) $)
+API version $Date: 2010-06-13 14:26:03 +0200 (Sun, 13 Jun 2010) $ (revision $Rev: 9940 (2010-11-10) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -37,7 +37,7 @@ use warnings;
 
 use Foswiki ();
 
-our $VERSION = '$Rev: 9743 (2010-10-25) $';    # Subversion rev number
+our $VERSION = '$Rev: 9940 (2010-11-10) $';    # Subversion rev number
 
 # Constants
 our @ISOMONTH = (

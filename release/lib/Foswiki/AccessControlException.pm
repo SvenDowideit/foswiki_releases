@@ -18,7 +18,7 @@ The exception may be thrown by plugins. If a plugin throws the exception, it
 will normally be caught and the browser redirected to a login screen (if the
 user is not logged in) or reported (if they are and just don't have access).
 
-API version $Date: 2010-05-18 10:51:30 +0200 (Tue, 18 May 2010) $ (revision $Rev: 9743 (2010-10-25) $)
+API version $Date: 2010-05-18 10:51:30 +0200 (Tue, 18 May 2010) $ (revision $Rev: 9940 (2010-11-10) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -50,7 +50,7 @@ use warnings;
 use Error ();
 our @ISA = ('Error');    # base class
 
-our $VERSION = '$Rev: 9743 (2010-10-25) $';
+our $VERSION = '$Rev: 9940 (2010-11-10) $';
 
 =begin TML
 

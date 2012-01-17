@@ -290,9 +290,14 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  Copyright: | &copy; 2007-2010 Crawford Currie http://c-dot.co.uk |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
 |             | This package also includes the complete sources for version 3.3.8 of the !TinyMCE editor which is covered by [[http://tinymce.moxiecode.com/license.php][its own license]]. |
-|  Version: | 9731 (2010-10-25) |
-|  Release: | 25 Oct 2010 |
+|  Version: | 9855 (2010-11-04) |
+|  Release: | 04 Nov 2010 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  ?           | Foswikitask:Item2174: JS fix for deleting encoded-TML-whitespace on Firefox |
+|  04 Nov 2010 | Foswikitask:Item9706: Upgrade to !TinyMCE 3.3.9.2<br/>\
+                 Foswikitask:Item9953: Fix JS error transitioning to !WikiText from fullscreen<br/>\
+                 Foswikitask:Item9952: Fix bold & italics buttons not activating on already bolded/italicised text properly<br/>\
+                 Foswikitask:Item9960: Fix JS error switching tabs on the attach dialogue |
 |  25 Oct 2010 | Foswikitask:Item9870: Fix JS error on Internet Explorers |
 |  28 Sep 2010 | Foswikitask:Item9236: Enable contextmenu !TinyMCE plugin, allows table row/column copy &amp; paste<br/>\
                  Foswikitask:Item9263: Fix autosave breaking on IECollections' IE6<br/>\

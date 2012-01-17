@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2010-10-25 23:57:27 +0200 (Mon, 25 Oct 2010) $ $Rev: 9743 (2010-10-25) $ ';
-    $RELEASE = 'Foswiki-1.1.1';
+    $VERSION = '$Date: 2010-11-10 01:28:35 +0100 (Wed, 10 Nov 2010) $ $Rev: 9940 (2010-11-10) $ ';
+    $RELEASE = 'Foswiki-1.1.2';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -3004,7 +3004,7 @@ sub _processMacros {
 # Handle expansion of a tag during topic rendering
 # $tag is the tag name
 # $args is the bit in the {} (if there are any)
-# $topic and $web should be passed for dynamic tags (not needed for
+# $topicObject should be passed for dynamic tags (not needed for
 # session or constant tags
 sub _expandMacroOnTopicRendering {
     my ( $this, $tag, $args, $topicObject ) = @_;

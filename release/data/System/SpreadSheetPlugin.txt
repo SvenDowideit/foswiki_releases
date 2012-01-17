@@ -695,9 +695,9 @@ Conventions for Syntax:
 
 Specifically, how can I output some conditional text in a %SYSTEMWEB%.FormattedSearch?
 
-You need to escape the CALC so that it executes once per search hit. This can be done by escaping the =%= signs of =%<nop>CALC{...}%= with =$percent=. For example, to execute =$IF($EXACT($formfield(Tested), Yes), %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-yes.gif, %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-no.gif)= in the =format=""= parameter, write this:
+You need to escape the CALC so that it executes once per search hit. This can be done by escaping the =%= signs of =%<nop>CALC{...}%= with =$percnt=. For example, to execute =$IF($EXACT($formfield(Tested), Yes), %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-yes.gif, %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-no.gif)= in the =format=""= parameter, write this:
 
-=%<nop>SEARCH{ .... format="| $topic | $percentCALC{$IF($EXACT($formfield(Tested), Yes), %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-yes.gif, %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-no.gif)}$percent |" }%=
+=%<nop>SEARCH{ .... format="| $topic | $percntCALC{$IF($EXACT($formfield(Tested), Yes), %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-yes.gif, %<nop>PUBURL%/%<nop>SYSTEMWEB%/DocumentGraphics/choice-no.gif)}$percnt |" }%=
 
 ---+++ How can I easily repeat a formula in a table?
 
@@ -774,9 +774,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 |  Copyright: | Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org and TWiki Contributors;  &copy; 2008-2010 Foswiki Contributors  |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 8445 (2010-08-09) |
-|  Release: | 09 Aug 2010 |
+|  Version: | 9875 (2010-11-05) |
+|  Release: | 06 Nov 2010 |
 |  Change History: | <!-- specify latest version first -->&nbsp; |
+|  06 Nov 2010: | Foswikitask:Item9963: Revert usage of =$<nop>percent= back to =$<nop>percnt= |
 |  09 Aug 2010: | Foswikitask:Item1998: fix for $RIGHT |
 |  04 Aug 2010: | Foswikitask:Item9415: Minor documentation updates |
 |  21 Jul 2010: | Foswikitask:Item5163: prevent misrendering of empty rows, Foswikitask:Item9400: correct $LIST for cells containing commas, as per doc |

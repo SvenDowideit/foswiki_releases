@@ -43,7 +43,7 @@ use Assert;
 use Foswiki::Configure::Dependency;
 use Foswiki::Configure::Util;
 
-our $VERSION = '$Rev: 9743 (2010-10-25) $';
+our $VERSION = '$Rev: 9940 (2010-11-10) $';
 
 my $depwarn = '';    # Pass back warnings from untaint validation routine
 

@@ -165,9 +165,10 @@ For further troubleshooting and feedback, go to http://foswiki.org/Support/%TOPI
 |  Screenshot: | <a href="%ATTACHURL%/patternskin_screenshot_full.png"><img src="%ATTACHURL%/patternskin_screenshot.png" style="border:1px solid #eee;" alt="Click for full screen image" width="600" /></a> |
 |  Preview: | [[%SCRIPTURL{view}%/%WEB%/%TOPIC%?skin=pattern][Preview with this skin]] |
 |  Base Name: | pattern |
-|  Version: | 8601 (2010-08-19) | 
-|  Release: | 5.4 |
+|  Version: | 9926 (2010-11-09) | 
+|  Release: | 5.4.2 |
 |  History: | <!-- specify latest version first -->&nbsp; |
+|  09 Nov 2010: | v.5.4.2: Remove redundant files from repository. v.5.4.1: Revert usage of =$<nop>percent= back to =$<nop>percnt= |
 |  19 Aug 2010: | v.5.4 - Version for Foswiki 1.1. |
 |  31 Jul 2010: | v.5.3.1 - Documentation updates |
 |  27 May 2010: | v.5.3 - Added "flexible width" column styles. |

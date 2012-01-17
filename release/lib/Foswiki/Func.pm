@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2010-10-22 00:10:04 +0200 (Fri, 22 Oct 2010) $ (revision $Rev: 9743 (2010-10-25) $)
+API version $Date: 2010-10-22 00:10:04 +0200 (Fri, 22 Oct 2010) $ (revision $Rev: 9940 (2010-11-10) $)
 
 *Since:* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki 1.0.0). The _date_ indicates the

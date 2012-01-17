@@ -17,9 +17,9 @@ use warnings;
 use vars qw( @twistystack $doneHeader $doneDefaults $twistyCount
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-our $VERSION = '$Rev: 9716 (2010-10-24) $';
+our $VERSION = '$Rev: 9875 (2010-11-05) $';
 
-our $RELEASE = '1.6.7';
+our $RELEASE = '1.6.10';
 our $SHORTDESCRIPTION =
   'Twisty section Javascript library to open/close content dynamically';
 our $NO_PREFS_IN_TOPIC = 1;

@@ -143,9 +143,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Author(s): | Michael Daum |
 |  Copyright: | 2007-2010 Michael Daum http://michaeldaumconsulting.com |
 |  License: | GPL |
-|  Release: | 3.74 |
-|  Version: | 9616 (2010-10-19) |
+|  Release: | 3.75 |
+|  Version: | 9769 (2010-10-27) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  27 Oct 2010: | (3.75) fixed IE error in chili recipe for TML |
 |  19 Oct 2010: | (3.74) Version included with Foswiki 1.1.0 + fix for code bug in SLIMBOX causing !ImageGalleryPlugin to fail |
 |  19 Aug 2010: | (3.71) JQueryLiveQuery now loads by default; \
                   removed JQueryBgiframe and JQueryEasing plugins from default plugins |

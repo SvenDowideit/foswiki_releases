@@ -7,11 +7,11 @@ package Foswiki::Plugins::EditTablePlugin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 8912 (2010-09-05) $';
+our $VERSION = '$Rev: 9875 (2010-11-05) $';
 
 # Please note that the second is now two digit.
 # Someone increased 4.22 to 4.3 which is not correct.
-our $RELEASE = '4.36';
+our $RELEASE = '4.37';
 
 our $pluginName        = 'EditTablePlugin';
 our $ENCODE_START      = '--EditTableEncodeStart--';

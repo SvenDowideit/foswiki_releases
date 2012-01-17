@@ -296,7 +296,7 @@ sub _compare_cpan_versions {
     $b =~ s/^\s+//;
     $b =~ s/\s+$//;
 
-    # $Rev: 9743 (2010-10-25) $ without a number should compare higher than anything else
+    # $Rev: 9940 (2010-11-10) $ without a number should compare higher than anything else
     $a =~ s/^\$Rev:?\s*\$$/$largest_char/;
     $b =~ s/^\$Rev:?\s*\$$/$largest_char/;
 
@@ -411,7 +411,7 @@ sub _compare_extension_versions {
 
     # What format is the version identifier? We support comparison
     # of four formats:
-    # 1. A simple number (subversion revision). Also support $Rev: 9743 (2010-10-25) $
+    # 1. A simple number (subversion revision). Also support $Rev: 9940 (2010-11-10) $
     # 2. A dd Mmm yyyy format date
     # 3. An ISO yyyy-mm-dd format date
     # 4. A tuple N(.M)+
@@ -472,10 +472,10 @@ sub _compare_extension_versions {
         $aVERSION =~ s/^\$Rev:?.*\$$/$maxInt/;
         @atuple = ( $aVERSION || 0 );
 
-        # $Rev: 9743 (2010-10-25) $
+        # $Rev: 9940 (2010-11-10) $
         $b =~ s/^\$Rev:?\s*\$.*$/$maxInt/;
 
-        # $Rev: 9743 (2010-10-25) $
+        # $Rev: 9940 (2010-11-10) $
         $b =~ s/^\$Rev: (\d+) \$.*$/$1/;
 
         # 1234 (7 Aug 2009)

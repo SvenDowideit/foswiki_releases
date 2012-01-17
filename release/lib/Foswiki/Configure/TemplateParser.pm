@@ -64,12 +64,7 @@ sub new {
     my $this = bless( {}, $class );
     $this->{skin} = undef;
 
-    # This is probably slow, but we need to know where the templates are
-    our $foswikiLibPath;
-    unless ( defined $foswikiLibPath ) {
-        delete $INC{'setlib.cfg'};
-        eval { require 'setlib.cfg'; };
-    }
+    our $foswikiLibPath = $main::foswikiLibPath;
     $foswikiConfigureFilesDir = "$foswikiLibPath/Foswiki/Configure";
 
     return $this;

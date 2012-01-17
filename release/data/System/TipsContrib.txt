@@ -76,9 +76,10 @@ Displays a rotating "Tip of the Day" to help familiarize new users with Foswiki 
 
 |  Copyright  | Copyright (C) 2005-2007 Peter Thoeny, peter@thoeny.org and TWiki Contributors  |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 8471 (2010-08-12) |
-|  Release: | 31 Jul 2010 |
+|  Version: | 9875 (2010-11-05) |
+|  Release: | 06 Nov 2010 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  06 Nov 2010: | Foswikitask:Item9963 - Revert usage of =$<nop>percent= back to =$<nop>percnt= |
 |  31 Jul 2010: | Foswikitask:Item9415 - Documentation updates |
 |  14 Apr 2010: | Fix the "Add tip for plugin" form; Fix styles; Set correct parent on a new custom tip |
 |  16 Dec 2008: | Foswiki version |
