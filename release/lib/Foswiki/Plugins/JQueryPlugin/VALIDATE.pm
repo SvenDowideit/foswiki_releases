@@ -16,7 +16,7 @@ This is the perl stub for the jquery.validate plugin.
 
 =begin TML
 
----++ ClassMethod new( $class, $session, ... )
+---++ ClassMethod new( $class, ... )
 
 Constructor
 
@@ -24,16 +24,18 @@ Constructor
 
 sub new {
     my $class = shift;
-    my $session = shift || $Foswiki::Plugins::SESSION;
 
     my $this = bless(
         $class->SUPER::new(
-            $session,
             name    => 'Validate',
-            version => '1.7',
+            version => '1.8.1',
             author  => 'Joern Zaefferer',
-            homepage => 'http://bassistance.de/jquery-plugins/jquery-plugin-validation',
-            javascript => [ 'jquery.validate.js', 'jquery.validate.methods.js' ],
+            homepage =>
+              'http://bassistance.de/jquery-plugins/jquery-plugin-validation',
+            javascript => [
+                'jquery.validate.js', 'jquery.validate.methods.js',
+                'jquery.validate.init.js'
+            ],
             dependencies => ['form'],
         ),
         $class
@@ -56,7 +58,8 @@ sub init {
     return unless $this->SUPER::init();
 
     # open matching localization file if it exists
-    my $langTag = $this->{session}->i18n->language();
+    my $session = $Foswiki::Plugins::SESSION;
+    my $langTag = $session->i18n->language();
     my $messagePath =
         $Foswiki::cfg{SystemWebName}
       . '/JQueryPlugin/plugins/validate/localization/messages_'
@@ -67,7 +70,7 @@ sub init {
 "<script type='text/javascript' src='$Foswiki::cfg{PubUrlPath}/$messagePath'></script>\n";
         Foswiki::Func::addToZone(
             'script', "JQUERYPLUGIN::VALIDATE::LANG",
-            $text,  'JQUERYPLUGIN::VALIDATE'
+            $text,    'JQUERYPLUGIN::VALIDATE'
         );
     }
 

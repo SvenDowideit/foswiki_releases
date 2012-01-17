@@ -1,4 +1,5 @@
-FoswikiTiny.install();var IFRAME_ID='mce_editor_0';function changeEditBox(inDirection){return false;}
+FoswikiTiny.install();jQuery(document).ready(function($){$("#save").closest('form').bind('submit',function(event){if(($('#cancel:focus')).length){return true;}
+if((typeof(tinyMCE)==='object')&&(typeof(tinyMCE.activeEditor)==='object')&&(tinyMCE.activeEditor!==null)&&tinyMCE.activeEditor.getParam('fullscreen_is_enabled')){alert('Please toggle out of full screen mode before attempting to save');return false;}});});var IFRAME_ID='mce_editor_0';function changeEditBox(inDirection){return false;}
 function setEditBoxHeight(inRowCount){}
 function initTextAreaStyles(){var iframe=document.getElementById(IFRAME_ID);if(iframe==null)return;var node=iframe.parentNode;var counter=0;while(node!=document){if(node.nodeName=='TABLE'){node.style.height='auto';var selectboxes=node.getElementsByTagName('SELECT');var i,ilen=selectboxes.length;for(i=0;i<ilen;++i){selectboxes[i].style.marginLeft=selectboxes[i].style.marginRight='2px';selectboxes[i].style.fontSize='94%';}
 break;}

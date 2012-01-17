@@ -296,9 +296,13 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  Copyright: | &copy; 2007-2010 Crawford Currie http://c-dot.co.uk |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
 |             | This package also includes the complete sources for version 3.3.8 of the !TinyMCE editor which is covered by [[http://tinymce.moxiecode.com/license.php][its own license]]. |
-|  Version: | 11385 (2011-04-10) |
-|  Release: | 1.1.8 |
+|  Version: | 13315 (2011-12-06) |
+|  Release: | 1.1.12 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  05 Dec 2011 (1.1.12) | Foswikitask:Item10288: Prevent save if in fullscreen mode. Other minor code cleanup. |
+|  22 Nov 2011 (1.1.11) | Foswikitask:Item11272: Remove bogus dependency on !BehaviourContrib |
+|  10 May 2011 (1.1.10) | Foswikitask:Item10724: Revert back to !TinyMCE 3.3.9.3; 3.3.9.4 caused JS errors in IE8 |
+|  09 May 2011 (1.1.9) | Foswikitask:Item10724: Update to !TinyMCE 3.3.9.4 |
 |  11 Apr 2011 (1.1.8) | Version released with Foswiki 1.1.3. Only a minor change related to how the plugin is being upgraded |
 |  19 Jan 2011 (1.1.7) | Foswikitask:Item10271: Update to !TinyMCE 3.3.9.3 and switch to using =x.y.z= version numbering %BR%\
                  Foswikitask:Item9973: Fix problem where topic names with international characters prevented attach dialogue working correctly%BR% \
@@ -371,7 +375,7 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  14668 | Bugfixes and refinements done as part of 4.2 release |
 |  14543 | Added PROTECTED style, to allow protection of special text. Disable on unsupported browsers (untested) |
 |  14538 | First release |
-|  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Contrib::BehaviourContrib</td><td align="left">&gt;=7682</td><td align="left">Javascript module</td></tr><tr><td align="left">Foswiki::Plugins::WysiwygPlugin</td><td align="left">&gt;=4315</td><td align="left">Translator module</td></tr><tr><td align="left">Foswiki::Plugins::JQueryPlugin</td><td align="left">&gt;=6185</td><td align="left">jQuery library</td></tr></table> |
+|  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Plugins::WysiwygPlugin</td><td align="left">&gt;=1.1.1</td><td align="left">Translator module</td></tr><tr><td align="left">Foswiki::Plugins::JQueryPlugin</td><td align="left">&gt;=3.30</td><td align="left">jQuery library</td></tr></table> |
 |  Plugin Home: | Foswiki:Extensions.%TOPIC% |
 |  Support: | Foswiki:Support.%TOPIC% |
 

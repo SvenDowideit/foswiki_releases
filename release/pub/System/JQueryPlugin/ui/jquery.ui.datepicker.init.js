@@ -1,0 +1,1 @@
+jQuery(function(a){var b={dateFormat:"yy-mm-dd",firstDay:1};a(".jqUIDatepicker").each(function(){var d=a(this),c=a.extend({},b,d.metadata());d.removeClass("jqUIDatepicker").datepicker(c)})});

@@ -18,6 +18,22 @@
 // Top level setup for tiny MCE editor. Requires tiny_mce.js and foswiki_tiny.js
 FoswikiTiny.install();
 
+// Item10288:  Prevent save while in Full Screen
+jQuery(document).ready(function($) {
+    $("#save").closest('form').bind('submit', function(event) {
+        if (( $('#cancel:focus') ).length) {
+            return true;
+        }
+        if ( (typeof(tinyMCE) === 'object')
+          && (typeof(tinyMCE.activeEditor) === 'object')
+          && (tinyMCE.activeEditor !== null)
+          &&  tinyMCE.activeEditor.getParam('fullscreen_is_enabled') ) {
+            alert('Please toggle out of full screen mode before attempting to save');
+            return false;
+        }
+    });
+});
+
 // Setup the standard edit screen for use with TMCE
 var IFRAME_ID = 'mce_editor_0';
 

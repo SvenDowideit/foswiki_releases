@@ -16,7 +16,7 @@ This is the perl stub for the jquery.cookie plugin.
 
 =begin TML
 
----++ ClassMethod new( $class, $session, ... )
+---++ ClassMethod new( $class, ... )
 
 Constructor
 
@@ -24,15 +24,14 @@ Constructor
 
 sub new {
     my $class = shift;
-    my $session = shift || $Foswiki::Plugins::SESSION;
 
     my $this = bless(
         $class->SUPER::new(
-            $session,
             name    => 'Cookie',
             version => '20100921',   # based on the blog posting on the homepage
-            author  => 'Klaus Hartl, Uzbekjon',
-            homepage => 'http://jquery-howto.blogspot.com/2010/09/jquery-cookies-getsetdelete-plugin.html',
+            author => 'Klaus Hartl, Uzbekjon',
+            homepage =>
+'http://jquery-howto.blogspot.com/2010/09/jquery-cookies-getsetdelete-plugin.html',
             javascript => ['jquery.cookie.js'],
         ),
         $class

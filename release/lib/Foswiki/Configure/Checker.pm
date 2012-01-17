@@ -18,8 +18,9 @@ use warnings;
 use Foswiki::Configure::UI ();
 our @ISA = ('Foswiki::Configure::UI');
 
-use File::Spec ();
-use CGI        ();
+use File::Spec               ();
+use CGI                      ();
+use Foswiki::Configure::Load ();
 
 =begin TML
 
@@ -70,6 +71,23 @@ HERE
 
 =begin TML
 
+---++ ObjectMethod getCfg($name) -> $expanded_val
+Get the value of the named configuration var. The name is in the form 
+getCfg("{Validation}{ExpireKeyOnUse}")
+
+Any embedded references to other Foswiki::cfg vars will be expanded.
+
+=cut
+
+sub getCfg {
+    my ( $this, $name ) = @_;
+    my $item = '$Foswiki::cfg' . $name;
+    Foswiki::Configure::Load::expandValue($item);
+    return $item;
+}
+
+=begin TML
+
 ---++ PROTECTED ObjectMethod warnAboutWindowsBackSlashes($path) -> $html
 
 Generate a warning if the supplied pathname includes windows-style
@@ -99,18 +117,41 @@ to the absolute pathname of the dir where configure is being run.
 sub guessMajorDir {
     my ( $this, $cfg, $dir, $silent ) = @_;
     my $msg = '';
-    if ( !$Foswiki::cfg{$cfg} || $Foswiki::cfg{$cfg} eq 'NOT SET' ) {
+    my $val = $this->getCfg("{$cfg}");
+    if ( !$val || $val eq 'NOT SET' || $val eq 'undef' ) {
         require FindBin;
         $FindBin::Bin =~ /^(.*)$/;
         my $scriptDir = $1;
-        my @root = File::Spec->splitdir($scriptDir);
+        my @root      = File::Spec->splitdir($scriptDir);
         pop(@root);
-        $Foswiki::cfg{$cfg} = ( $cfg eq 'ScriptDir') ? $scriptDir : File::Spec->catfile( @root, $dir );
+        $Foswiki::cfg{$cfg} =
+          ( $cfg eq 'ScriptDir' )
+          ? $scriptDir
+          : File::Spec->catfile( @root, $dir );
         $Foswiki::cfg{$cfg} =~ s|\\|/|g;
         $msg = $this->guessed();
     }
     unless ( $silent || -d $Foswiki::cfg{$cfg} ) {
-        $msg .= $this->ERROR('Directory does not exist');
+        $msg .= $this->ERROR("Directory '$Foswiki::cfg{$cfg}'  does not exist");
+    }
+    return $msg;
+}
+
+=begin TML
+
+---++ PROTECTED ObjectMethod showExpandedValue -> $html
+
+Return the expanded value of a parameter as a note for display.
+
+=cut
+
+sub showExpandedValue {
+    my ( $this, $field ) = @_;
+    my $msg = '';
+
+    if ( $field =~ m/\$Foswiki::cfg/ ) {
+        Foswiki::Configure::Load::expandValue($field);
+        $msg = $this->NOTE( '<b>Note:</b> Expands to: ' . $field );
     }
     return $msg;
 }
@@ -165,7 +206,7 @@ sub checkTreePerms {
     return '' if ( defined($filter) && $path =~ $filter && !-d $path );
 
     $this->{fileErrors}  = 0 unless ( defined $this->{fileErrors} );
-    $this->{missingFile}  = 0 unless ( defined $this->{missingFile} );
+    $this->{missingFile} = 0 unless ( defined $this->{missingFile} );
     $this->{excessPerms} = 0 unless ( defined $this->{excessPerms} );
 
     #let's ignore Subversion directories
@@ -225,10 +266,14 @@ sub checkTreePerms {
         }
     }
 
-    if ( $perms =~ /p/ && $path =~ /data\/(.+)$/ && -d $path ) {
-        unless ( -e "$path/$Foswiki::cfg{WebPrefsTopicName}.txt") {
-        $permErrs .= " $path missing $Foswiki::cfg{WebPrefsTopicName} Topic" . CGI::br();
-        $this->{missingFile}++;
+    if (   $perms =~ /p/
+        && $path =~ /\Q$Foswiki::cfg{DataDir}\E\/(.+)$/
+        && -d $path )
+    {
+        unless ( -e "$path/$Foswiki::cfg{WebPrefsTopicName}.txt" ) {
+            $permErrs .= " $path missing $Foswiki::cfg{WebPrefsTopicName} Topic"
+              . CGI::br();
+            $this->{missingFile}++;
         }
     }
 

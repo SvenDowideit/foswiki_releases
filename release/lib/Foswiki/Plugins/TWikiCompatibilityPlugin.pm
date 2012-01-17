@@ -17,8 +17,8 @@ require Foswiki::Func;       # The plugins API
 require Foswiki::Plugins;    # For the API version
 use vars
   qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
-$VERSION           = '$Rev: 8378 (2010-07-31) $';
-$RELEASE           = '1.1.1';
+$VERSION           = '$Rev: 13315 (2011-12-06) $';
+$RELEASE           = '1.1.2';
 $TWiki::RELEASE    = 'TWiki 4.2.3';
 $SHORTDESCRIPTION  = 'Add TWiki personality to Foswiki';
 $NO_PREFS_IN_TOPIC = 1;
@@ -73,7 +73,7 @@ sub earlyInitPlugin {
 
 sub _patchWebTopic {
 
-    my ($web, $topic) = @_;
+    my ( $web, $topic ) = @_;
 
     return unless Foswiki::Func::isValidWebName($web);
     $web = Foswiki::Sandbox::untaintUnchecked($web);
@@ -88,8 +88,8 @@ sub _patchWebTopic {
           $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}
           {TWikiWebTopicNameConversion};
         $_[0] = $Foswiki::cfg{SystemWebName};
-        if ( defined( $TWikiWebTopicNameConversion->{ $topic } ) ) {
-            $_[1] = $TWikiWebTopicNameConversion->{ $topic };
+        if ( defined( $TWikiWebTopicNameConversion->{$topic} ) ) {
+            $_[1] = $TWikiWebTopicNameConversion->{$topic};
 
             #print STDERR "converted to $topic";
         }
@@ -98,9 +98,9 @@ sub _patchWebTopic {
       $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}
       {MainWebTopicNameConversion};
     if (   ( $web eq 'Main' )
-        && ( defined( $MainWebTopicNameConversion->{ $topic } ) ) )
+        && ( defined( $MainWebTopicNameConversion->{$topic} ) ) )
     {
-        $_[1] = $MainWebTopicNameConversion->{ $topic };
+        $_[1] = $MainWebTopicNameConversion->{$topic};
 
         #print STDERR "converted to $topic";
     }

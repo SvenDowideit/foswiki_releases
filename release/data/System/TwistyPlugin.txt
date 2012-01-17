@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1195487956" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1310008799" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Plugins"}%
 ---+!! <nop>%TOPIC%
 
@@ -490,9 +490,12 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Authors: | Foswiki:Main.RafaelAlvarez, Foswiki:Main.MichaelDaum, Foswiki:Main.ArthurClemens |
 |  Copyright  | Copyright (C) Rafael Alvarez; Michael Daum, Arthur Clemens |
 |  License: | [[http://www.gnu.org/copyleft/gpl.html][GPL]] |
-|  Version: | 11359 (2011-04-10) |
-|  Release: | 1.6.12 |
+|  Version: | 13315 (2011-12-06) |
+|  Release: | 1.6.15 |
 |  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
+|  05 Dec 2011 | 1.6.15 Released with Foswiki 1.1.4 - minor changes |
+|  07 Jul 2011 | 1.6.14 Foswikitask:Item10946: fixed requesting of defunct/missing jquery.twisty.css |
+|  02 Jun 2011 | 1.6.13 Foswikitask:Item10827: clear pref completely when using =remember="off"=. Effective from Foswiki 1.1.4 and higher. |
 |  10 Apr 2011 | 1.6.12 Foswikitask:Item10618: parenthesis (or other Regex characters) in topic name crashes Foswiki <br /> Foswikitask:Item10264: Change template-js-css logic from foswikiJs to foswikiNoJs <br /> Foswikitask:Item10506: Add !noci to avoid checkin of files during installation. |
 |  15 Dec 2010 | 1.6.11 Foswikitask:Item10161: improved compatibility with jquery-1.4.3/4 |
 |  06 Nov 2010 | 1.6.10 Foswikitask:Item9963: Revert usage of =$<nop>percent= back to =$<nop>percnt= |

@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1252586517" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1307718557" format="1.1" version="1"}%
 %META:TOPICPARENT{name="DeveloperDocumentationCategory"}%
 ---+ Developing Plugins
 %TOC%
@@ -262,7 +262,7 @@ $Foswiki::cfg{BathPlugin}{MyBath} = "$Foswiki::cfg{PubDir}/enamel.gif"; # BAD
 # will be evaluated at configuration time, which will make reconfiguration
 # difficult.
 
-$Foswiki::cfg{BathPlugin}{MyBath} = '$Foswiki::cfg{PubDir}/enamel.gif; # GOOD
+$Foswiki::cfg{BathPlugin}{MyBath} = '$Foswiki::cfg{PubDir}/enamel.gif'; # GOOD
 # The single quotes make sure $Foswiki::cfg{PubDir} will only be evaluated
 # at run-time.
 </verbatim>
@@ -295,6 +295,17 @@ All types can be followed by a comma-separated list of _attributes_.
 See =lib/Foswiki.spec= for many more examples.
 
 =Config.spec= files are also used for other (non-plugin) extensions. in this case they are stored under the =Contrib= directory instead of the =Plugins= directory.
+
+#LinkingToConfigure
+---+++ Linking to =configure=
+
+You can link to your =configure= settings by using the following:
+
+<verbatim class="tml">
+[[%SCRIPTURL{"configure"}%/#BathPlugin$Extensions][configure]]
+</verbatim>
+
+Replace =BathPlugin= with the name of your extension.
 
 #MaintainPlugins
 ---++ Maintaining Plugins

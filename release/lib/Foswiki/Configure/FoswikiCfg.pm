@@ -120,7 +120,9 @@ sub load {
         _parse( $file, $root, $haveLSC );
     }
     if ($haveLSC) {
-        my %read;
+
+        # Blot out specs from the template EmptyPlugin
+        my %read = ( EmptyPlugin => 1 );
         foreach my $dir (@INC) {
             _loadSpecsFrom( "$dir/Foswiki/Plugins", $root, \%read );
             _loadSpecsFrom( "$dir/Foswiki/Contrib", $root, \%read );
@@ -235,7 +237,7 @@ sub _parse {
 
     open( F, '<', $file ) || return '';
     local $/ = "\n";
-    my $open = undef;
+    my $open = undef;    # current setting or section
     my @settings;
     my $sectionNum = 0;
 
@@ -264,9 +266,11 @@ sub _parse {
             # isn't, we do.
             if ( !$open ) {
                 next if $root->getValueObject($keys);
+
+                # A pluggable may have already added an entry for these keys
                 next if ( _getValueObject( $keys, \@settings ) );
 
-                # This is an untyped value
+                # This is an untyped value.
                 $open = new Foswiki::Configure::Value('UNKNOWN');
             }
             $open->set( keys => $keys );
@@ -284,6 +288,8 @@ sub _parse {
                 $open = $p;
             }
             elsif ($open) {
+
+                # Not recognised
                 $l =~ s/^#\s?//;
                 $open->addToDesc($l);
             }
@@ -291,7 +297,7 @@ sub _parse {
 
         elsif ( $l =~ /^#\s*---\+(\+*) *(.*?)$/ ) {
 
-            # ---++ Security
+            # ---++ Section
             # Only load the first section if we don't have LocalSite.cfg
             last if ( $sectionNum && !$haveLSC );
             $sectionNum++;
@@ -300,6 +306,8 @@ sub _parse {
         }
 
         elsif ( $l =~ /^#\s?(.*)$/ ) {
+
+            # Bog standard comment
             $open->addToDesc($1) if $open;
         }
     }

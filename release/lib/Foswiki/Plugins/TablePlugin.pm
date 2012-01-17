@@ -8,8 +8,8 @@ package Foswiki::Plugins::TablePlugin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 11383 (2011-04-10) $';
-our $RELEASE = '1.132';
+our $VERSION = '$Rev: 13401 (2011-12-13) $';
+our $RELEASE = '1.138';
 our $SHORTDESCRIPTION =
   'Control attributes of tables and sorting of table columns';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -24,6 +24,7 @@ our $initialised;
 my $DEFAULT_TABLE_SETTINGS =
 'tableborder="1" valign="top" headercolor="#000000" headerbg="#d6d3cf" headerbgsorted="#c4c1ba" databg="#ffffff,#edf4f9" databgsorted="#f1f7fc,#ddebf6" tablerules="rows" headerrules="cols"';
 my $styles = {};    # hash to keep track of web->topic
+my $readyForHandler;
 our $writtenToHead = 0;
 
 sub initPlugin {
@@ -41,8 +42,10 @@ sub initPlugin {
     my $cgi = Foswiki::Func::getCgiQuery();
     return 0 unless $cgi;
 
-    $initialised   = 0;
-    $writtenToHead = 0;
+    $initialised      = 0;
+    $readyForHandler  = 0;
+    $writtenToHead    = 0;
+    %pluginAttributes = ();
 
     debug( 'TablePlugin', "inited" );
 
@@ -61,8 +64,11 @@ sub preRenderingHandler {
     _readPluginSettings() if !%pluginAttributes;
 
     # on-demand inclusion
-    eval "use Foswiki::Plugins::TablePlugin::Core ()";
-    die $@ if $@;
+    require Foswiki::Plugins::TablePlugin::Core;
+    if ( !$readyForHandler ) {
+        Foswiki::Plugins::TablePlugin::Core::_init();
+        $readyForHandler = 1;
+    }
     Foswiki::Plugins::TablePlugin::Core::handler(@_);
 }
 

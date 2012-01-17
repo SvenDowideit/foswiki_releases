@@ -18,7 +18,7 @@ use warnings;
 sub new {
     my ( $class, $filter ) = @_;
     my $this = bless( {}, $class );
-    foreach my $f qw(user template public allowed) {
+    foreach my $f (qw(user template public allowed)) {
         $this->{$f} = ( $filter =~ /\b$f\b/ );
     }
     return $this;
@@ -36,7 +36,8 @@ sub ok {
     return 0 if !$session->webExists($web);
 
     my $webObject = Foswiki::Meta->new( $session, $web );
-    my $thisWebNoSearchAll = Foswiki::isTrue( $webObject->getPreference('NOSEARCHALL') );
+    my $thisWebNoSearchAll =
+      Foswiki::isTrue( $webObject->getPreference('NOSEARCHALL') );
 
     return 0
       if $this->{public}

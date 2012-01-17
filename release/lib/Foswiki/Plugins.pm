@@ -242,7 +242,7 @@ sub enable {
     my $this     = shift;
     my $prefs    = $this->{session}->{prefs};
     my $dissed   = $prefs->getPreference('DISABLEDPLUGINS') || '';
-    my %disabled = map { $_ => 1 } split( /,\s*/, $dissed );
+    my %disabled = map { s/^\s+//; s/\s+$//; $_ => 1 } split( /,/, $dissed );
 
     # Set the session for this call stack
     local $Foswiki::Plugins::SESSION = $this->{session};
@@ -383,8 +383,18 @@ sub _handleFAILEDPLUGINS {
         my $web = $plugin->topicWeb();
         $text .= CGI::Tr(
             { valign => 'top' },
-            CGI::td( {},
-                ' ' . ( $web ? "$web." : '!' ) . $plugin->{name} . ' ' )
+            CGI::td(
+                {},
+                ' '
+                  . ( $web ? "$web." : '!' )
+                  . $plugin->{name} . ' '
+                  . CGI::br()
+                  . (
+                      $SESSION->{users}->isAdmin( $SESSION->{user} )
+                    ? $Foswiki::cfg{Plugins}{ $plugin->{name} }{Module} . ' '
+                    : ''
+                  )
+              )
               . $td
         );
     }

@@ -45,6 +45,8 @@ sub check {
 
     }
 
+    $e .= $this->showExpandedValue( $Foswiki::cfg{TemplatePath} );
+
     return $e;
 }
 

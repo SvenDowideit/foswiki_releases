@@ -7,11 +7,11 @@ package Foswiki::Plugins::EditTablePlugin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 11368 (2011-04-10) $';
+our $VERSION = '$Rev: 13315 (2011-12-06) $';
 
 # Please note that the second is now two digit.
 # Someone increased 4.22 to 4.3 which is not correct.
-our $RELEASE = '4.40';
+our $RELEASE = '4.41';
 
 our $pluginName        = 'EditTablePlugin';
 our $ENCODE_START      = '--EditTableEncodeStart--';
@@ -176,8 +176,8 @@ sub addViewModeHeadersToHead {
 @import url("%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.css");
 </style>
 EOF
-    Foswiki::Func::addToZone(
-        'head', 'EditTablePlugin/edittable.css', $header );
+    Foswiki::Func::addToZone( 'head', 'EditTablePlugin/edittable.css',
+        $header );
 }
 
 =begin TML
@@ -202,8 +202,7 @@ sub addEditModeHeadersToHead {
       . '<meta name="EDITTABLEPLUGIN_EditTableUrl" content="'
       . $ASSET_URL . '" />';
 
-    Foswiki::Func::addToZone(
-        'head', 'EditTablePlugin/Meta', $header );
+    Foswiki::Func::addToZone( 'head', 'EditTablePlugin/Meta', $header );
     addViewModeHeadersToHead();
     Foswiki::Func::addToZone( 'script', 'EditTablePlugin/edittable.js', <<JS);
 <script type="text/javascript" src="%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.js"></script>

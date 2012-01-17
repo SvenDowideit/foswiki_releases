@@ -18,7 +18,7 @@ The exception may be thrown by plugins. If a plugin throws the exception, it
 will normally be caught and the browser redirected to a login screen (if the
 user is not logged in) or reported (if they are and just don't have access).
 
-API version $Date: 2011-03-12 06:16:43 +0100 (Sat, 12 Mar 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-12-03 08:17:36 -0500 (Sat, 03 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -50,7 +50,7 @@ use warnings;
 use Error ();
 our @ISA = ('Error');    # base class
 
-our $VERSION = '$Rev: 11475 (2011-04-16) $';
+our $VERSION = '$Rev: 13483 (2011-12-20) $';
 
 =begin TML
 
@@ -88,8 +88,9 @@ Generate a summary string. This is mainly for debugging.
 =cut
 
 sub stringify {
-    my $this = shift;
-    my $topic = $this->{topic} || '';      # Access checks of Web objects causes uninitialized string errors
+    my $this  = shift;
+    my $topic = $this->{topic}
+      || '';   # Access checks of Web objects causes uninitialized string errors
     return
 "AccessControlException: Access to $this->{mode} $this->{web}.$topic for $this->{user} is denied. $this->{reason}";
 }

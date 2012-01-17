@@ -69,9 +69,9 @@ use Foswiki::Plugins ();    # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
 # *must* exist in this package. This should always be in the format
-# $Rev: 9772 (2010-10-27) $ so that Foswiki can determine the checked-in status of the
+# $Rev: 13288 (2011-12-03) $ so that Foswiki can determine the checked-in status of the
 # extension.
-our $VERSION = '$Rev: 9772 (2010-10-27) $';
+our $VERSION = '$Rev: 13288 (2011-12-03) $';
 
 # $RELEASE is used in the "Find More Extensions" automation in configure.
 # It is a manually maintained string used to identify functionality steps.
@@ -170,7 +170,7 @@ sub initPlugin {
 #    my($session, $params, $topic, $web, $topicObject) = @_;
 #    # $session  - a reference to the Foswiki session object
 #    #             (you probably won't need it, but documented in Foswiki.pm)
-#    # $params=  - a reference to a Foswiki::Attrs object containing 
+#    # $params=  - a reference to a Foswiki::Attrs object containing
 #    #             parameters.
 #    #             This can be used as a simple hash that maps parameter names
 #    #             to values, with _DEFAULT being the name for the default

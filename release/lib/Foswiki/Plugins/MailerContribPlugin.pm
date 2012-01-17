@@ -4,7 +4,7 @@ package Foswiki::Plugins::MailerContribPlugin;
 use strict;
 use warnings;
 
-our $VERSION           = '$Rev: 11306 (2011-04-05) $';
+our $VERSION           = '$Rev: 13315 (2011-12-06) $';
 our $RELEASE           = '9 Jul 2010';
 our $SHORTDESCRIPTION  = 'Supports e-mail notification of changes';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -35,8 +35,8 @@ sub _restNotify {
         my @exwebs    = split( ',', $query->param('excludewebs') || '' );
         my @webs      = split( ',', $query->param('webs') || '' );
         require Foswiki::Contrib::MailerContrib;
-        Foswiki::Contrib::MailerContrib::mailNotify(
-            \@webs, 1, \@exwebs, $nonews, $nochanges );
+        Foswiki::Contrib::MailerContrib::mailNotify( \@webs, 1, \@exwebs,
+            $nonews, $nochanges );
     }
     return undef;
 }

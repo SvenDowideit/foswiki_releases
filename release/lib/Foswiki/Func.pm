@@ -17,9 +17,7 @@ System.DevelopingPlugins. If you use
 functions in other Foswiki libraries you risk creating a security hole, and
 you will probably need to change your plugin when you upgrade Foswiki.
 
-%TOC%
-
-API version $Date: 2011-03-01 11:54:42 +0100 (Tue, 01 Mar 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-12-17 00:18:05 -0500 (Sat, 17 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since:* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki 1.0.0). The _date_ indicates the
@@ -680,8 +678,9 @@ Deprecated: please use Foswiki::Meta::registerMETA instead.
 =cut
 
 sub registerMETA {
+
     #my ( $macro, %spec ) = @_;
-    Foswiki::Meta::registerMETA( @_ )
+    Foswiki::Meta::registerMETA(@_);
 }
 
 =begin TML
@@ -1110,7 +1109,7 @@ sub isGroupMember {
     my ( $group, $user, $options ) = @_;
     my $users = $Foswiki::Plugins::SESSION->{users};
 
-    my $expand = Foswiki::Func::isTrue($options->{expand}, 1);
+    my $expand = Foswiki::Func::isTrue( $options->{expand}, 1 );
 
     return () unless $users->isGroup($group);
     if ($user) {
@@ -1238,15 +1237,16 @@ Use it as follows:  Process all users in RadioHeadGroup without expanding nested
 =cut
 
 sub eachGroupMember {
-    my ( $user, $options )   = @_;
+    my ( $user, $options ) = @_;
 
-    my $expand = Foswiki::Func::isTrue($options->{expand}, 1);
+    my $expand = Foswiki::Func::isTrue( $options->{expand}, 1 );
 
     my $session = $Foswiki::Plugins::SESSION;
     return
       unless $Foswiki::Plugins::SESSION->{users}->isGroup($user);
     my $it =
-      $Foswiki::Plugins::SESSION->{users}->eachGroupMember( $user, { expand => $expand } );
+      $Foswiki::Plugins::SESSION->{users}
+      ->eachGroupMember( $user, { expand => $expand } );
     $it->{process} = sub {
         return $Foswiki::Plugins::SESSION->{users}->getWikiName( $_[0] );
     };
@@ -2758,7 +2758,7 @@ Query the topic data in the specified webs. A programatic interface to SEARCH re
 The =\%options= hash may contain the following options:
    * =type= - =regex=, =keyword=, =query=, ... defaults to =query=
    * =web= - The web/s to search in - string can have the same form as the =web= param of SEARCH (if not specified, defaults to BASEWEB)
-   * =casesensitive= - false to ignore case (defaulkt true)
+   * =casesensitive= - false to ignore case (default true)
    * =files_without_match= - true to return files only (default false). If =files_without_match= is specified, it will return on the first match in each topic (i.e. it will return only one match per 
    * topic, excludetopic and other params as per SEARCH
 
@@ -3265,8 +3265,8 @@ individual pages
 *Deprecated* 28 Nov 2008 - use =getPreferencesValue= instead to determine
 what permissions are set on the web, for example:
 <verbatim>
-foreach my $type qw( ALLOW DENY ) {
-    foreach my $action qw( CHANGE VIEW ) {
+foreach my $type (qw( ALLOW DENY )) {
+    foreach my $action (qw( CHANGE VIEW )) {
         my $pref = $type . 'WEB' . $action;
         my $val = Foswiki::Func::getPreferencesValue( $pref, $web ) || '';
         if( $val =~ /\S/ ) {
@@ -3281,8 +3281,8 @@ foreach my $type qw( ALLOW DENY ) {
 sub permissionsSet {
     my ($web) = @_;
 
-    foreach my $type qw( ALLOW DENY ) {
-        foreach my $action qw( CHANGE VIEW RENAME ) {
+    foreach my $type (qw( ALLOW DENY )) {
+        foreach my $action (qw( CHANGE VIEW RENAME )) {
             my $pref = $type . 'WEB' . $action;
             my $val = getPreferencesValue( $pref, $web ) || '';
             return 1 if ( $val =~ /\S/ );
@@ -3546,7 +3546,6 @@ sub addToHEAD {
     $Foswiki::Plugins::SESSION->addToZone( 'head', @_ );
 }
 
-
 =begin TML
 
 ---+++ searchInWebContent($searchString, $web, \@topics, \%options ) -> reference to a hash - keys of which are topic names
@@ -3563,7 +3562,7 @@ Meta-data matches will be returned as formatted lines within the topic content (
    * =\%option= - reference to an options hash
 The =\%options= hash may contain the following options:
    * =type= - =regex=, =keyword=, =query= - defaults to =regex=
-   * =casesensitive= - false to ignore case (defaulkt true)
+   * =casesensitive= - false to ignore case (default true)
    * =files_without_match= - true to return files only (default false). If =files_without_match= is specified, it will return on the first match in each topic (i.e. it will return only one match per topic, and will not return matching lines).
    * TODO: topic, excludetopic and other params as per SEARCH
 
@@ -3599,12 +3598,13 @@ sub searchInWebContent {
 
     my $itr = Foswiki::Meta::query( $query, $inputTopicSet, $options );
     my %matches;
-    while ($itr->hasNext) {
+    while ( $itr->hasNext ) {
         my $webtopic = $itr->next;
-        my ($web, $searchTopic) = Foswiki::Func::normalizeWebTopicName('', $webtopic);
+        my ( $web, $searchTopic ) =
+          Foswiki::Func::normalizeWebTopicName( '', $webtopic );
         $matches{$searchTopic} = 1;
     }
-    return \%matches
+    return \%matches;
 }
 
 1;

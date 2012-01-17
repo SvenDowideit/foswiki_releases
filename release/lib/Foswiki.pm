@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2011-04-16 22:29:05 +0200 (Sat, 16 Apr 2011) $ $Rev: 11475 (2011-04-16) $ ';
-    $RELEASE = 'Foswiki-1.1.3';
+    $VERSION = '$Date: 2011-12-20 10:32:07 -0500 (Tue, 20 Dec 2011) $ $Rev: 13483 (2011-12-20) $ ';
+    $RELEASE = 'Foswiki-1.1.4';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -475,16 +475,50 @@ BEGIN {
     $regex{topicNameRegex} =
       qr/(?:(?:$regex{wikiWordRegex})|(?:$regex{abbrevRegex}))/o;
 
-    # Simplistic email regex, e.g. for WebNotify processing - no i18n
-    # characters allowed
-    $regex{emailAddrRegex} =
-      qr/([a-z0-9!+$%&'*+-\/=?^_`{|}~.]+\@[a-z0-9\.\-]+)/i;
+    # Email regex, e.g. for WebNotify processing and email matching
+    # during rendering.
 
-    # Filename regex to used to match invalid characters in attachments
-    # - allow alphanumeric characters, spaces, underscores, etc.
-    # TODO: Get this to work with I18N chars - currently used only
-    # with UseLocale off
-    $regex{filenameInvalidCharRegex} = qr/[^$regex{mixedAlphaNum}\. _-]/o;
+    my $emailAtom = qr([A-Z0-9\Q!#\$%&'*+-/=?^_`{|}~\E])i;    # Per RFC 5322
+
+    # Valid TLD's at http://data.iana.org/TLD/tlds-alpha-by-domain.txt
+    # Version 2011083000, Last Updated Tue Aug 30 14:07:02 2011 UTC
+    my $validTLD =
+qr(AERO|ARPA|ASIA|BIZ|CAT|COM|COOP|EDU|GOV|INFO|INT|JOBS|MIL|MOBI|MUSEUM|NAME|NET|ORG|PRO|TEL|TRAVEL|XXX)i;
+
+    $regex{emailAddrRegex} = qr(
+       (?:                            # LEFT Side of Email address
+         (?:$emailAtom+                  # Valid characters left side of email address
+           (?:\.$emailAtom+)*            # And 0 or more dotted atoms
+         )
+       |
+         (?:"[\x21\x23-\x5B\x5D-\x7E\s]+?")   # or a quoted string per RFC 5322
+       )
+       @
+       (?:                          # RIGHT side of Email address
+         (?:                           # FQDN
+           [a-z0-9-]+                     # hostname part
+           (?:\.[a-z0-9-]+)*              # 0 or more alphanumeric domains following a dot.
+           \.(?:                          # TLD
+              (?:[a-z]{2,2})                 # 2 character TLD
+              |
+              $validTLD                      # TLD's longer than 2 characters
+           )
+         )
+         |
+           (?:\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])      # dotted triplets IP Address
+         )
+       )oxi;
+
+    # Item11185: This is how things were before we began Operation Unicode:
+    #
+    # $regex{filenameInvalidCharRegex} = qr/[^$regex{mixedAlphaNum}\. _-]/o;
+    #
+    # It was only used in Foswiki::Sandbox::sanitizeAttachmentName(), which now
+    # uses $Foswiki::cfg{NameFilter} instead.
+    # See RobustnessTests::test_sanitizeAttachmentName
+    #
+    # Actually, this is used in GenPDFPrincePlugin; let's copy NameFilter
+    $regex{filenameInvalidCharRegex} = $Foswiki::cfg{NameFilter};
 
     # Multi-character alpha-based regexes
     $regex{mixedAlphaNumRegex} = qr/[$regex{mixedAlphaNum}]*/o;
@@ -2052,30 +2086,16 @@ sub finish {
     #}
     $_->finish() foreach values %{ $this->{forms} };
     undef $this->{forms};
-    $this->{plugins}->finish() if $this->{plugins};
-    undef $this->{plugins};
-    $this->{users}->finish() if $this->{users};
-    undef $this->{users};
-    $this->{prefs}->finish() if $this->{prefs};
-    undef $this->{prefs};
-    $this->{templates}->finish() if $this->{templates};
-    undef $this->{templates};
-    $this->{renderer}->finish() if $this->{renderer};
-    undef $this->{renderer};
-    $this->{net}->finish() if $this->{net};
-    undef $this->{net};
-    $this->{store}->finish() if $this->{store};
-    undef $this->{store};
-    $this->{search}->finish() if $this->{search};
-    undef $this->{search};
-    $this->{attach}->finish() if $this->{attach};
-    undef $this->{attach};
-    $this->{security}->finish() if $this->{security};
-    undef $this->{security};
-    $this->{i18n}->finish() if $this->{i18n};
-    undef $this->{i18n};
-    $this->{cache}->finish() if $this->{cache};
-    undef $this->{cache};
+    foreach my $key (
+        qw(plugins users prefs templates renderer net
+        store search attach access security i18n cache)
+      )
+    {
+        next
+          unless ref( $this->{$key} );
+        $this->{$key}->finish();
+        undef $this->{$key};
+    }
 
     #TODO: the logger doesn't seem to have a finish...
     #    $this->{logger}->finish()      if $this->{logger};
@@ -3014,27 +3034,46 @@ sub _expandMacroOnTopicRendering {
     my ( $this, $tag, $args, $topicObject ) = @_;
 
     require Foswiki::Attrs;
+    my $attrs;
+
     my $e = $this->{prefs}->getPreference($tag);
     if ( defined $e ) {
-
-        # Preferences aren't supposed to have parameters - so ignore them
+        if ( $args && $args =~ /\S/ ) {
+            $attrs = new Foswiki::Attrs( $args, 0 );
+            $attrs->{DEFAULT} = $attrs->{_DEFAULT};
+            $e = $this->_processMacros(
+                $e,
+                sub {
+                    my ( $this, $tag, $args, $topicObject ) = @_;
+                    return
+                      defined $attrs->{$tag}
+                      ? expandStandardEscapes( $attrs->{$tag} )
+                      : undef;
+                },
+                $topicObject,
+                1
+            );
+        }
     }
-    else {
-        if ( exists( $macros{$tag} ) ) {
-            unless ( defined( $macros{$tag} ) ) {
+    elsif ( exists( $macros{$tag} ) ) {
+        unless ( defined( $macros{$tag} ) ) {
 
-                # Demand-load the macro module
-                die $tag unless $tag =~ /([A-Z_:]+)/i;
-                $tag = $1;
-                eval "require Foswiki::Macros::$tag";
-                die $@ if $@;
-                $macros{$tag} = eval "\\&$tag";
-                die $@ if $@;
-            }
+            # Demand-load the macro module
+            die $tag unless $tag =~ /([A-Z_:]+)/i;
+            $tag = $1;
+            eval "require Foswiki::Macros::$tag";
+            die $@ if $@;
+            $macros{$tag} = eval "\\&$tag";
+            die $@ if $@;
+        }
 
-            my $attrs = new Foswiki::Attrs( $args, $contextFreeSyntax{$tag} );
-
-            $e = &{ $macros{$tag} }( $this, $attrs, $topicObject );
+        $attrs = new Foswiki::Attrs( $args, $contextFreeSyntax{$tag} );
+        $e = &{ $macros{$tag} }( $this, $attrs, $topicObject );
+    }
+    elsif ( $args && $args =~ /\S/ ) {
+        $attrs = new Foswiki::Attrs($args);
+        if ( defined $attrs->{default} ) {
+            $e = expandStandardEscapes( $attrs->{default} );
         }
     }
     return $e;
@@ -3135,8 +3174,8 @@ STATIC Add a tag handler to the function tag handlers.
    * =$tag= name of the tag e.g. MYTAG
    * =$fnref= Function to execute. Will be passed ($session, \%params, $web, $topic )
    * =$syntax= somewhat legacy - 'classic' or 'context-free' (context-free may be removed in future)
-   
-   
+
+
 $syntax parameter:
 Way back in prehistory, back when the dinosaur still roamed the earth, 
 Crawford tried to extend the tag syntax of macros such that they could be processed 

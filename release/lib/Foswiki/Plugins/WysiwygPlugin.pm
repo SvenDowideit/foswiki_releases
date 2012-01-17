@@ -29,9 +29,9 @@ use Assert;
 
 our $SHORTDESCRIPTION  = 'Translator framework for WYSIWYG editors';
 our $NO_PREFS_IN_TOPIC = 1;
-our $VERSION           = '$Rev: 11387 (2011-04-10) $';
+our $VERSION           = '$Rev: 13315 (2011-12-06) $';
 
-our $RELEASE = '1.1.2';
+our $RELEASE = '1.1.3';
 
 our %xmltag;
 
@@ -100,7 +100,7 @@ editable, 0 otherwise.
 sub notWysiwygEditable {
 
     #my ($text, $exclusions) = @_;
-    my $disabled = wysiwygEditingDisabledForThisContent($_[0], $_[1]);
+    my $disabled = wysiwygEditingDisabledForThisContent( $_[0], $_[1] );
     return $disabled if $disabled;
 
     # Check that the topic text can be converted to HTML. This is an
@@ -113,6 +113,7 @@ sub notWysiwygEditable {
 }
 
 sub wysiwygEditingDisabledForThisContent {
+
     #my ($text, $exclusions) = @_;
 
     my $exclusions = $_[1];
@@ -168,7 +169,7 @@ sub wysiwygEditingDisabledForThisContent {
 
     # Look for combinations of sticky and other markup that cause
     # problems together
-    for my $tag ( 'literal' ) {
+    for my $tag ('literal') {
         while ( $text =~ /<$tag\b[^>]*>(.*?)<\/$tag>/gsi ) {
             my $inner = $1;
             if ( $inner =~ /<sticky\b[^>]*>/i ) {
@@ -189,7 +190,7 @@ sub wysiwygEditingDisabledForThisContent {
 
     # Look for combinations of verbatim and other markup that cause
     # problems together
-    for my $tag ( 'literal') {
+    for my $tag ('literal') {
         while ( $text =~ /<$tag\b[^>]*>(.*?)<\/$tag>/gsi ) {
             my $inner = $1;
             if ( $inner =~ /$wasAVerbatimTag/i ) {
@@ -280,7 +281,7 @@ sub modifyHeaderHandler {
 }
 
 1;
-__DATA__
+__END__
 Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
 Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors

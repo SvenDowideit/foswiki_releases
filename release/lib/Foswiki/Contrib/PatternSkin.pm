@@ -3,8 +3,8 @@ package Foswiki::Contrib::PatternSkin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 11024 (2011-03-12) $';
-our $RELEASE = '5.4.12';
+our $VERSION = '$Rev: 13315 (2011-12-06) $';
+our $RELEASE = '5.4.18';
 our $SHORTDESCRIPTION =
 'Pattern skin provides a CSS based default look and feel - flexible and [[http://www.w3.org/][W3C]] compliant. Its layout and color scheme are designed to provide a nice, clean and productive editing environment';
 

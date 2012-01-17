@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2011-02-25 23:36:12 +0100 (Fri, 25 Feb 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-11-09 06:33:37 -0500 (Wed, 09 Nov 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -301,6 +301,7 @@ sub sanitizeAttachmentName {
     # which sends the full original client path when you upload files. See
     # Item2859 and Item2225 before trying again to use File::Spec functions and
     # remember to test with IE.
+    # This should take care of any silly ../ shenanigans
     $fileName =~ s{[\\/]+$}{};  # Get rid of trailing slash/backslash (unlikely)
     $fileName =~ s!^.*[\\/]!!;  # Get rid of leading directory components
 
@@ -309,16 +310,9 @@ sub sanitizeAttachmentName {
     # Change spaces to underscore
     $fileName =~ s/ /_/go;
 
-    if ( $Foswiki::cfg{UseLocale} ) {
-
-        # Filter out only if using locales.
-        $fileName =~ s/$Foswiki::cfg{NameFilter}//go;
-    }
-    else {
-
-        # No I18N, filter out invalid chars
-        $fileName =~ s/$Foswiki::regex{filenameInvalidCharRegex}//go;
-    }
+    # See Foswiki.pm filenameInvalidCharRegex definition and/or Item11185
+    #$fileName =~ s/$Foswiki::regex{filenameInvalidCharRegex}//go;
+    $fileName =~ s/$Foswiki::cfg{NameFilter}//go;
 
     # Append .txt to some files
     $fileName =~ s/$Foswiki::cfg{UploadFilter}/$1\.txt/goi;
@@ -505,15 +499,16 @@ sub sysCommand {
     my $path  = $1;
     my $pTmpl = $2;
     my $cmd;
+
     # Writing to a cache file is the only way I can find of redirecting
     # STDERR.
 
     # Note:  Use of the file handle $fh returned here would be safer than
     # using the file name. But it is less portable, so filename wil have to do.
-    my ( $fh, $stderrCache  ) = tempfile(
-     "STDERR.$$.XXXXXXXXXX",
-     DIR    => "$Foswiki::cfg{WorkingDir}/tmp",
-     UNLINK => 0
+    my ( $fh, $stderrCache ) = tempfile(
+        "STDERR.$$.XXXXXXXXXX",
+        DIR    => "$Foswiki::cfg{WorkingDir}/tmp",
+        UNLINK => 0
     );
     close $fh;
 
@@ -654,11 +649,12 @@ sub sysCommand {
         if (   ( $Foswiki::cfg{DetailedOS} eq 'MSWin32' )
             && ( length($cmd) > 8191 ) )
         {
-            #heck, on pre WinXP its only 2048 - http://support.microsoft.com/kb/830473
+
+      #heck, on pre WinXP its only 2048 - http://support.microsoft.com/kb/830473
             print STDERR
               "WARNING: Sandbox::sysCommand commandline probably too long ("
               . length($cmd) . ")\n";
-            ASSERT(length($cmd) < 8191) if DEBUG;
+            ASSERT( length($cmd) < 8191 ) if DEBUG;
         }
 
         open( my $oldStderr, '>&STDERR' ) || die "Can't steal STDERR: $!";
@@ -690,10 +686,10 @@ sub sysCommand {
     }
 
     my $stderr;
-    if ( open( $handle, '<', $stderrCache )) {
+    if ( open( $handle, '<', $stderrCache ) ) {
         local $/;
         $stderr = <$handle>;
-        close( $handle );
+        close($handle);
     }
     unlink($stderrCache);
 

@@ -123,7 +123,7 @@ sub _upload {
 
     Foswiki::UI::checkWebExists( $session, $web, $topic, 'attach files to' );
     Foswiki::UI::checkTopicExists( $session, $web, $topic, 'attach files to' );
-    my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
+    my ($topicObject) = Foswiki::Func::readTopic( $web, $topic );
     Foswiki::UI::checkAccess( $session, 'CHANGE', $topicObject );
 
     my $origName = $fileName;
@@ -191,15 +191,15 @@ sub _upload {
     }
     try {
         $topicObject->attach(
-            name        => $fileName,
-            comment     => $fileComment,
-            hide        => $hideFile,
-            createlink  => $createLink,
-            stream      => $stream,
-            file        => $tmpFilePath,
-            filepath    => $filePath,
-            filesize    => $fileSize,
-            filedate    => $fileDate,
+            name       => $fileName,
+            comment    => $fileComment,
+            hide       => $hideFile,
+            createlink => $createLink,
+            stream     => $stream,
+            file       => $tmpFilePath,
+            filepath   => $filePath,
+            filesize   => $fileSize,
+            filedate   => $fileDate,
         );
     }
     catch Error::Simple with {

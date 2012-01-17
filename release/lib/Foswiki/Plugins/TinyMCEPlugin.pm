@@ -7,8 +7,8 @@ use warnings;
 
 use Assert;
 
-our $VERSION           = '$Rev: 11385 (2011-04-10) $';
-our $RELEASE           = '1.1.8';
+our $VERSION           = '$Rev: 13315 (2011-12-06) $';
+our $RELEASE           = '1.1.12';
 our $SHORTDESCRIPTION  = 'Integration of the Tiny MCE WYSIWYG Editor';
 our $NO_PREFS_IN_TOPIC = 1;
 
@@ -64,7 +64,7 @@ sub initPlugin {
 }
 
 sub _notAvailable {
-    for my $c qw(TINYMCEPLUGIN_DISABLE NOWYSIWYG) {
+    for my $c (qw(TINYMCEPLUGIN_DISABLE NOWYSIWYG)) {
         return "Disabled by * Set $c = "
           . Foswiki::Func::getPreferencesValue($c)
           if Foswiki::Func::getPreferencesFlag($c);
@@ -155,6 +155,7 @@ sub beforeEditHandler {
         if ( defined &Foswiki::Func::setPreferencesValue ) {
             Foswiki::Func::setPreferencesValue( 'EDITOR_MESSAGE',
                 'WYSIWYG could not be started: ' . $mess );
+            Foswiki::Func::setPreferencesValue( 'EDITOR_HELP', undef );
         }
         return;
     }

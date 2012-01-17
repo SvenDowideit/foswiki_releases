@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1252718634" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1298827530" format="1.1" version="1"}%
 %META:TOPICPARENT{name="AdminToolsCategory"}%
 ---+!! <nop>%WIKITOOLNAME% Site-Level Preferences
 
@@ -168,18 +168,26 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
    * URL for current topic
       * Set TOPICURL = %SCRIPTURL{"view"}%/%BASEWEB%/%BASETOPIC%
 
+#RegistrationOptions
 ---+++ Registration configuration options
 ---++++ Add user to group during registration
    * Group type settings during registration:
-      * =automatic=: users can be automatically added to groups
+      * =automatic=: users will be automatically added to eligible groups
       * =one=: users can select one of the groups
       * =multiple=: users can select from multiple groups to join
       * =none=: user cannot be added to groups while registering
    * Set REGISTRATIONGROUPTYPE = none
-   
-   * If REGISTRATIONGROUPS below can be set to a comma separated list of groups, to be shown on the registration topic. 
-   If it is unset, then group change permissions will be used to create the list of groups a user can be added to (for guest driven registration the !RegistrationAgent's permissions are used, for logged in user registration of someone else, that user's permissions are used).
-      * #Set REGISTRATIONGROUPS = 
+
+   * If REGISTRATIONGROUPS is set to a comma separated list of groups, only those listed groups will be shown in the UserRegistration form.
+      * If it is unset, then group change permissions will be used to create the list of groups eligible for selection during registration.
+         * When using "self-registration" by guest users, the !RegistrationAgent's permissions are used.
+         * If the registration is entered by another logged in user, that user's permissions are used.
+         * *Caution* If REGISTRATIONGROUPTYPE is =automatic=, then registering a user while logged in with Administrator rights will add the new user to *All Groups*!
+      * #Set REGISTRATIONGROUPS =
+
+   * Implementation Notes:
+      * If the RegistrationAgent or logged in user does not have permission to change one of the listed groups,  then that group will be silently skipped.  The user will not be added to the group.
+      * Group permissions are stored in Topic Settings, *not* inline in the group topic.  Edit the Group Topic Settings to change permissions.
 
 ---+++ Change of Password Message
 
@@ -263,7 +271,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
 ---+++ TwistyPlugin
    * Show/hide animation speed: 'fast', 'slow', or integer milliseconds | =0= (no animation)
       * Set TWISTYPLUGIN_TWISTYANIMATIONSPEED = fast
-   
+
 ---+++ Legacy support
    * Support for legacy "EDITTOPIC", used to be hard-coded, now replaced by TMPL:P conditional instantiation
       * Set EDITURL = %SCRIPTURLPATH{"edit"}%/%WEB%/%TOPIC%?t=%GMTIME{"$epoch"}%
@@ -289,7 +297,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
 
    * Line break: Note that the setting has an intentional trailing space
       * Set BR = <br />
-   
+
    * Clear floats:
       * Set CLEAR = <span class='foswikiClear'></span>
 

@@ -65,7 +65,7 @@ if you need messages to be automatically translated you either need to handle
 it in the perl code before throwing Foswiki::OopsException or put the %MAKETEXT
 in the template. You cannot pass macros through the parameters.
 
-API version $Date: 2011-03-16 02:26:13 +0100 (Wed, 16 Mar 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-12-03 08:17:36 -0500 (Sat, 03 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -159,7 +159,7 @@ sub stringify {
 
         # load the defs
         $session->templates->readTemplate( 'oops' . $this->{template},
-                                          no_oops => 1 );
+            no_oops => 1 );
         my $message = $session->templates->expandTemplate( $this->{def} )
           || "Failed to find '$this->{def}' in 'oops$this->{template}'";
         my $topicObject =
@@ -182,7 +182,7 @@ sub stringify {
         if ( defined $this->{params} ) {
             $s .= ' params=>[' . join( ',', @{ $this->{params} } ) . ']';
         }
-        return $s . ')'.((DEBUG)?$this->stacktrace:'');
+        return $s . ')' . ( (DEBUG) ? $this->stacktrace : '' );
     }
 }
 

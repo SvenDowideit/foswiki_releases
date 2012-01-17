@@ -875,6 +875,7 @@ sub _complete {
             $session->{user} =
               $session->{users}->getCanonicalUserID(
                 $Foswiki::cfg{Register}{RegistrationAgentWikiName} );
+            $regoAgent = $session->{user};
 
             # SECURITY ISSUE:
             # When upgrading an existing Wiki, the RegistrationUser is
@@ -895,17 +896,28 @@ sub _complete {
             }
         }
 
+        my @addedTo;
+
         if ( ($enableAddToGroup) and ( $data->{AddToGroups} ) ) {
             foreach my $groupName ( split( /,/, $data->{AddToGroups} ) ) {
                 $session->{user} = $regoAgent;
                 try {
                     $users->addUserToGroup( $cUID, $groupName );
+                    push @addedTo, $groupName;
+                    print STDERR "Fell through adding $groupName\n";
+                }
+                catch Error::Simple with {
+                    my $e = shift;
+                    $session->logger->log( 'warning',
+                        "Registration: Failure adding $cUID to $groupName" );
                 }
                 finally {
                     $session->{user} = $safe;
                 };
             }
         }
+
+        $data->{AddToGroups} = join( ',', @addedTo );
     }
     catch Error::Simple with {
         my $e = shift;
@@ -1219,6 +1231,10 @@ sub _buildConfirmationEmail {
     foreach my $fd ( @{ $data->{form} } ) {
         my $name  = $fd->{name};
         my $value = $fd->{value};
+
+        # Override value - Group list might have changed
+        $value = $data->{AddToGroups} if ( $name eq 'AddToGroups' );
+
         if ( ( $name eq 'Password' ) && ($hidePassword) ) {
             $value = '*******';
         }
@@ -1530,7 +1546,7 @@ sub _getDataFromQuery {
     # get all parameters from the form
     my $data = {};
     foreach my $key ( $query->param() ) {
-        if ( $key =~ /^(Twk([0-9])(.*))/
+        if ( $key =~ /^((?:Twk|Fwk)([0-9])(.*))/
             and ( defined( $query->param($key) ) ) )
         {
             my @values   = $query->param($key);

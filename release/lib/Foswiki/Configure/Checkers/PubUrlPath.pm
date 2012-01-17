@@ -15,16 +15,20 @@ sub check {
     {
         my $guess = $Foswiki::cfg{ScriptUrlPath};
         $guess =~ s/\/[^\/]*?bin$/\/pub/;
-        $guess .= '/pub' unless ($guess =~ m/pub$/);
+        $guess .= '/pub' unless ( $guess =~ m/pub$/ );
         $Foswiki::cfg{PubUrlPath} = $guess;
         return $this->guessed(0);
     }
-    return
+    my $d    = $this->getCfg("{PubUrlPath}");
+    my $mess = $this->showExpandedValue( $Foswiki::cfg{WorkingDir} );
+
+    $mess .=
 "<div class='configureSetting'>Test the correctness of this path with this link:"
       . CGI::br()
       . '<a rel="nofollow" target="_new" href="'
-      . $Foswiki::cfg{PubUrlPath}
+      . $d
       . '">My &quot;pub&quot; directory</a>';
+    return $mess;
 }
 
 1;

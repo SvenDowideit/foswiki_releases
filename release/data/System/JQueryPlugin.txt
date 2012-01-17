@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="reprev" date="1279640925" format="1.1" reprev="9" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1317206245" format="1.1" version="1"}%
 ---+!! %TOPIC%
 <!--
    * Set SHORTDESCRIPTION = jQuery <nop>JavaScript library for Foswiki
@@ -25,7 +25,7 @@ your web pages."
 
 Besides jQuery itself, !JQueryPlugin comes with a selection of third party plugins that are thought to be essential for modern web applications.
 These are integrated into Foswiki either by means of a special [[#Macros][macro]], by means of "minimal markup", or initialized using
-a custom javascript initializer. That way the set of Foswiki macros that comes with !JQueryPlugin is kept rather low compared to the features available
+a custom javascript initializer. This way the set of Foswiki macros that comes with !JQueryPlugin is kept rather low compared to the features available
 in third party plugins. "Minimal markup" is a way to avoid the need to write javascript code to initialize the interface. Instead, a special
 css class is added to an html element that triggers its initialization. See JQueryMetadata for an example.
 
@@ -36,22 +36,18 @@ loaded automatically. See [[%SCRIPTURLPATH{"configure"}%][configure]].
 Those plugins coming with their own [[#Macros][macro]] will take care of loading their javascript and css by themselves. So you won't need to 
 call JQREQUIRE explicitly for those listed below.
 
-!JQueryPlugin provides a special framework for integrating third party jQuery plugins into Foswiki.
-The framework allows plugins to be loaded as needed and makes sure any dependencies are satisfied.
-Examples are 
-Foswiki:Extensions/JQGridPlugin, Foswiki:Extensions/JQTablePlugin,
-Foswiki:Extensions/JQFullCanendarPlugin, Foswiki:Extensions/ImagePlugin,
-Foswiki:Extensions/ImageGalleryPlugin or Foswiki:Extensions/NatEditPlugin.
+---++ Adding new plugins
 
----++ Coding Standards
+The JQuery ecosystem has a huge number of plugins - more than can be included by default
+by this plugin. If you want to add new plugins, then you will find instructions for adding
+them at Foswiki:Development.UsingJQueryWithFoswiki#adding_plugins.
 
-See [[JQuery Coding Standards]]
-This plugin contains the latest version of the [[http://jquery.com][jQuery]]
-<nop>JavaScript library. 
-See also Foswiki:Development.UsingJQueryWithFoswiki for more information on
-using jQuery with Foswiki.
+---++ Writing your own Javascript
 
----++ References and tutorials
+Whether writing your own plugins or writing Javascript code in topics, you should observe the
+Foswiki JQueryCodingStandards.
+
+---++ jQuery References and tutorials
    * [[http://docs.jquery.com/How_jQuery_Works][Getting the feet wet]]
    * [[http://docs.jquery.com/Tutorials][Tutorials]]
    * [[http://docs.jquery.com/Main_Page][Reference API]]
@@ -81,21 +77,21 @@ using jQuery with Foswiki.
 
 ---++ Available jQuery plugins
 %JQPLUGINS{
-  format="<h3> $index. $percntIF{\"istopic '$documentation'\" 
+  format="---+++ $index. $percntIF{\"istopic '$documentation'\" 
                   then=\"[[$documentation][$name]]\" 
                   else=\"<nop>$name\"
                }$percnt $active
-          </h3>
           $summary
   "
 }%
 
 ---++ Using compressed javascript and css files
 All jQuery plugins are shipped with uncompressed js and css files, as well as minified and gzip compressed.
-For instance the jquery.autocomplete plugin comes with the following set:
-   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/autocomplete/jquery.autocomplete.uncompressed.js
-   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/autocomplete/jquery.autocomplete.js
-   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/autocomplete/jquery.autocomplete.js.gz
+For instance the jquery.form plugin comes with the following set:
+
+   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/form/jquery.form.uncompressed.js
+   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/form/jquery.form.js
+   1 %PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/plugins/form/jquery.form.js.gz
 
 There is a Makefile in the =%PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin= root directory that ensures all these
 files are up to date. By default all files in the !JQueryPlugin package are up to date, so you only have to
@@ -141,11 +137,52 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 ---++ Plugin Info
 |  Author(s): | Michael Daum |
-|  Copyright: | 2007-2010 Michael Daum http://michaeldaumconsulting.com |
+|  Copyright: | 2007-2011 Michael Daum http://michaeldaumconsulting.com |
 |  License: | GPL |
-|  Release: | 4.03 |
-|  Version: | 11373 (2011-04-10) |
+|  Release: | 4.32 |
+|  Version: | 13479 (2011-12-20) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  20 Dec 2011: | (4.32) - re-release Foswiki 1.1.4 - Item11335 revert spinner changes, Item11371 - close suggestions list. |
+|  12 Dec 2011: | (4.31) - Foswiki 1.1.4 Release. Item11335 JQueryAjaxHelper examples don't work reliably. |
+|  22 Nov 2011: | (4.30) added jquery-1.7 and jquery-1.7.1; \
+                  added jquery.loader to ease loading sections asynchronously |
+|   3 Dec 2011: | (4.22) Incremented version for Foswiki 1.1.4 release. Minor code and documentation cleanup. |
+|  22 Nov 2011: | (4.21) added config warnings for the deprecated JQuery plugins; \
+                  and a warining for Chili highlighter corruption; \
+                  fixed jquery.chili to allow other non-recipe css classes in verbatim sections; \
+                  fixed jquery.cookie to return undefined instead of an empty Object when asking for an unknown cookie; \
+                  fixed <nop>JQueryAjaxHelper's =users= backend to return users and groups \
+                  improved jquery-ui-dialog integration |
+|  26 Oct 2011: | fixing compatibility of jquery.media with newer jqueries; \
+                  fixed placement of jquery.tooltips when viewport at right bottom;\
+                  fixed jquery.superfish's index related to jquery.ui.dialog's; \
+                  improved jquery.button click usability; \
+                  improved and documented integration of jquery.ui.dialog; \
+                  fixed jquery.ui.resizable to init array objects correctly |
+|  08 Sep 2011: | (4.20) added perl api to make ui themes pluggable; \
+                  upgrade to jquery-ui 1.8.16, masked-input 1.3, masonry 2.0, textboxlist 1.0, validate 1.8.1, cycle 2.9995, bgiframe 2.1.2, blockUI 2.39, corner 2.12, gradient 1.0, \
+                  autocomplete 1.2.2, form 2.80; \
+                  upgraded all jquery-ui themes to match the latest version; \
+                  deprecated abandoned jquery.autocomplete in favor of jquery-ui's autocomplete; \
+                  added modules ui::accordion, ui::autocomplete, ui::button, ui::datepicker, ui::dialog, ui::draggable, ui::progressbar, ui::resizable, ui::slider, ui::tabs; \
+                  improved rating formfield to display the actual value as well, not only the stars; \
+                  added initializer for jquery.validate; \
+                  improved initializer for simplemodals to make them draggable and resizable; \
+                  fixed css of treeview, autocomplete, tabpane, button; \
+                  new foswiki jquery-ui theme; \
+                  added jquery-1.6.2 and jquery-1.6.3; \
+                  improved docu of jquery.cycle, jquery.masonry, jquery.validate |
+|  20 Jun 2011: | (4.11) Fix "Use of uninitialized" in textboxlist |
+|  25 May 2011: | (4.10) Added JQueryPlaceholder; \
+                  Updated jquery.autocomplete to work around Firefox 4 problem breaking up/down arrow keys in edit fields; \
+                  Added jquery.tmpl; \
+                  Updated jquery.metadata to support html5 attributes; \
+                  Updated jquery.validate to 1.8.0; \
+                  Added jquery-1.5.[0-2] and jquery-1.6.1; \
+                  Implemented history support for jquery.tabpane; \
+                  Updated jquery.media and added more skins to the swf player; \
+                  Fixed jquery.shake to work with elements positioned relatively; \
+                  Adding context variables for all enabled jQuery modules; |
 |  11 Apr 2011: | (4.03) jQuery default corrected to be 1.4.3. \
                   Fixed syntax for accessing meta variables. \
                   Improved iterating hash. \
@@ -153,6 +190,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
                   Removed useless BOM code from blockUI. \
                   Compress using utf8 encoding by default\
                   This version is shipping with Foswiki 1.1.3 |
+|  21 Feb 2011: | (4.02) cleaned up and documented the process for adding new plugins |
 |  02 Feb 2011: | (4.01) added pnotify, configure checker to check that \
                   configured ={JQueryVersion}= is sane |
 |  13 Dec 2010: | (4.00) adding jquery-1.4.2/3/4 (default is 1.4.3); \

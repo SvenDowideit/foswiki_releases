@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1282772512" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1303098887" format="1.1" version="1"}%
 %META:TOPICPARENT{name="PatternSkin"}%
 ---+!! %SYSTEMWEB%.PatternSkin CSS Cookbook
 
@@ -85,6 +85,8 @@ Change the number from 75px to your value.
    1 Attach the file  to a topic
    1 Set the value of macro =PATTERNSKIN_THEME_VARIANT= to that topic attachment url using =%<nop>PUBURL%/<nop>YourWebName/<nop>YourTopicName/your_theme_variant_file.css=
 </blockquote>
+
+Note: If using %<nop>WEBHEADERART% to customize the top bar, some =#patternTopBarContents= CSS is expanded inline from =templates/css.pattern.tmpl=. Override of some attributes, such as background color and repeat are not possible from the CSS files.
 
 ---+++ No top bar
 

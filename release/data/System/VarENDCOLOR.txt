@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1284973002" format="1.1" version="1"}%
 %META:TOPICPARENT{name="StandardColors"}%
 %STARTINCLUDE%
 #VarENDCOLOR
@@ -28,4 +28,4 @@
    *Expands to:* %%color%% %CALC{"$LOWER(%color%)"}% text %ENDCOLOR%
    %STARTSECTION{"remember"}%<p></p><blockquote class="foswikiHelp">%X% =%&lt;color&gt;%= text must end with =%<nop>ENDCOLOR%=. If you want to switch from one color to another one you first need to end the active color with =%<nop>ENDCOLOR%=, e.g. write <pre class="tml">%<nop>RED% some text %<nop>ENDCOLOR% %<nop>GREEN% more text %<nop>ENDCOLOR%</pre></blockquote>%ENDSECTION{"remember"}%
 *Related:* [[%IF{"'%includingtopic%'='Macros'" then="#"}%VarENDCOLOR][ENDCOLOR]], [[DefaultPreferences#RenderingShortcuts][DefaultPreferences]], StandardColors
-%JQREQUIRE{"chili"}%%ENDSECTION{"varcolor"}%</verbatim>
+<!--%JQREQUIRE{"chili"}%-->%ENDSECTION{"varcolor"}%</verbatim>

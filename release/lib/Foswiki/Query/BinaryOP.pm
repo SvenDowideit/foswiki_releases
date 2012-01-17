@@ -37,8 +37,10 @@ sub evalTest {
     my $sub        = shift;
     my $a          = $node->{params}[0];
     my $b          = $node->{params}[1];
-    my $ea         = $a->evaluate( @{$clientData} );
-    my $eb         = $b->evaluate( @{$clientData} );
+    no warnings 'recursion';
+    my $ea = $a->evaluate( @{$clientData} );
+    my $eb = $b->evaluate( @{$clientData} );
+    use warnings 'recursion';
     $ea = '' unless defined $ea;
     $eb = '' unless defined $eb;
 
@@ -63,8 +65,10 @@ sub evalTest {
 sub evaluatesToConstant {
     my $this = shift;
     my $node = shift;
+    no warnings 'recursion';
     return 0 unless $node->{params}[0]->evaluatesToConstant(@_);
     return $node->{params}[1]->evaluatesToConstant(@_);
+    use warnings 'recursion';
 }
 
 1;

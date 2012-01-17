@@ -1,30 +1,30 @@
 # See bottom of file for license and copyright information
+package Foswiki::Configure::Checkers::JQueryPlugin::Plugins::Shake::Enabled;
 
-=pod
-
----+ package Foswiki::Contrib::MailerContrib::Constants
-
-$ALWAYS - always send, even if there are no changes
-$FULL_TOPIC - send the full topic rather than just changes
-
-=cut
-
-package Foswiki::Contrib::MailerContrib::Constants;
-
-use strict;
 use warnings;
+use strict;
 
-our $ALWAYS     = 1;
-our $FULL_TOPIC = 2;
+use Foswiki::Configure::Checker ();
+our @ISA = qw( Foswiki::Configure::Checker );
 
-# ? = FULL_TOPIC
-# ! = FULL_TOPIC | ALWAYS
+sub check {
+    my $this = shift;
+    my $warnings;
+
+    if ( $Foswiki::cfg{JQueryPlugin}{Plugins}{Shake}{Enabled} ) {
+        $warnings .= $this->WARN(<<'HERE');
+This plugin is deprecated. The shake effect is now part of the latest jQuery-ui package.
+HERE
+    }
+
+    return $warnings;
+}
 
 1;
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

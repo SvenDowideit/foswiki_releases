@@ -1,9 +1,5 @@
 SUBDIRS=\
-  empty \
-  themeswitcher \
-  popupwindow \
-  pnotify \
-  masonry \
+  loader \
   autocomplete \
   bgiframe \
   blockui \
@@ -14,6 +10,7 @@ SUBDIRS=\
   cycle \
   debug \
   easing \
+  empty \
   farbtastic \
   fluidfont \
   focus \
@@ -22,11 +19,17 @@ SUBDIRS=\
   gradient \
   hoverintent \
   innerfade \
+  livequery \
   localscroll \
   maskedinput \
+  masonry \
   media \
   metadata \
   nifty \
+  placeholder \
+  pnotify \
+  popupwindow \
+  queryobject \
   rating \
   scrollto \
   serialscroll \
@@ -38,11 +41,11 @@ SUBDIRS=\
   supersubs \
   tabpane \
   textboxlist \
+  themeswitcher \
+  tmpl \
   tooltip \
   treeview \
   validate \
-  queryobject \
-  livequery \
   wikiword 
 
 -include ../Makefile.include

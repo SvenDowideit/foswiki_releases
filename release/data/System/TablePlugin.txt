@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1191730164" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1316588010" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Plugins"}%
 ---+ Table Plugin
 
@@ -197,9 +197,15 @@ If you have any problems, or if the extension isn't available in =configure=, th
 %TABLE{columnwidths="10%,90%"}%
 |  Copyright: | Copyright (C) 2001-2008 TWiki:Main/JohnTalintyre, Peter Thoeny, peter@thoeny.org and TWiki Contributors; &copy; 2008-2011 Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 11383 (2011-04-10) |
-|  Release: | 1.132 |
+|  Version: | 13401 (2011-12-13) |
+|  Release: | 1.138 |
 |  Change History: | <!-- specify latest version first -->&nbsp; |
+|  12 Dec 2011 | 1.138: George Clark: Foswikitask:Item11350 TablePlugin issues a die if included table is not found. |
+|  05 Dec 2011 | 1.137: Paul Harvey: Foswikitask:Item11331: Further improvements for persistent perls. |
+|  24 Oct 2011 | 1.136: George Clark:  Foswikitask:Item8647: TablePlugin generates empty tfoot, even when there are footer rows. |
+|  20 Sep 2011 | 1.135: George Clark:  Foswikitask:Item10559: perl errors about non-numeric or uninitialized variables for the URL parameters. Foswikitask:item10971: reload settings in persistent perl environment. |
+|  27 Aug 2011 | 1.134: Arthur Clemens: Foswikitask:Item11083: table should sort if sort is off but initsort has a column number. |
+|  17 Jun 2011 | 1.133: Arthur Clemens: setting =databg= and =headerbg= to ="none"= now makes the cell transparent. |
 |  11 Apr 2011 | 1.132: Version released with Foswiki 1.1.3. Only a minor change related to how the plugin is being upgraded |
 |  09 Mar 2011 | 1.131: Arthur Clemens: fix sorting bug that was not properly fixed in 1.128. |
 |  08 Mar 2011 | 1.130: Michael Daum: Foswikitask:Item10456: fixed initialization in persistent perl environments. |

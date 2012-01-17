@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" comment="save topic" date="1285842847" format="1.1" reprev="2" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1301018124" format="1.1" version="1"}%
 ---+!! Page Caching
 
 %TOC%
@@ -100,6 +100,10 @@ by specifying =refresh=on= or =refresh=cache=.
 </verbatim>
 
 The complete cache for all topics can be cleared using =refresh=all=. 
+
+<blockquote class="foswikiHelp">
+%T% The cache should be refreshed after installing a Foswiki upgrade, or after installing updates to any plugins that would change the output of macros.
+</blockquote>
 
 ---+++ Caching SEARCH results
 When you enable the Foswiki page cache, all SEARCH results will automatically

@@ -16,7 +16,7 @@ This is the perl stub for the jquery.tabpane plugin.
 
 =begin TML
 
----++ ClassMethod new( $class, $session, ... )
+---++ ClassMethod new( $class, ... )
 
 Constructor
 
@@ -24,11 +24,9 @@ Constructor
 
 sub new {
     my $class = shift;
-    my $session = shift || $Foswiki::Plugins::SESSION;
 
     my $this = bless(
         $class->SUPER::new(
-            $session,
             name         => 'Tabpane',
             version      => '1.2.1',
             author       => 'Michael Daum',
@@ -96,17 +94,20 @@ sub handleTab {
     if ($beforeHandler) {
 
         #    $beforeHandler =~ s/'/\\'/go;
-        push @metaData, "beforeHandler: function() {$beforeHandler}";
+        push @metaData,
+          "beforeHandler: function(oldTabId, newTabId) {$beforeHandler}";
     }
     if ($afterHandler) {
 
         #    $afterHandler =~ s/'/\\'/go;
-        push @metaData, "afterHandler: function() {$afterHandler}";
+        push @metaData,
+          "afterHandler: function(oldTabId, newTabId) {$afterHandler}";
     }
     if ($afterLoadHandler) {
 
         #    $afterLoadHandler =~ s/'/\\'/go;
-        push @metaData, "afterLoadHandler: function() {$afterLoadHandler}";
+        push @metaData,
+          "afterLoadHandler: function(oldTabId, newTabId) {$afterLoadHandler}";
     }
     if ($container) {
         push @metaData, "container: '$container'";

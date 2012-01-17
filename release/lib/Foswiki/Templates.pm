@@ -41,6 +41,8 @@ use Foswiki::Attrs ();
 # normally you should use it with a bin/view command-line.
 use constant TRACE => 0;
 
+my $MAX_EXPANSION_RECURSIONS = 999;
+
 =begin TML
 
 ---++ ClassMethod new ( $session )
@@ -55,7 +57,7 @@ sub new {
     my $this = bless( { session => $session }, $class );
 
     $this->{VARS} = { sep => ' | ' };
-
+    $this->{expansionRecursions} = {};
     return $this;
 }
 
@@ -73,6 +75,7 @@ sub finish {
     my $this = shift;
     undef $this->{VARS};
     undef $this->{session};
+    undef $this->{expansionRecursions};
 }
 
 =begin TML
@@ -112,8 +115,8 @@ Expand the template specified in the parameter string using =tmplP=.
 
 Examples:
 <verbatim>
-$tmpls->expandTemplate('"blah");
-$tmpls->expandTemplate('context="view" then="sigh" else="humph"');
+$tmpls->expandTemplate("blah");
+$tmpls->expandTemplate(context="view" then="sigh" else="humph");
 </verbatim>
 
 =cut
@@ -122,7 +125,9 @@ sub expandTemplate {
     my ( $this, $params ) = @_;
 
     my $attrs = new Foswiki::Attrs($params);
+    no warnings 'recursion';
     my $value = $this->tmplP($attrs);
+    use warnings 'recursion';
     return $value;
 }
 
@@ -139,8 +144,7 @@ Recursively expands any contained TMPL:P tags.
 Note that it would be trivial to add template parameters to this,
 simply by iterating over the other parameters (other than _DEFAULT, context,
 then and else) and doing a s/// in the template for that parameter value. This
-would add considerably to the power of templates. There is already code
-to do this in the MacrosPlugin.
+would add considerably to the power of templates.
 
 =cut
 
@@ -163,6 +167,19 @@ sub tmplP {
 
     return '' unless $template;
 
+    $this->{expansionRecursions}->{$template} += 1;
+
+#print STDERR "template=$template; recursion = " . $this->{expansionRecursions}->{$template} . "\n";
+
+    if ( $this->{expansionRecursions}->{$template} > $MAX_EXPANSION_RECURSIONS )
+    {
+        throw Foswiki::OopsException(
+            'attention',
+            def    => 'template_recursion',
+            params => [$template]
+        );
+    }
+
     my $val = '';
     if ( exists( $this->{VARS}->{$template} ) ) {
         $val = $this->{VARS}->{$template};
@@ -176,9 +193,12 @@ sub tmplP {
             }
         }
         $val =~ s/%TMPL:PREV%/%TMPL:P{"$template:_PREV"}%/g;
+        no warnings 'recursion';
         $val =~ s/%TMPL:P{(.*?)}%/$this->expandTemplate($1)/ge;
+        use warnings 'recursion';
     }
 
+    $this->{expansionRecursions}->{$template} -= 1;
     return $val;
 }
 
@@ -208,7 +228,7 @@ sub readTemplate {
     my ( $this, $name, %opts ) = @_;
     ASSERT($name) if DEBUG;
     my $skins = $opts{skins} || $this->{session}->getSkin();
-    my $web = $opts{web} || $this->{session}->{webName};
+    my $web   = $opts{web}   || $this->{session}->{webName};
 
     $this->{files} = ();
 
@@ -216,19 +236,23 @@ sub readTemplate {
     my $text = _readTemplateFile( $this, $name, $skins, $web );
 
     # Check file was found
-    unless( defined $text ) {
+    unless ( defined $text ) {
+
         # if no_oops is given, return undef silently
-        if ($opts{no_oops}) {
+        if ( $opts{no_oops} ) {
             return undef;
-        } else {
+        }
+        else {
             throw Foswiki::OopsException(
                 'attention',
                 def    => 'no_such_template',
                 params => [
                     $name,
+
                     # More info for overridable templates
-                    ($name =~ /^(view|edit)$/) ? $name.'_TEMPLATE' : '' ]
-               );
+                    ( $name =~ /^(view|edit)$/ ) ? $name . '_TEMPLATE' : ''
+                ]
+            );
         }
     }
 
@@ -239,6 +263,7 @@ sub readTemplate {
     }
 
     if ( $text !~ /%TMPL\:/ ) {
+
         # no %TMPL's to process
 
         # SMELL: legacy - leading spaces to tabs, should not be required
@@ -331,7 +356,7 @@ sub _readTemplateFile {
 
     # SMELL: not i18n-friendly (can't have accented characters in template name)
     # zap anything suspicious
-    $name  =~ s/[^A-Za-z0-9_,.\/]//go;
+    $name =~ s/[^A-Za-z0-9_,.\/]//go;
 
     # if the name ends in .tmpl, then this is an explicit include from
     # the templates directory. No further searching required.
@@ -415,10 +440,11 @@ sub _readTemplateFile {
             unless ( $file =~ m/.tmpl$/ ) {
 
                 # Could also use $Skin, $Web, $Name to indicate uppercase
-                $userdir  = 1;
+                $userdir = 1;
+
                 # Again untainting when using ucfirst
-                $skin     = Foswiki::Sandbox::untaintUnchecked( ucfirst($skin) );
-                $webName  = $userdirweb;
+                $skin    = Foswiki::Sandbox::untaintUnchecked( ucfirst($skin) );
+                $webName = $userdirweb;
                 $tmplName = $userdirname;
             }
             $file =~ s/\$skin/$skin/geo;
@@ -456,7 +482,7 @@ sub _readTemplateFile {
                     $text = "<!--$web1.$name1-->$text<!--/$web1.$name1-->"
                       if (TRACE);
 
-                    return _decomment( $text );
+                    return _decomment($text);
                 }
             }
             elsif ( -e $file ) {

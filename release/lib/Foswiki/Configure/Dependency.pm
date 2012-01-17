@@ -157,7 +157,7 @@ sub studyInstallation {
 
     if ( !$this->{module} ) {
         my $lib = ( $this->{name} =~ /Plugin$/ ) ? 'Plugins' : 'Contrib';
-        foreach my $namespace qw(Foswiki TWiki) {
+        foreach my $namespace (qw(Foswiki TWiki)) {
             my $path = $namespace . '::' . $lib . '::' . $this->{name};
             eval "require $path";
             unless ( $@ && $@ =~ m/^Can't locate $path/ ) {
@@ -302,7 +302,7 @@ sub _compare_cpan_versions {
     $b =~ s/^\s+//;
     $b =~ s/\s+$//;
 
-    # $Rev: 11475 (2011-04-16) $ without a number should compare higher than anything else
+    # $Rev: 13483 (2011-12-20) $ without a number should compare higher than anything else
     $a =~ s/^\$Rev:?\s*\$$/$largest_char/;
     $b =~ s/^\$Rev:?\s*\$$/$largest_char/;
 
@@ -481,12 +481,10 @@ sub _compare_extension_versions {
       # a migration to a version tuple, so return true to trigger an update
         return 1
           if ( $reqType eq 'tuple'
-            && $baseType  eq 'date'
-            && $string_op eq 'gt' );
+            && $baseType eq 'date' );
 
         if ( $reqType ne $baseType ) {
 
-       #print STDERR "Mismatch types - cannot compare $baseType to $reqType \n";
             return 0;
         }
 
@@ -520,7 +518,7 @@ sub _compare_extension_versions {
 # What format is the release identifier? We support comparison
 # of five formats:
 # 1. A simple number (subversion revision).
-# 2  Encoded SVN $Rev: 11475 (2011-04-16) $ formats
+# 2  Encoded SVN $Rev: 13483 (2011-12-20) $ formats
 # 3. A dd Mmm yyyy format date
 # 4. An ISO yyyy-mm-dd format date
 # 5. A tuple N(.M)+
@@ -529,7 +527,7 @@ sub _compare_extension_versions {
 # coded in 3 formats
 # 1. $Rev: <some number> $
 # 2. $Rev: <some number> (date)$   (Date is ignored)
-# 3. $Rev: 11475 (2011-04-16) $ An unassigned Rev indicating a SVN checkout.
+# 3. $Rev: 13483 (2011-12-20) $ An unassigned Rev indicating a SVN checkout.
 
 sub _decodeReleaseString {
 
@@ -580,13 +578,13 @@ sub _decodeReleaseString {
     }
     elsif ( $rel =~ /^\$Rev: (\d+).*\$$/ ) {
 
-        # $Rev: 11475 (2011-04-16) $
+        # $Rev: 13483 (2011-12-20) $
         @tuple = ($1);
         $form  = 'svn';
     }
     elsif ( $rel =~ /^\$Rev:?\s*\$.*$/ ) {
 
-        # $Rev: 11475 (2011-04-16) $
+        # $Rev: 13483 (2011-12-20) $
         @tuple = ($MAXINT);
         $form  = 'svn';
     }
@@ -595,6 +593,10 @@ sub _decodeReleaseString {
         # Blank or empty version
         @tuple = (0);
         $form  = 'tuple';
+    }
+    elsif ( $rel =~ /^Foswiki-(\d+([-_.]\d+)*).*?$/i ) {
+        @tuple = split( /[-_.]/, $1 );
+        $form = 'tuple';
     }
     else {
 

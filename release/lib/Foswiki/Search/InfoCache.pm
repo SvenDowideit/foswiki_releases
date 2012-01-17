@@ -61,11 +61,13 @@ sub new {
 
 sub isImmutable {
     my $this = shift;
+
     return ( $this->{index} != 0 );
 }
 
 sub addTopics {
     my ( $this, $defaultWeb, @list ) = @_;
+
     ASSERT( !$this->isImmutable() )
       if DEBUG;    #cannot modify list once its being used as an iterator.
     ASSERT( defined($defaultWeb) ) if DEBUG;
@@ -83,6 +85,7 @@ sub addTopics {
 #TODO: or an infoCache obj..
 sub addTopic {
     my ( $this, $meta ) = @_;
+
     ASSERT( !$this->isImmutable() )
       if DEBUG;    #cannot modify list once its being used as an iterator.
 
@@ -102,8 +105,9 @@ sub addTopic {
 sub numberOfTopics {
     my $this = shift;
 
-    #can't use this, as it lies once its gone through the 'sortResults' hack
+    # can't use this, as it lies once its gone through the 'sortResults' hack
     #return scalar(@{ $this->{list} });
+    # when fixed, the count update in filterByDate should be removed
 
     return $this->{count};
 }
@@ -132,7 +136,6 @@ sub sortResults {
 
     my $sortOrder = $params->{order} || '';
     my $revSort   = Foswiki::isTrue( $params->{reverse} );
-    my $date      = $params->{date} || '';
     my $limit     = $params->{limit} || '';
 
     #SMELL: duplicated code - removeme
@@ -198,7 +201,7 @@ sub sortResults {
     elsif (
         $sortOrder =~ /^creat/ ||    # topic creation time
         $sortOrder eq 'editby' ||    # author
-        $sortOrder =~ s/^formfield\((.*)\)$/$1/    # form field
+        $sortOrder =~ s/^formfield\(([^\)]+)\)$/$1/    # form field
       )
     {
     }
@@ -208,25 +211,42 @@ sub sortResults {
         $sortOrder = 'topic';
     }
     sortTopics( $this->{list}, $sortOrder, !$revSort );
+}
 
-#SMELL: this is not a sort at all - its a filter
-#TODO: can't just make a FilterIterator, as the silent removal breaks the numberofpages..
-    if ($date) {
-        require Foswiki::Time;
-        my @ends       = Foswiki::Time::parseInterval($date);
-        my @resultList = ();
-        foreach my $webtopic ( @{ $this->{list} } ) {
+=begin TML
 
-            # if date falls out of interval: exclude topic from result
-            my ( $web, $topic ) =
-              Foswiki::Func::normalizeWebTopicName( $this->{_defaultWeb},
-                $webtopic );
-            my $topicdate = $session->getApproxRevTime( $web, $topic );
-            push( @resultList, $webtopic )
-              unless ( $topicdate < $ends[0] || $topicdate > $ends[1] );
-        }
-        @{ $this->{list} } = @resultList;
+---++ filterByDate( $date )
+
+Filter the list by date interval; see System.TimeSpecifications.
+
+<verbatim>
+$infoCache->filterByDate( $date );
+</verbatim>
+
+=cut
+
+sub filterByDate {
+    my ( $this, $date ) = @_;
+
+    my $session = $Foswiki::Plugins::SESSION;
+
+    require Foswiki::Time;
+    my @ends       = Foswiki::Time::parseInterval($date);
+    my @resultList = ();
+    foreach my $webtopic ( @{ $this->{list} } ) {
+
+        # if date falls out of interval: exclude topic from result
+        my ( $web, $topic ) =
+          Foswiki::Func::normalizeWebTopicName( $this->{_defaultWeb},
+            $webtopic );
+        my $topicdate = $session->getApproxRevTime( $web, $topic );
+        push( @resultList, $webtopic )
+          unless ( $topicdate < $ends[0] || $topicdate > $ends[1] );
     }
+    $this->{list} = \@resultList;
+
+    # use this hack until numberOfTopics reads the length of list
+    $this->{count} = length @{ $this->{list} };
 }
 
 ######OLD methods
@@ -324,8 +344,10 @@ sub sortTopics {
 
             my $info = $metacache->get($webtopic);
             if ( !defined( $info->{$sortfield} ) ) {
+
+#under normal circumstances this code is not called, because the metacach has already filled it.
                 if ( $sortfield eq 'modified' ) {
-                    my $ri = $info->getRevisionInfo();
+                    my $ri = $info->{tom}->getRevisionInfo();
                     $info->{$sortfield} = $ri->{date};
                 }
                 else {
@@ -361,12 +383,12 @@ $NUMBER = qr/^[-+]?[0-9]+(\.[0-9]*)?([Ee][-+]?[0-9]+)?$/s;
 sub _compare {
     my $x = shift;
     my $y = shift;
- 
+
     ASSERT( defined($x) ) if DEBUG;
     ASSERT( defined($y) ) if DEBUG;
- 
+
     if ( $x =~ /$NUMBER/o && $y =~ /$NUMBER/o ) {
- 
+
         # when sorting numbers do it largest first; this is just because
         # this is what date comparisons need.
         return $y <=> $x;
@@ -374,13 +396,16 @@ sub _compare {
 
     my $datex = undef;
     my $datey = undef;
-    
+
     # parseTime can error if you give it a date out of range so we skip
     # testing if pure number
     # We skip testing for dates the first character is not a digit
-    # as all formats we recognise as dates are  
-    if ( $x =~ /^\d/ && $x !~ /$NUMBER/o &&
-         $y =~ /^\d/ && $y !~ /$NUMBER/o ) {
+    # as all formats we recognise as dates are
+    if (   $x =~ /^\d/
+        && $x !~ /$NUMBER/o
+        && $y =~ /^\d/
+        && $y !~ /$NUMBER/o )
+    {
         $datex = Foswiki::Time::parseTime($x);
         $datey = Foswiki::Time::parseTime($y) if $datex;
     }
@@ -392,7 +417,6 @@ sub _compare {
         return $y cmp $x;
     }
 }
-
 
 #convert a comma separated list of webs into the list we'll process
 #TODO: this is part of the Store now, and so should not need to reference Meta - it rather uses the store..

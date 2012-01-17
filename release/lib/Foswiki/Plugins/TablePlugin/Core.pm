@@ -118,7 +118,7 @@ $TABLE_FRAME->{vsides} = 'border-style:none solid none solid';
 $TABLE_FRAME->{box}    = 'border-style:solid';
 $TABLE_FRAME->{border} = 'border-style:solid';
 
-BEGIN {
+sub _init {
     $translationToken = "\0";
 
     # the maximum number of columns we will handle
@@ -249,9 +249,15 @@ sub _parseAttributes {
         _storeAttribute( 'sort',          $sort, $inCollection );
         _storeAttribute( 'sortAllTables', $sort, $inCollection );
     }
-    _storeAttribute( 'initSort', $inParams->{initsort}, $inCollection )
-      if defined( $inParams->{initsort} )
-          and $inParams->{initsort} =~ /\s*[0-9]+\s*/;
+    if ( defined( $inParams->{initsort} )
+        and int( $inParams->{initsort} ) > 0 )
+    {
+        _storeAttribute( 'initSort', $inParams->{initsort}, $inCollection );
+
+        # override sort attribute: we are sorting after all
+        _storeAttribute( 'sort', 1, $inCollection );
+    }
+
     if ( $inParams->{initdirection} ) {
         _storeAttribute( 'initDirection', $SORT_DIRECTION->{'ASCENDING'},
             $inCollection )
@@ -394,7 +400,6 @@ sub _getIncludeParams {
 
     if ( !Foswiki::Func::topicExists( $includeWeb, $includeTopic ) ) {
         _debug("TablePlugin: included topic $inIncludeTopic does not exist.");
-        die("TablePlugin: included topic $inIncludeTopic does not exist.");
     }
     else {
 
@@ -536,6 +541,7 @@ sub _processTableRow {
             && defined $sortColFromUrl )
         {
             $sortCol = $sortColFromUrl;
+            $sortCol = 0 unless ( $sortCol =~ m/^[0-9]+$/ );
             $sortCol = $MAX_SORT_COLS if ( $sortCol > $MAX_SORT_COLS );
             $currentSortDirection = _getCurrentSortDirection($up);
         }
@@ -726,18 +732,32 @@ sub _processTableRow {
 sub _headerRowCount {
     my ($table) = @_;
 
-    my $count = 0;
+    my $headerCount = 0;
+    my $footerCount = 0;
+    my $endheader   = 0;
 
     # All cells in header are headings?
     foreach my $row (@$table) {
         my $isHeader = 1;
         foreach my $cell (@$row) {
-            $isHeader = 0 if ( $cell->{type} ne 'th' );
+            if ( $cell->{type} ne 'th' ) {
+                $isHeader    = 0;
+                $endheader   = 1;
+                $footerCount = 0 if $footerCount;
+            }
         }
-        $count++ if $isHeader;
+        unless ($endheader) {
+            $headerCount++ if $isHeader;
+        }
+        else {
+            $footerCount++ if $isHeader;
+        }
     }
 
-    return $count;
+    # Some cells came after the footer - so there isn't one.
+    $footerCount = 0 if ( $endheader > 1 );
+
+    return ( $headerCount, $footerCount );
 }
 
 =pod
@@ -787,6 +807,7 @@ sub _setSortTypeForCells {
 sub _stripHtml {
     my ($text) = @_;
 
+    return undef if !defined $text;
     $text =~
       s/\[\[[^\]]+\]\[([^\]]+)\]\]/$1/go; # extract label from [[...][...]] link
 
@@ -904,6 +925,8 @@ sub _getDefaultSortDirection {
 # Gets the current sort direction.
 sub _getCurrentSortDirection {
     my ($currentDirection) = @_;
+    $currentDirection = $SORT_DIRECTION->{'ASCENDING'}
+      unless defined $currentDirection && $currentDirection =~ m/[0-2]+/;
     $currentDirection ||= _getDefaultSortDirection();
     return $currentDirection;
 }
@@ -919,12 +942,16 @@ sub _getNewSortDirection {
     if ( $currentDirection == $SORT_DIRECTION->{'ASCENDING'} ) {
         $newDirection = $SORT_DIRECTION->{'DESCENDING'};
     }
-    if ( $currentDirection == $SORT_DIRECTION->{'DESCENDING'} ) {
+    elsif ( $currentDirection == $SORT_DIRECTION->{'DESCENDING'} ) {
         $newDirection = $SORT_DIRECTION->{'NONE'};
     }
-    if ( $currentDirection == $SORT_DIRECTION->{'NONE'} ) {
+    elsif ( $currentDirection == $SORT_DIRECTION->{'NONE'} ) {
         $newDirection = $SORT_DIRECTION->{'ASCENDING'};
     }
+    else {
+        $newDirection = _getDefaultSortDirection();
+    }
+
     return $newDirection;
 }
 
@@ -1075,18 +1102,22 @@ sub _createCssStyles {
 
     # headerbg
     if ( defined $inAttrs->{headerBg} ) {
-        unless ( $inAttrs->{headerBg} =~ /none/i ) {
-            my $attr = 'background-color:' . $inAttrs->{headerBg};
-            &$setAttribute( $tableSelector, 'th', $attr );
-        }
+        my $color =
+          ( $inAttrs->{headerBg} =~ /none/i )
+          ? 'transparent'
+          : $inAttrs->{headerBg};
+        my $attr = 'background-color:' . $color;
+        &$setAttribute( $tableSelector, 'th', $attr );
     }
 
     # headerbgsorted
     if ( defined $inAttrs->{headerBgSorted} ) {
-        unless ( $inAttrs->{headerBgSorted} =~ /none/i ) {
-            my $attr = 'background-color:' . $inAttrs->{headerBgSorted};
-            &$setAttribute( $tableSelector, 'th.foswikiSortedCol', $attr );
-        }
+        my $color =
+          ( $inAttrs->{headerBgSorted} =~ /none/i )
+          ? 'transparent'
+          : $inAttrs->{headerBgSorted};
+        my $attr = 'background-color:' . $color;
+        &$setAttribute( $tableSelector, 'th.foswikiSortedCol', $attr );
     }
 
     # headercolor
@@ -1106,32 +1137,32 @@ sub _createCssStyles {
 
     # databg (array)
     if ( defined $inAttrs->{dataBgListRef} ) {
-        my @dataBg = @{ $inAttrs->{dataBgListRef} };
-        unless ( $dataBg[0] =~ /none/i ) {
-            my $count = 0;
-            foreach my $color (@dataBg) {
-                next if !$color;
-                my $rowSelector = 'foswikiTableRow' . 'dataBg' . $count;
-                my $attr        = "background-color:$color";
-                &$setAttribute( $tableSelector, "tr.$rowSelector td", $attr );
-                $count++;
-            }
+        my @dataBg    = @{ $inAttrs->{dataBgListRef} };
+        my $noneColor = ( $dataBg[0] =~ /none/i ) ? 'transparent' : '';
+        my $count     = 0;
+        foreach my $color (@dataBg) {
+            $color = $noneColor if $noneColor;
+            next if !$color;
+            my $rowSelector = 'foswikiTableRow' . 'dataBg' . $count;
+            my $attr        = "background-color:$color";
+            &$setAttribute( $tableSelector, "tr.$rowSelector td", $attr );
+            $count++;
         }
     }
 
     # databgsorted (array)
     if ( defined $inAttrs->{dataBgSortedListRef} ) {
         my @dataBgSorted = @{ $inAttrs->{dataBgSortedListRef} };
-        unless ( $dataBgSorted[0] =~ /none/i ) {
-            my $count = 0;
-            foreach my $color (@dataBgSorted) {
-                next if !$color;
-                my $rowSelector = 'foswikiTableRow' . 'dataBg' . $count;
-                my $attr        = "background-color:$color";
-                &$setAttribute( $tableSelector,
-                    "tr.$rowSelector td.foswikiSortedCol", $attr );
-                $count++;
-            }
+        my $noneColor    = ( $dataBgSorted[0] =~ /none/i ) ? 'transparent' : '';
+        my $count        = 0;
+        foreach my $color (@dataBgSorted) {
+            $color = $noneColor if $noneColor;
+            next if !$color;
+            my $rowSelector = 'foswikiTableRow' . 'dataBg' . $count;
+            my $attr        = "background-color:$color";
+            &$setAttribute( $tableSelector,
+                "tr.$rowSelector td.foswikiSortedCol", $attr );
+            $count++;
         }
     }
 
@@ -1313,16 +1344,17 @@ sub emitTable {
     }
 
     my $sortThisTable =
-      $combinedTableAttrs->{sortAllTables} == 0
+      ( !defined $combinedTableAttrs->{sortAllTables}
+          || $combinedTableAttrs->{sortAllTables} == 0 )
       ? 0
       : $combinedTableAttrs->{sort};
 
     if ( $combinedTableAttrs->{headerrows} == 0 ) {
-        my $headerRowCount = _headerRowCount( \@curTable );
-        $headerRowCount -= $combinedTableAttrs->{footerrows};
+        my ( $headerRowCount, $footerRowCount ) = _headerRowCount( \@curTable );
 
         # override default setting with calculated header count
         $combinedTableAttrs->{headerrows} = $headerRowCount;
+        $combinedTableAttrs->{footerrows} = $footerRowCount;
     }
 
     my $tableTagAttributes = {};
@@ -1407,6 +1439,10 @@ sub emitTable {
                 }
             }
         }
+
+       # url requested sort on column beyond end of table.  Force to last column
+        $sortCol = 0 unless ( $sortCol =~ m/^[0-9]+$/ );
+        $sortCol = $maxCols - 1 if ( $sortCol >= $maxCols );
 
         # only get the column type if within bounds
         if ( $sortCol < $maxCols ) {
@@ -1509,7 +1545,8 @@ sub emitTable {
                 if ( $combinedTableAttrs->{generateInlineMarkup}
                     && defined $combinedTableAttrs->{headerBg} )
                 {
-                    $attr->{bgcolor} = $combinedTableAttrs->{headerBg};
+                    $attr->{bgcolor} = $combinedTableAttrs->{headerBg}
+                      unless ( $combinedTableAttrs->{headerBg} =~ /none/i );
                 }
 
                 # END html attribute
@@ -1531,17 +1568,22 @@ sub emitTable {
                     if ( $combinedTableAttrs->{generateInlineMarkup}
                         && defined $combinedTableAttrs->{headerBgSorted} )
                     {
-                        $attr->{bgcolor} =
-                          $combinedTableAttrs->{headerBgSorted};
+                        $attr->{bgcolor} = $combinedTableAttrs->{headerBgSorted}
+                          unless (
+                            $combinedTableAttrs->{headerBgSorted} =~ /none/i );
                     }
 
                     # END html attribute
                 }
 
-                if (   defined $sortCol
+                if (
+                       defined $sortCol
                     && $colCount == $sortCol
                     && defined $requestedTable
-                    && $requestedTable == $tableCount )
+                    && $requestedTable == $tableCount
+                    && (   $combinedTableAttrs->{headerrows}
+                        || $combinedTableAttrs->{footerrows} )
+                  )
                 {
 
                     $tableAnchor =
@@ -1562,8 +1604,12 @@ sub emitTable {
 
                 if (
                     $sortThisTable
-                    && (  !$combinedTableAttrs->{headerrows}
-                        || $rowCount == $combinedTableAttrs->{headerrows} - 1 )
+                    && (
+                        ( $rowCount == $combinedTableAttrs->{headerrows} - 1 )
+                        || (  !$combinedTableAttrs->{headerrows}
+                            && $rowCount ==
+                            $numberOfRows - $combinedTableAttrs->{footerrows} )
+                    )
                     && ( $writingSortLinks || !$sortLinksWritten )
                   )
                 {
@@ -1601,7 +1647,8 @@ sub emitTable {
                     {
                         my @dataBg =
                           @{ $combinedTableAttrs->{dataBgSortedListRef} };
-                        unless ( $dataBg[0] =~ /none/i ) {
+
+                        unless ( $dataBg[0] =~ /none/ ) {
                             $attr->{bgcolor} =
                               $dataBg[ $dataColorCount % ( $#dataBg + 1 ) ];
                         }
@@ -1804,8 +1851,15 @@ sub handler {
 
         $sortColFromUrl =
           $cgi->param('sortcol');              # zero based: 0 is first column
+        if ( defined $sortColFromUrl && $sortColFromUrl !~ m/^[0-9]+$/ ) {
+            $sortColFromUrl = 0;
+        }
+
         $requestedTable = $cgi->param('table');
-        $up             = $cgi->param('up');
+        $requestedTable = 0
+          unless ( defined $requestedTable && $requestedTable =~ m/^[0-9]+$/ );
+
+        $up = $cgi->param('up');
 
         $sortTablesInText = 0;
         $sortAttachments  = 0;
@@ -1843,7 +1897,6 @@ s/$PATTERN_TABLE/_parseTableSpecificTableAttributes(Foswiki::Func::extractParame
             $_           = emitTable() . $_;
             $insideTABLE = 0;
 
-            #            delete $combinedTableAttrs->{initSort};
             $combinedTableAttrs->{sortAllTables} = $defaultSort;
             $acceptable = $defaultSort;
         }

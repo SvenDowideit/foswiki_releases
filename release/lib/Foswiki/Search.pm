@@ -362,7 +362,6 @@ sub searchWeb {
 
 #foswiki 1.1 Feature Proposal: SEARCH needs an alt parameter in case of zero results
 
-
           #TODO: extract & merge with extraction of footer processing code below
                 my $result = $params{zeroresults};
 
@@ -379,7 +378,6 @@ sub searchWeb {
 
                 $result = Foswiki::expandStandardEscapes($result);
                 $result =~ s/\n$//os;               # remove trailing new line
-                
 
                 return $result;
             }
@@ -554,8 +552,8 @@ sub formatResults {
 
     my ( $callback, $cbdata ) = setup_callback($params);
 
-    my $baseTopic = $session->{topicName};
-    my $baseWeb   = $session->{webName};
+    my $baseTopic     = $session->{topicName};
+    my $baseWeb       = $session->{webName};
     my $doBookView    = Foswiki::isTrue( $params->{bookview} );
     my $caseSensitive = Foswiki::isTrue( $params->{casesensitive} );
     my $doExpandVars  = Foswiki::isTrue( $params->{expandvariables} );
@@ -606,8 +604,10 @@ sub formatResults {
           || $params->{showpage}
           || 1;
 
-        #TODO: need to ask the result set
-        my $numberofpages = $infoCache->numberOfTopics / $params->{pagesize};
+        #TODO: need to ask the ResultSet
+        my $numberofpages = 0;
+        $numberofpages = ( $infoCache->numberOfTopics / $params->{pagesize} )
+          if $params->{pagesize};
         $numberofpages = int($numberofpages) + 1;
 
         #TODO: excuse me?
@@ -762,7 +762,7 @@ sub formatResults {
 
             if ( $doMultiple && $query->{tokens} ) {
 
-                #TODO: i wonder if this shoudl be a HoistRE..
+                #TODO: Sven wonders if this should be a HoistRE..
                 #TODO: well, um, and how does this work for query search?
                 my @tokens = @{ $query->{tokens} };
                 my $pattern = $tokens[$#tokens];   # last token in an AND search
@@ -819,9 +819,10 @@ sub formatResults {
                                 \%pager_formatting );
                             $processedfooter =~ s/\$web/$lastWebProcessed/gos
                               ;    # expand name of web
-#                            $processedfooter =~
-#                              s/([^\n])$/$1\n/os;    # add new line at end
-                                                     # output footer of $web
+
+     #                            $processedfooter =~
+     #                              s/([^\n])$/$1\n/os;    # add new line at end
+     # output footer of $web
 
                             $processedfooter =~ s/\$ntopics/$ntopics/gs;
                             $processedfooter =~ s/\$nhits/$nhits/gs;
@@ -833,8 +834,9 @@ sub formatResults {
                             $processedfooter =
                               $this->formatCommon( $processedfooter,
                                 \%pager_formatting );
-#                            $processedfooter =~
-#                              s/\n$//os;    # remove trailing new line
+
+         #                            $processedfooter =~
+         #                              s/\n$//os;    # remove trailing new line
 
                             $justdidHeaderOrFooter = 1;
                             &$callback( $cbdata, $processedfooter );
@@ -870,8 +872,8 @@ sub formatResults {
                 # strings, it needs to be expanded first.
                 $processedheader =
                   $this->formatCommon( $processedheader, \%pager_formatting );
-                $processedheader =~ s/\$web/$web/gos;      # expand name of web
-                
+                $processedheader =~ s/\$web/$web/gos;    # expand name of web
+
                 # add new line after the header unless separator is defined
                 # per Item1773 / SearchSeparatorDefaultHeaderFooter
                 unless ( defined $separator ) {
@@ -982,12 +984,14 @@ sub formatResults {
         } while (@multipleHitLines);    # multiple=on loop
 
         if (
-            ( defined( $params->{pager_skip_results_from} )) or
-            (( defined( $params->{groupby} ) )
-                and($params->{groupby} ne 'web'))
-            ) {
+            ( defined( $params->{pager_skip_results_from} ) )
+            or (    ( defined( $params->{groupby} ) )
+                and ( $params->{groupby} ne 'web' ) )
+          )
+        {
             last if ( $ttopics >= $limit );
-        } else {
+        }
+        else {
             if ( $ntopics >= $limit ) {
                 $infoCache->nextWeb();
             }
@@ -1018,8 +1022,9 @@ sub formatResults {
 
 #because $pager contains more $ntopics like format strings, it needs to be expanded first.
         $footer = $this->formatCommon( $footer, \%pager_formatting );
-        $footer =~ s/\$web/$web/gos;      # expand name of web
-#        $footer =~ s/([^\n])$/$1\n/os;    # add new line at end
+        $footer =~ s/\$web/$web/gos;    # expand name of web
+
+        #        $footer =~ s/([^\n])$/$1\n/os;    # add new line at end
 
         # output footer of $web
         $footer =~ s/\$ntopics/$ntopics/gs;
@@ -1029,7 +1034,7 @@ sub formatResults {
         #legacy SEARCH counter support
         $footer =~ s/%NTOPICS%/$ntopics/go;
 
-#        $footer =~ s/\n$//os;             # remove trailing new line
+        #        $footer =~ s/\n$//os;             # remove trailing new line
 
         &$callback( $cbdata, $footer );
     }
@@ -1106,7 +1111,8 @@ sub formatResult {
         $out =~ s/\$topic\(([^\)]*)\)/Foswiki::Render::breakName( 
                                                 $topic, $1 )/ges;
         $out =~ s/\$topic/$topic/gs;
-        $out =~ s{(\$rev|\$wikiusername|\$wikiname|\$username|\$createlongdate|\$iso|\$longdate|\$date)}
+        $out =~
+s{(\$rev|\$wikiusername|\$wikiname|\$username|\$createlongdate|\$iso|\$longdate|\$date)}
                  {$session->renderer->renderRevisionInfo($topicObject, $revNum, $1 )}ges;
     }
 
@@ -1174,7 +1180,6 @@ sub formatResult {
               s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
         }
         $out =~ s/\r?\n/$newLine/gos if ($newLine);
-
 
         # If separator is not defined we default to \n
         # We also add new line after last search result but before footer

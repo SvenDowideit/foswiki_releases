@@ -111,10 +111,10 @@ unless ( &$check_perl_module('Foswiki::Merge') ) {
 
 # Use the CLI engine, and change to minimal mapper and password manager
 # so that configure can run if the authentication contribs have problems
-$Foswiki::cfg{Engine} = 'Foswiki::Engine::CLI';
-$Foswiki::cfg{PasswordManager} = 'none';
+$Foswiki::cfg{Engine}             = 'Foswiki::Engine::CLI';
+$Foswiki::cfg{PasswordManager}    = 'none';
 $Foswiki::cfg{UserMappingManager} = 'Foswiki::Users::BaseUserMapping';
-$Foswiki::cfg{Cache}{Enabled} = 0;
+$Foswiki::cfg{Cache}{Enabled}     = 0;
 
 unless ( eval { require Foswiki } ) {
     _stop("Can't load Foswiki: $@");
@@ -258,16 +258,23 @@ sub _loadInstaller {
         pub  => "$PACKAGES_URL/"
     };
 
-    my $fromDir = dirname(abs_path($0));
+    my $fromDir = dirname( abs_path($0) );
 
     _inform "Package repository set to $PACKAGES_URL \n";
     _inform
 " ... locally found installer scripts and archives will be used if available"
       if ($reuseOK);
 
-    $thispkg =
-      new Foswiki::Configure::Package( "$installationRoot/", $MODULE, $session,
-        { SHELL => 1, USELOCAL => $reuseOK, SIMULATE => $simulate, DIR => $fromDir } );
+    $thispkg = new Foswiki::Configure::Package(
+        "$installationRoot/",
+        $MODULE, $session,
+        {
+            SHELL    => 1,
+            USELOCAL => $reuseOK,
+            SIMULATE => $simulate,
+            DIR      => $fromDir
+        }
+    );
     $thispkg->repository($repository);
 
     my ( $rslt, $err ) = $thispkg->loadInstaller()
@@ -279,46 +286,16 @@ sub _loadInstaller {
 
 sub _uninstall {
     my $file;
-    my @dead;
     my $rslt = '';
     my $err  = '';
     my $sim  = '';
     $sim = 'Simulated - ' if ($simulate);
 
-    $rslt = $thispkg->createBackup();
-
-    _inform "$rslt";
-
-    @dead = $thispkg->uninstall('1') unless ($err);
-
-    unless ( $#dead > 1 ) {
-        _warn "No part of $MODULE is installed";
-        return 0;
-    }
-    _warn "$sim To uninstall $MODULE, the following files will be deleted:";
-    _inform "\t" . join( "\n\t$sim", @dead );
-
     my $reply = ask("Are you SURE you want to uninstall $MODULE?");
     if ($reply) {
 
-        $thispkg->loadExits();
-
-        unless ($simulate) {
-            $rslt = "Running Pre-uninstall exit for $thispkg->{_pkgname} ...\n";
-            $rslt .= $thispkg->preuninstall() || '';
-            _inform "$rslt";
-        }
-
-        @dead = $thispkg->uninstall();
-        my $removed = scalar @dead;
-        _inform "$sim removed $removed files";
-
-        unless ($simulate) {
-            $rslt =
-              "Running Post-uninstall exit for $thispkg->{_pkgname} ...\n";
-            $rslt .= $thispkg->postuninstall() || '';
-            _inform "$rslt";
-        }
+        $rslt = $thispkg->uninstall();
+        _inform "$rslt";
 
         $thispkg->finish();
         undef $thispkg;
@@ -399,10 +376,10 @@ sub _install {
         $path = $source . '::' . $type . '::' . $rootModule;
     }
 
-    my $selfDep =  new Foswiki::Configure::Dependency(
-           module      => $path,
-           type        => 'perl',
-       );
+    my $selfDep = new Foswiki::Configure::Dependency(
+        module => $path,
+        type   => 'perl',
+    );
 
     if ( $selfDep->studyInstallation() ) {
 
@@ -420,8 +397,10 @@ sub _install {
 
         if ($moduleVersion) {
             return 0
-              unless ask( "$MODULE version $moduleVersion is already installed."
-                  . " Are you sure you want to re-install this module?" );
+              unless ask(
+                          "$MODULE version $moduleVersion is already installed."
+                        . " Are you sure you want to re-install this module?"
+              );
         }
     }
 
@@ -442,7 +421,7 @@ sub _install {
     return 0
       unless ask("$instmsg");
 
-    my ( $rslt, $plugins, $depCPAN ) = $thispkg->fullInstall();
+    my ( $rslt, $plugins, $depCPAN ) = $thispkg->install();
     _inform $rslt;
     $rslt = '';
 
@@ -452,18 +431,6 @@ sub _install {
             $unsatisfied++;
         }
     }
-
-    if ( keys %$plugins ) {
-        $rslt = <<HERE;
-Note: Don't forget to enable installed plugins in the
-"Plugins" section of bin/configure, listed below:
-
-HERE
-        foreach my $plugName ( sort { lc($a) cmp lc($b) } keys %$plugins ) {
-            $rslt .= "  $plugName \n" if $plugName;
-        }
-    }
-    _inform($rslt);
 
     my $err = $thispkg->errors();
     if ($err) {
@@ -556,7 +523,6 @@ sub install {
         usage();
         exit 0;
     }
-
 
     $reuseOK = ask(
 "Do you want to use locally found installer scripts and archives to install $MODULE and any dependencies.\nIf you reply n, then fresh copies will be downloaded from this repository."

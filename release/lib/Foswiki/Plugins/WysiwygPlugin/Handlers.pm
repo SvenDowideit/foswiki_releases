@@ -81,7 +81,7 @@ sub beforeEditHandler {
 
             # redirect
             my $query = Foswiki::Func::getCgiQuery();
-            foreach my $p qw( skin cover ) {
+            foreach my $p (qw( skin cover )) {
                 my $arg = $query->param($p);
                 if ( $arg && $arg =~ s/\b$skin\b// ) {
                     if ( $arg =~ /^[\s,]*$/ ) {
@@ -933,7 +933,7 @@ sub _restAttachments {
 }
 
 1;
-__DATA__
+__END__
 Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
 Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors

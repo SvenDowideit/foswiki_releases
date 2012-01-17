@@ -224,7 +224,7 @@ sub queryString {
 Returns many url info. 
    * If called without parameters or with -full => 1 returns full url, e.g. 
      http://mysite.net/view
-   * If called with -base => 1 returns base url, e.g. http://twiki.org
+   * If called with -base => 1 returns base url, e.g. http://fosiki.org
    * -absolute => 1 returns absolute action path, e.g. /cgi-bin/view
    * -relative => 1 returns relative action path, e.g. view
    * -path => 1, -query => 1 also includes path info and query string
@@ -251,13 +251,15 @@ sub url {
     my $name;
 
     if ( defined $Foswiki::cfg{ScriptUrlPaths}{ $this->{action} } ) {
-        # When this is set, it is the complete script path including prefix/suffix.
-        $name = $Foswiki::cfg{ScriptUrlPaths}{ $this->{action} }
+
+     # When this is set, it is the complete script path including prefix/suffix.
+        $name = $Foswiki::cfg{ScriptUrlPaths}{ $this->{action} };
     }
     else {
         $name = $Foswiki::cfg{ScriptUrlPath} . '/' . $this->{action};
+
         # Don't add suffix if no script is used.
-        $name .= $Foswiki::cfg{ScriptSuffix} if $name; 
+        $name .= $Foswiki::cfg{ScriptSuffix} if $name;
     }
     $name =~ s(//+)(/)g;
     if ($full) {

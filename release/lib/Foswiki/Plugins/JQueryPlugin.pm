@@ -19,8 +19,8 @@ use vars qw(
   $NO_PREFS_IN_TOPIC
 );
 
-$VERSION           = '$Rev: 20090710 (2011-02-02) $';
-$RELEASE           = '4.03';
+$VERSION           = '$Rev: 13479 (2011-12-20) $';
+$RELEASE           = '4.32';
 $SHORTDESCRIPTION  = 'jQuery <nop>JavaScript library for Foswiki';
 $NO_PREFS_IN_TOPIC = 1;
 
@@ -34,7 +34,7 @@ sub initPlugin {
     my ( $topic, $web, $user ) = @_;
 
     # check for prerequisites
-    unless (defined(&Foswiki::Func::addToZone)) {
+    unless ( defined(&Foswiki::Func::addToZone) ) {
         Foswiki::Func::writeWarning(
             "ZonePlugin not installed/enabled...disabling JQueryPlugin");
         return 0;
@@ -54,7 +54,7 @@ sub initPlugin {
 
     # jquery.button
     Foswiki::Func::registerTagHandler( 'BUTTON', \&handleButton );
-    
+
     # jquery.popupwindow
     Foswiki::Func::registerTagHandler( 'POPUPWINDOW', \&handlePopUpWindow );
 
@@ -62,8 +62,9 @@ sub initPlugin {
     Foswiki::Plugins::JQueryPlugin::Plugins::init();
 
     # backwards compatibility
-    if ($Foswiki::Plugins::VERSION < 2.1) {
-      Foswiki::Func::setPreferencesValue("CLEAR", "<span class='foswikiClear'></span>");
+    if ( $Foswiki::Plugins::VERSION < 2.1 ) {
+        Foswiki::Func::setPreferencesValue( "CLEAR",
+            "<span class='foswikiClear'></span>" );
     }
 
     return 1;
@@ -74,10 +75,15 @@ sub initPlugin {
 finish up the plugins container
 
 SMELL: I'd prefer a proper finishHandler, alas it does not exist
-
+SMELL: Item11349 - this never gets called from unit tests, see finishPlugin(),
+       added in Item1328 for 1.1.0
 =cut
 
 sub modifyHeaderHandler {
+    Foswiki::Plugins::JQueryPlugin::Plugins::finish();
+}
+
+sub finishPlugin {
     Foswiki::Plugins::JQueryPlugin::Plugins::finish();
 }
 
@@ -96,6 +102,19 @@ sub createPlugin {
 
 =begin TML
 
+---++ createTheme($themeName) -> $boolean
+
+API to load a jQuery UI theme. Returns true if the theme has
+been loaded successfully.
+
+=cut
+
+sub createTheme {
+    return Foswiki::Plugins::JQueryPlugin::Plugins::createTheme(@_);
+}
+
+=begin TML
+
 ---++ registerPlugin($pluginName, $class) -> $plugin
 
 API to register a jQuery plugin. this is of use for other Foswiki plugins
@@ -110,6 +129,22 @@ The FOOBAR.pm stub must be derived from Foswiki::Plugins::JQueryPlugin::PLUGIN c
 
 sub registerPlugin {
     return Foswiki::Plugins::JQueryPlugin::Plugins::registerPlugin(@_);
+}
+
+=begin TML
+
+---++ registerTheme($themeName, $url)
+
+API to register a jQuery theme. this is of use for other Foswiki plugins
+to register their theme. Registering a theme 'foobar'
+will make it available via =%<nop>JQTHEME{"foobar"}%=.
+
+The =$url= parameter will default to '%PUBURLPATH%/%SYSTEMWEB%/JQueryPlugin/ui/$themeName/jquery-ui.css'.
+
+=cut
+
+sub registerTheme {
+    return Foswiki::Plugins::JQueryPlugin::Plugins::registerTheme(@_);
 }
 
 =begin TML
@@ -229,13 +264,13 @@ sub handleJQueryRequire {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
 
     my $plugins = $params->{_DEFAULT} || '';
-    my $warn    = $params->{warn}     || '';
+    my $warn = Foswiki::Func::isTrue( $params->{warn}, 1 );
     my $errorMsg = '';
     foreach my $pluginName ( split( /\s*,\s*/, $plugins ) ) {
         my $plugin = createPlugin( $pluginName, $session );
         $errorMsg .=
           "<div class='foswikiAlert'>Error: no such plugin $pluginName</div>"
-          if !$plugin && $warn ne 'off';
+          if !$plugin && $warn;
     }
 
     return $errorMsg;
@@ -252,11 +287,13 @@ Handles the =%<nop>JQTHEME% tag.
 sub handleJQueryTheme {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
 
-    my $themeName =
-         $params->{_DEFAULT}
-      || $Foswiki::cfg{JQueryPlugin}{JQueryTheme}
-      || 'base';
-    Foswiki::Plugins::JQueryPlugin::Plugins::createTheme($themeName);
+    my $themeName = $params->{_DEFAULT}
+      || $Foswiki::cfg{JQueryPlugin}{JQueryTheme};
+
+    my $warn = $params->{warn} || '';
+
+    return "<div class='foswikiAlert'>Error: no such theme $themeName</div>"
+      if !createTheme($themeName) && $warn ne 'off';
 
     return '';
 }
@@ -383,6 +420,7 @@ sub handleJQueryPlugins {
         counter => $counter, );
     $theSeparator =
       Foswiki::Plugins::JQueryPlugin::Plugins::expandVariables($theSeparator);
+
     return $theHeader . join( $theSeparator, @result ) . $theFooter;
 }
 
@@ -390,14 +428,14 @@ sub handleJQueryPlugins {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2010-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 
 Additional copyrights apply to some or all of the code in this
 file as follows:
 
-Copyright (C) 2006-2010 Michael Daum http://michaeldaumconsulting.com
+Copyright (C) 2006-2011 Michael Daum http://michaeldaumconsulting.com
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

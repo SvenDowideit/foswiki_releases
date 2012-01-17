@@ -90,7 +90,7 @@ callers don't require them. For this reason, be *very careful* how you use
 =Foswiki::Meta=. Extension authors will almost always find the methods
 they want in =Foswiki::Func=, rather than in this class.
 
-API version $Date: 2011-04-13 19:09:01 +0200 (Wed, 13 Apr 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-12-03 08:17:36 -0500 (Sat, 03 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki release 4.2.3). The _date_ indicates the
@@ -119,7 +119,7 @@ use Assert;
 use Errno 'EINTR';
 
 our $reason;
-our $VERSION = '$Rev: 11475 (2011-04-16) $';
+our $VERSION = '$Rev: 13483 (2011-12-20) $';
 
 # Version for the embedding format (increment when embedding format changes)
 our $EMBEDDING_FORMAT_VERSION = 1.1;
@@ -157,12 +157,12 @@ our %VALIDATE = (
               rev comment encoding )
         ],
         _default => 1,
-        alias => 'info',
+        alias    => 'info',
     },
     TOPICMOVED => {
         require  => [qw( from to by date )],
         _default => 1,
-        alias => 'moved',
+        alias    => 'moved',
     },
 
     # Special case, see Item2554; allow an empty TOPICPARENT, as this was
@@ -170,7 +170,7 @@ our %VALIDATE = (
     TOPICPARENT => {
         allow    => [qw( name )],
         _default => 1,
-        alias => 'parent',
+        alias    => 'parent',
     },
     FILEATTACHMENT => {
         require => [qw( name )],
@@ -185,7 +185,7 @@ our %VALIDATE = (
     FORM => {
         require  => [qw( name )],
         _default => 1,
-        alias => 'form',
+        alias    => 'form',
     },
     FIELD => {
         require  => [qw( name value )],
@@ -204,12 +204,12 @@ our %VALIDATE = (
 );
 
 our %aliases =
-    map { $VALIDATE{$_}->{alias} => "META:$_" }
-        grep { $VALIDATE{$_}->{alias} } keys %VALIDATE;
+  map { $VALIDATE{$_}->{alias} => "META:$_" }
+  grep { $VALIDATE{$_}->{alias} } keys %VALIDATE;
 
 our %isArrayType =
-    map { $_ => 1 }
-        grep { $VALIDATE{$_}->{many} } keys %VALIDATE;
+  map { $_ => 1 }
+  grep { $VALIDATE{$_}->{many} } keys %VALIDATE;
 
 =begin TML
 
@@ -296,7 +296,7 @@ See QuerySearch for more on aliases.
 sub registerMETA {
     my ( $name, %check ) = @_;
     $VALIDATE{$name} = \%check;
-    $aliases{$check{alias}} = "META:$name" if $check{alias};
+    $aliases{ $check{alias} } = "META:$name" if $check{alias};
     $isArrayType{$name} = $check{many};
 }
 
@@ -1355,6 +1355,21 @@ sub getRevisionInfo {
       if DEBUG;
 
     my $info;
+    if (    not defined( $this->{_loadedRev} )
+        and not Foswiki::Func::topicExists( $this->{_web}, $this->{_topic} ) )
+    {
+
+#print STDERR "topic does not exist - at least, _loadedRev is not set..(".$this->{_web} .' '. $this->{_topic}.")\n";
+#this does not exist on disk - no reason to goto the store for the defaults
+#TODO: Sven is not 100% sure this is the right decision, but it feels better not to do a trip into the deep for an application default
+        $info = {
+            date    => 0,
+            author  => $Foswiki::Users::BaseUserMapping::DEFAULT_USER_CUID,
+            version => 0,
+            format  => $EMBEDDING_FORMAT_VERSION,
+        };
+        return $info;
+    }
 
     # This used to try and get revision info from the meta
     # information and only kick down to the Store module for the
@@ -1431,11 +1446,16 @@ sub getRev1Info {
             or $attr eq 'created' )
         {
             $info->{created} = $ri->{date};
-            require Foswiki::Time;
-            $info->{createdate} = Foswiki::Time::formatTime( $ri->{date} );
 
-            #TODO: wow thats disgusting.
-            $info->{created} = $info->{createlongdate} = $info->{createdate};
+            # Don't pass Foswiki::Time an undef value
+            if ( defined $ri->{date} ) {
+                require Foswiki::Time;
+                $info->{createdate} = Foswiki::Time::formatTime( $ri->{date} );
+
+                #TODO: wow thats disgusting.
+                $info->{created} = $info->{createlongdate} =
+                  $info->{createdate};
+            }
         }
     }
     return $info->{$attr};
@@ -2164,7 +2184,12 @@ sub move {
                     by   => $cUID,
                 }
             );
-            $from->save();    # to save the metadata change
+
+            # save the metadata change without logging
+            $this->saveAs(
+                $this->{_web}, $this->{_topic},
+                dontlog => 1,    # no statistics
+            );
             $from->{_session}->{store}->moveTopic( $from, $to, $cUID );
             $to->loadVersion();
         }
@@ -2229,9 +2254,11 @@ sub deleteMostRecentRevision {
     # TODO: delete entry in .changes
 
     # write log entry
-    $this->{_session}->logEvent( 'cmd',
+    $this->{_session}->logEvent(
+        'cmd',
         $this->{_web} . '.' . $this->{_topic},
-        "delRev $rev by " . $this->{_session}->{user} );
+        "delRev $rev by " . $this->{_session}->{user}
+    );
 }
 
 =begin TML
@@ -2653,8 +2680,8 @@ sub attach {
             name       => $opts{name},
             attachment => $opts{name},
             stream     => $opts{stream},
-            user       => $this->{_session}->{user},    # cUID
-            comment    => $opts{comment} || '',
+            user       => $this->{_session}->{user},                      # cUID
+            comment    => defined $opts{comment} ? $opts{comment} : '',
         };
 
         if ( $plugins->haveHandlerFor('beforeAttachmentSaveHandler') ) {
@@ -2740,7 +2767,8 @@ sub attach {
         try {
             $this->{_session}->{store}
               ->saveAttachment( $this, $opts{name}, $opts{stream},
-                $opts{author} || $this->{_session}->{user} );
+                $opts{author} || $this->{_session}->{user},
+                $opts{comment} );
         }
         finally {
             $this->fireDependency();
@@ -3034,6 +3062,7 @@ sub copyAttachment {
 
         $to->saveAs(
             undef, undef,
+            author  => $cUID,
             dontlog => 1,                    # no statistics
             comment => 'gained' . $newName
         );
@@ -3355,23 +3384,30 @@ sub summariseChanges {
 
     my $nstring = $this->stringify();
     $nstring =~ s/^%META:TOPICINFO{.*?}%//ms;
+
     #print "SSSSSS nstring\n($nstring)\nSSSSSS\n\n";
 
     $ntext = $renderer->TML2PlainText( $nstring, $this, 'showvar showmeta' );
+
     #print "SSSSSS ntext\n($ntext)\nSSSSSS\n\n";
 
-    my $oldTopicObject = Foswiki::Meta->load( $session, $this->web, $this->topic, $orev );
+    my $oldTopicObject =
+      Foswiki::Meta->load( $session, $this->web, $this->topic, $orev );
     unless ( $oldTopicObject->haveAccess('VIEW') ) {
 
         # No access to old rev, make a blank topic object
-        $oldTopicObject = Foswiki::Meta->new( $session, $this->web, $this->topic, '' );
+        $oldTopicObject =
+          Foswiki::Meta->new( $session, $this->web, $this->topic, '' );
     }
 
     my $ostring = $oldTopicObject->stringify();
     $ostring =~ s/^%META:TOPICINFO{.*?}%$//ms;
+
     #print "SSSSSS ostring\n$ostring\nSSSSSS\n\n";
 
-    my $otext = $renderer->TML2PlainText( $ostring , $oldTopicObject, 'showvar showmeta' );
+    my $otext =
+      $renderer->TML2PlainText( $ostring, $oldTopicObject, 'showvar showmeta' );
+
     #print "SSSSSS otext\n($otext)\nSSSSSS\n\n";
 
     require Foswiki::Merge;
@@ -3429,6 +3465,7 @@ sub summariseChanges {
     unless ($summary) {
         return $this->summariseText( '', $ntext );
     }
+
     #print "SUMMARY\n===================\n($summary)\n============\n\n";
 
     if ( !$tml ) {
@@ -3562,7 +3599,8 @@ sub setEmbeddedStoreForm {
 
     # head meta-data
     $text =~ s/^(%META:(TOPICINFO){(.*)}%\n)/
-      $this->_readMETA($1, $2, $3)/gem;
+      $this->_readMETA($1, $2, $3)/e
+      ;    #NO THIS CANNOT BE /g - TOPICINFO is _only_ valid as the first line!
     my $ti = $this->get('TOPICINFO');
     if ($ti) {
         $format = $ti->{format} || 0;
@@ -3576,6 +3614,10 @@ sub setEmbeddedStoreForm {
         $ti->{rev} = $ti->{version};    # not used, maintained for compatibility
         $ti->{reprev} = Foswiki::Store::cleanUpRevID( $ti->{reprev} )
           if defined $ti->{reprev};
+    }
+    else {
+
+        #defaults..
     }
 
     # Other meta-data
@@ -3594,7 +3636,12 @@ sub setEmbeddedStoreForm {
     else {
         if (
             $text =~ s/^(%META:([^{]+){(.*)}%\n)/
-              $this->_readMETA($1, $2, $3)/gem
+					if ($2 ne 'TOPICINFO') {
+							#TOPICINFO is only valid on the first line
+        		      		$this->_readMETA($1, $2, $3)
+					} else {
+					    $1
+					}/gem
           )
         {
             $endMeta = 1;
@@ -3785,7 +3832,7 @@ sub dataDecode {
 __END__
 Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

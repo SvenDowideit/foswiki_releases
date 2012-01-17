@@ -9,36 +9,36 @@ our @ISA = ('Foswiki::Configure::Checker');
 
 sub check {
     my $this = shift;
+    my $n    = '';
 
     return '' if ( !$Foswiki::cfg{EnableEmail} );
 
-    eval "use Net::SMTP";
-    my $n;
-    my $useprog = 0;
-    if ($@) {
-        $n       = "Net::SMTP is <b>not</b> installed in this environment. ";
-        $useprog = 1;
-    }
-    elsif ( !$Foswiki::cfg{SMTP}{MAILHOST} ) {
-        $n = $this->WARN(
-'Net::SMTP is installed in this environment, but {SMTP}{MAILHOST} is not defined, therefore the program listed at {MailProgram} will be used.'
-        );
-        $useprog = 1;
+    if ( $Foswiki::cfg{Email}{MailMethod} eq 'MailProgram' ) {
+        my $val = $Foswiki::cfg{MailProgram} || '';
+        $val =~ s/\s.*$//g;
+        if ( !( -x $val ) ) {
+            $n .= $this->ERROR(
+"<tt>$val</tt> was not found (but is required). Check the path, or configure one of the <code>Net::SMTP</code> methods.."
+            );
+        }
     }
     else {
-        $n = $this->NOTE(
-'<code>Net::SMTP</code> is installed in this environment, so this setting will <strong>not</strong> be used.'
+        $n .= $this->NOTE(
+"MailProgram is not used for the configued Email method: <code>$Foswiki::cfg{Email}{MailMethod}</code>"
         );
-        $useprog = 0;
     }
-    my $val = $Foswiki::cfg{MailProgram} || '';
-    $val =~ s/\s.*$//g;
-    if ( !( -x $val ) ) {
-        if ($useprog) {
-            $n .= $this->ERROR("<tt>$val</tt> was not found (but is required). Check the path, or set the MAILHOST.");
-        } else {
-            $n .= $this->WARN("<tt>$val</tt> was not found.");
-        }
+
+    if (
+        ( $Foswiki::cfg{Email}{MailMethod} eq 'MailProgram' )
+        && (   $Foswiki::cfg{SMTP}{MAILHOST}
+            || $Foswiki::cfg{SMTP}{SENDERHOST}
+            || $Foswiki::cfg{SMTP}{Username}
+            || $Foswiki::cfg{SMTP}{Password} )
+      )
+    {
+        $n .= $this->NOTE(
+"<b>Note:</b> None of the below parameters are used by the configured Email method $Foswiki::cfg{Email}{MailMethod}"
+        );
     }
     return $n;
 }

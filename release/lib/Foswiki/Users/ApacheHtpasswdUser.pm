@@ -6,7 +6,6 @@ use warnings;
 use Foswiki::Users::Password ();
 our @ISA = ('Foswiki::Users::Password');
 
-use Apache::Htpasswd ();
 use Assert;
 use Error qw( :try );
 
@@ -27,11 +26,62 @@ provided mainly as an example of how to write a new password manager.
 
 sub new {
     my ( $class, $session ) = @_;
+    my $UseMD5;
+
+    #my $UsePlain;
+
+    eval 'use Apache::Htpasswd';
+    if ($@) {
+        my $mess = $@;
+        $mess =~ s/\(\@INC contains:.*$//s;
+        print STDERR
+"ERROR:  Missing CPAN Module Apache::Htpasswd -  $mess - Consider using Foswiki::Users::HtpasswdUser for password manager\n";
+        throw Error::Simple(
+"ERROR:  Missing CPAN Module Apache::Htpasswd - $mess - Consider using Foswiki::Users::HtpasswdUser for password manager"
+        );
+    }
+    if ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'crypt' ) {
+        if ( $^O =~ /^MSWin/i ) {
+            print STDERR "ERROR: {Htpasswd}{Encoding} setting : "
+              . $Foswiki::cfg{Htpasswd}{Encoding}
+              . " Not supported on Windows.  Recommend using HtPasswdUser if crypt is required.\n";
+            throw Error::Simple( "ERROR: {Htpasswd}{Encoding} setting : "
+                  . $Foswiki::cfg{Htpasswd}{Encoding}
+                  . " Not supported on Windows.  Recommend using HtPasswdUser if crypt is required.\n"
+            );
+        }
+    }
+    elsif ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'apache-md5' ) {
+        require Crypt::PasswdMD5;
+        $UseMD5 = 1;
+    }
+
+    # SMELL: Apache::Htpasswd doesn't really write out plain passwords
+    # so no sense enabling support for this.
+    #elsif ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'plain' ) {
+    #    $UsePlain = 1;
+    #}
+    else {
+        print STDERR "ERROR: {Htpasswd}{Encoding} setting : "
+          . $Foswiki::cfg{Htpasswd}{Encoding}
+          . " unsupported by ApacheHdpasswduser.  Recommend using HtPasswdUser.\n";
+        throw Error::Simple( "ERROR: {Htpasswd}{Encoding} setting : "
+              . $Foswiki::cfg{Htpasswd}{Encoding}
+              . " unsupported by ApacheHdpasswduser.  Recommend using HtPasswdUser.\n"
+        );
+    }
 
     my $this = $class->SUPER::new($session);
     $this->{apache} = new Apache::Htpasswd(
-        { passwdFile => $Foswiki::cfg{Htpasswd}{FileName} } );
+        {
+            passwdFile => $Foswiki::cfg{Htpasswd}{FileName},
+            UseMD5     => $UseMD5,
+
+            #UsePlain   => $UsePlain,
+        }
+    );
     unless ( -e $Foswiki::cfg{Htpasswd}{FileName} ) {
+
         # apache doesn't create the file, so need to init it
         my $F;
         open( $F, '>', $Foswiki::cfg{Htpasswd}{FileName} ) || die $!;
@@ -133,7 +183,7 @@ sub setPassword {
     my ( $this, $login, $newPassU, $oldPassU ) = @_;
     ASSERT($login) if DEBUG;
 
-    if ( defined($oldPassU) && $oldPassU ne '1') {
+    if ( defined($oldPassU) && $oldPassU ne '1' ) {
         my $ok = 0;
         try {
             $ok = $this->{apache}->htCheckPassword( $login, $oldPassU );
@@ -147,9 +197,12 @@ sub setPassword {
 
     my $added = 0;
     try {
-        if ( defined($oldPassU) && $oldPassU eq '1') {
-            $added = $this->{apache}->htpasswd( $login, $newPassU, { 'overwrite' => 1} );
-        } else {
+        if ( defined($oldPassU) && $oldPassU eq '1' ) {
+            $added =
+              $this->{apache}
+              ->htpasswd( $login, $newPassU, { 'overwrite' => 1 } );
+        }
+        else {
             $added = $this->{apache}->htpasswd( $login, $newPassU, $oldPassU );
         }
         $this->{error} = undef;
@@ -170,7 +223,11 @@ sub encrypt {
     my $salt = '';
     unless ($fresh) {
         my $epass = $this->fetchPass($login);
-        $salt = substr( $epass, 0, 2 ) if ($epass);
+
+ # Salt is 14 because on Windows, CryptPasswd will use the Apache MD5 algorithm
+ # $apr1$ssssssss$, but uses Crypt on Linux with 2 character salt.  need to pass
+ # longest possible salt.
+        $salt = substr( $epass, 0, 14 ) if ($epass);
     }
     my $r = $this->{apache}->CryptPasswd( $passwordU, $salt );
     $this->{error} = $this->{apache}->error();

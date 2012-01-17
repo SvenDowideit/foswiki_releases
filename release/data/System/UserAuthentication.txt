@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1252721004" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1317512344" format="1.1" version="1"}%
 %META:TOPICPARENT{name="AdminDocumentationCategory"}%
 %STARTINCLUDE%
 ---+ User Authentication
@@ -104,7 +104,28 @@ You can customize the default [[%SYSTEMWEB%.UserRegistration]] topic by first co
 
 A couple of common fields are hidden from normal view to make the registration page as lean as possible. You can unhide those fields on the page by removing =EXCLUDED_= from the =INCLUDE= tags) or add new ones.
 
-New fields may also be added. The =name=""= parameter of the =&lt;input&gt;= tags must start with: ="Twk0..."= (if this is an optional entry), or ="Twk1..."= (if this is a required entry). This ensures that the fields are carried over into the user home page correctly.
+New fields may also be added. The =name=""= parameter of the =&lt;input&gt;= tags must start with: ="Fwk0..."= (if this is an optional entry), or ="Fwk1..."= (if this is a required entry). This ensures that the fields are carried over into the user home page correctly.
+
+---++++ Automatic Group Membership
+The TopicUserMappingContrib can also enroll users into groups during registration. (Other mappers might not support this feature).  Options include:
+   * Automatically enrolling users in one or more groups during registration
+   * Allow the user to select multiple groups from a list of eligible groups
+   * Allow the user to choose only _one_ group from a list of eligible groups
+   * Don't do any group enrollment during registration.
+
+The list of eligible groups can be generated in one of two ways:
+   * Manually by configuration.  This fixed list of groups will always be listed.
+   * Automatically based upon CHANGE permission on the group topics.
+
+There are two registration scenarios that apply:
+
+   $ ==Self-registration by Guest users==:  The actual registration will be processed by the special internal user %USERSWEB%.RegistrationAgent.  Group topics must include an ALLOWTOPICCHANGE = %USERSWEB%.RegistrationAgent to be eligible for enrollment.
+   $ ==Registration by logged-in users==:  The registration form is filled out by some other logged-in user.  In this case, the %USERSWEB%.RegistrationAgent is *not* used for Group updates.  The current user must have ALLOWTOPICCHANGE permission for groups for them to be eligible for enrollment.
+      * *Caution*:  If an administrator registers a user with automatic group membership enabled, the new user could potentially be added to *All* groups.  Use caution with this feature!
+
+Note: During registration, if it turns out that the current user or %USERSWEB%.RegistrationAgent doesn't have permission to update the group topic, the group update will be silently skipped.  The user will still be albe to register.
+
+See DefaultPreferences#RegistrationOptions for further details.  Copy the settings into %USERSWEB%.SitePreferences to make them active.
 %ENDSECTION{"TemplateLogin"}%
 
 #ApacheLogin
@@ -134,19 +155,19 @@ To setup Apache Login, perform the following steps:
       1 Select =Foswiki::Users::HtPasswdUser= for ={PasswordManager}=.
       1 Select =Foswiki::Users::TopicUserMapping= for ={UserMappingManager}=.
       1 Save your settings.
-      1 Configure your Apache settings for HTTP authentication. Use the Foswiki:Support.ApacheConfigGenerator tool or the =foswiki/bin/.htaccess= file to set the following Apache directives on the =bin= scripts:<sticky>
+      1 Configure your Apache settings for HTTP authentication. Use the Foswiki:Support.ApacheConfigGenerator tool or the =foswiki/bin-htaccess.txt= file to set the following Apache directives on the =bin= scripts:<sticky>
       <verbatim>
  <FilesMatch "(attach|edit|manage|rename|save|upload|mail|logon|rest|.*auth).*">
  require valid-user
  </FilesMatch></verbatim></sticky>
-      You can also refer to the sample =foswiki_httpd_conf.txt= and =bin/.htaccess.txt= files to see how the appropriate Apache directives are specified.
+      You can also refer to the sample =foswiki_httpd_conf.txt= and =bin-htaccess.txt= files to see how the appropriate Apache directives are specified.
 %INCLUDE{"UserAuthentication" section="TESTING"}%%ENDSECTION{"ApacheLogin"}%
 
 ---++++ Logons via bin/logon
 
 Any time a user requests a page that needs authentication, they will be forced to log on. It may be convenient to have a "logon" link as well, to give the system a chance to identify the user and retrieve their personal settings. It may be convenient to force them to log on.
 
-The ==bin/logon== script enables this. If you are using Apache Login, the ==bin/logon== script must be setup in the ==bin/.htaccess== file to be a script which requires a =valid user=. Once authenticated, it will redirect the user to the view URL for the page from which the =logon= script was linked.
+The ==bin/logon== script enables this. If you are using Apache Login, the ==bin/logon== script must be setup in the Apache configuration or ==bin/.htaccess== file to be a script which requires a =valid user=. Once authenticated, it will redirect the user to the view URL for the page from which the =logon= script was linked.
 
 #TrackSessions
 ---++ Sessions
@@ -218,7 +239,7 @@ If the ={PasswordManager}= does not support password changing, ChangeEmailAddres
 ---++ Controlling access to individual scripts
 You may want to add or remove scripts from the list of scripts that require authentication. The method for doing this is different for each of Template Login and Apache Login.  %T% Any scripts listed as requiring authentication will not be usable by the Guest user.  If you require that %USERSWEB%.WikiGuest be allowed to edit topics on your site, =edit= and =save= must be removed from the list of scripts requiring authentication.
    * For Template Login, update the ={AuthScripts}= list using [[%SCRIPTURLPATH{"configure"}%#Login$SecurityAndAuthentication][configure]]
-   * For Apache Login, add/remove the script from =.htaccess=, or from the !FilesMatch line in the Apache configuration.
+   * For Apache Login, add/remove the script from =bin/.htaccess=, or from the !FilesMatch line in the Apache configuration.
 #HowTo
 ---++ How to choose an authentication method
 

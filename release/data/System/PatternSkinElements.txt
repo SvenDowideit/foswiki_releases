@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1232834051" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1304697250" format="1.1" version="1"}%
 %META:TOPICPARENT{name="PatternSkin"}%
 <div class="foswikiBroadcastMessage"> <strong>NOTE:</strong> Edit and Attach will be disabled today between 05:00 PM and 06:00 PM PDT (00:00 to 01:00 GMT) for a scheduled Foswiki maintenance.</div>
 
@@ -257,11 +257,11 @@ Describe the file so other people know what it is.
 
 ---++ Form elements
 
-<input type=submit" class="foswikiButton" value="foswikiButton" />
+<input type="submit" class="foswikiButton" value="foswikiButton" />
 
-<input type=submit" class="foswikiSubmit" value="foswikiSubmit" />
+<input type="submit" class="foswikiSubmit" value="foswikiSubmit" />
 
-<input type=submit" class="foswikiButtonCancel" value="foswikiButtonCancel" />
+<input type="submit" class="foswikiButtonCancel" value="foswikiButtonCancel" />
 
 <input size="30" class="foswikiInputField" />
 
@@ -301,3 +301,4 @@ class="cyan"
 class="simple"
 }%
 %CLEAR%
+

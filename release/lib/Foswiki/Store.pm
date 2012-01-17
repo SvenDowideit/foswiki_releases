@@ -149,7 +149,7 @@ ERROR
 
 1;
 __END__
-# Comment out the above two lines (1; __DATA__) during development of a
+# Comment out the above two lines (1; __END__) during development of a
 # new store backend.
 # The rest of the methods in this file are abstract, so we stop compilation
 # here.
@@ -317,9 +317,13 @@ sub openAttachment {
    * =$topicObject= - Foswiki::Meta for the topic
    * =$attachment= - name of an attachment (optional)
 Get an iterator over the list of revisions of the object. The iterator returns
-the revision identifiers (which will usually be numbers) starting with the most recent revision.
+the revision identifiers (which will usually be numbers) starting with the most
+recent revision.
 
 MUST WORK FOR ATTACHMENTS AS WELL AS TOPICS
+
+If the object does not exist, returns an empty iterator ($iterator->hasNext() will be
+false).
 
 =cut
 

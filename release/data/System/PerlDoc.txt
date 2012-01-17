@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1294829986" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1303184283" format="1.1" version="1"}%
 %META:TOPICPARENT{name="DeveloperDocumentationCategory"}%
 ---+!! %TOPIC%
 <form class='foswikiForm'>
@@ -15,6 +15,8 @@
 </form>
 
 Check [[DevelopingPlugins][Developing plugins]] and [[Foswiki:Development.DevelopersBible][Developer's Bible]] for more information.
+
+%SMELLS%
 
 %TOC%
 

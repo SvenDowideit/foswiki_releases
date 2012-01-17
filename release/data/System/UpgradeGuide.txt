@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1252718507" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1296649810" format="1.1" version="1"}%
 %META:TOPICPARENT{name="AdminDocumentationCategory"}%
 %STARTINCLUDE%
 ---+ Foswiki Upgrade Guide
@@ -30,6 +30,10 @@ You are strongly advised to read the Foswiki:System.ReleaseNotes01x00 (also avai
 To upgrade to a new patch release &mdash; for example, from Foswiki 1.1.0 to 1.1.2 &mdash; an upgrade package can be used that will not overwrite any of your customizations.
    
 For patch releases you will find a brief upgrade procedure on the download page for the release. Follow this procedure to upgrade to the patch release. It may contain important steps that are unique to each patch release (for example, some configure settings may need to be changed).
+
+<blockquote class="foswikiHelp">
+%T% If you use the Foswiki PageCaching feature, be sure to refresh the cache after upgrading to a new Foswiki version.
+</blockquote>
 
 ---++ Upgrade procedure: upgrading to a new major or minor version, or upgrading from TWiki
 

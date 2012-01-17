@@ -1,7 +1,7 @@
 /*
- * jQuery textbox list plugin 1.0
+ * jQuery textbox list plugin 2.0
  *
- * Copyright (c) 2009-2010 Michael Daum http://michaeldaumconsulting.com
+ * Copyright (c) 2009-2011 Michael Daum http://michaeldaumconsulting.com
  *
  * Dual licensed under the MIT and GPL licenses:
  *   http://www.opensource.org/licenses/mit-license.php
@@ -21,7 +21,7 @@
        
       // build main options before element iteration
       var opts = $.extend({}, $.TextboxLister.defaults, options);
-     
+
       // create textbox lister for each jquery hit
       return this.each(function() {
         var txtboxlist = new $.TextboxLister(this, opts);
@@ -37,7 +37,8 @@
 
     // build element specific options. 
     // note you may want to install the Metadata plugin
-    self.opts = $.extend({}, self.input.metadata(), opts);
+    self.opts = $.extend({
+    }, self.input.metadata(), opts);
 
     if(!self.opts.inputName) {
       self.opts.inputName = self.input.attr('name');
@@ -67,21 +68,27 @@
    
     // autocompletion
     if (self.opts.autocomplete) {
-      self.input.attr('autocomplete', 'off').autocomplete(self.opts.autocomplete, self.opts).
-      result(function(event, data, value) {
-        //$.log("TEXTBOXLIST: result data="+data+" formatted="+formatted);
-        self.select(value);
+      $.extend(self.opts, {
+        source: self.opts.autocomplete,
+        select: function(event, ui) {
+          $.log("TEXTBOXLIST: selected value="+ui.item.value+" label="+ui.item.label);
+          self.select(ui.item.value);
+          return false;
+        }
       });
+      self.input.attr('autocomplete', 'off').autocomplete(self.opts);
     } else {
       $.log("TEXTBOXLIST: no autocomplete");
     }
 
-    // autocomplete does not fire the result event on new items
+    // keypress event
     self.input.bind(($.browser.opera ? "keypress" : "keydown") + ".textboxlist", function(event) {
       // track last key pressed
       if(event.keyCode == 13) {
         var val = self.input.val();
         if (val) {
+          $.log("TEXTBOXLIST: closing suggestion list");
+          self.input.autocomplete("close");
           self.select(val);
           event.preventDefault();
           return false;
@@ -97,7 +104,7 @@
       }
     });
 
-    // add event
+    // delete event
     self.input.bind("DeleteValue", function(e, val) {
       if (val) {
         self.deselect([val]);
@@ -158,7 +165,7 @@
   // add values to the selection ******************************************
   $.TextboxLister.prototype.select = function(values, suppressCallback) {
     $.log("TEXTBOXLIST: called select("+values+") "+typeof(values));
-    var self = this, i, j, val, title, found, currentVal, input, close;
+    var self = this, i, j, val, title, found, currentVal, input, close, className;
 
     if (typeof(values) === 'object') {
       values = values.join(',');
@@ -219,6 +226,7 @@
     $.log("TEXTBOXLIST: self.currentValues="+self.currentValues+" length="+self.currentValues.length);
 
     self.container.find("."+self.opts.listValueClass).remove();
+
     for (i = self.currentValues.length-1; i >= 0; i--) {
       val = self.currentValues[i];
       if (!val) {
@@ -226,6 +234,7 @@
       }
       title = self.titleOfValue["_"+val] || val;
       $.log("TEXTBOXLIST: val="+val+" title="+title);
+      className = "tag_"+title.replace(/["' ]/, "_");
       input = "<input type='hidden' name='"+self.opts.inputName+"' value='"+val+"' title='"+title+"' />";
       close = $("<a href='#' title='remove "+title+"'></a>").
         addClass(self.opts.closeClass).
@@ -234,7 +243,7 @@
           self.input.trigger("DeleteValue", $(this).parent().find("input").val());
           return false;
         });
-      $("<span></span>").addClass(self.opts.listValueClass).
+      $("<span></span>").addClass(self.opts.listValueClass+" "+className).
         append(input).
         append(close).
         append(title).

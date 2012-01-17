@@ -77,10 +77,14 @@ sub readTopic {
     my $isLatest = 0;
 
     # check that the requested revision actually exists
-    if ( defined $version ) {
-        if ( !$version || !$handler->revisionExists($version) ) {
+    if ( defined $version && $version =~ /^\d+$/ ) {
+        if ( $version == 0 || !$handler->revisionExists($version) ) {
             $version = $handler->getLatestRevisionID();
         }
+    }
+    else {
+        undef $version;  # if it's a non-numeric string, we need to return undef
+         # "...$version is defined but refers to a version that does not exist, then $rev is undef"
     }
 
     ( my $text, $isLatest ) = $handler->getRevision($version);
@@ -89,19 +93,24 @@ sub readTopic {
     $text =~ s/\r//g;    # Remove carriage returns
     $topicObject->setEmbeddedStoreForm($text);
 
+    unless ( $handler->noCheckinPending() ) {
+
+        # If a checkin is pending, fix the TOPICINFO
+        my $ri    = $topicObject->get('TOPICINFO');
+        my $truth = $handler->getInfo($version);
+        for my $i (qw(author version date)) {
+            $ri->{$i} = $truth->{$i};
+        }
+    }
+
     my $gotRev = $version;
     unless ( defined $gotRev ) {
 
-        # First try the just-loaded text for the revision
+        # First try the just-loaded for the revision
         my $ri = $topicObject->get('TOPICINFO');
-        if ( defined($ri) ) {
-
-            # SMELL: this can end up overriding a correct rev no (the one
-            # requested) with an incorrect one (the one in the TOPICINFO)
-            $gotRev = $ri->{version};
-        }
+        $gotRev = $ri->{version} if defined $ri;
     }
-    if ( !$gotRev ) {
+    if ( !defined $gotRev ) {
 
         # No revision from any other source; must be latest
         $gotRev = $handler->getLatestRevisionID();
@@ -256,11 +265,11 @@ sub getVersionInfo {
 }
 
 sub saveAttachment {
-    my ( $this, $topicObject, $name, $stream, $cUID ) = @_;
+    my ( $this, $topicObject, $name, $stream, $cUID, $comment ) = @_;
     my $handler    = $this->getHandler( $topicObject, $name );
     my $currentRev = $handler->getLatestRevisionID();
     my $nextRev    = $currentRev + 1;
-    $handler->addRevisionFromStream( $stream, 'save attachment', $cUID );
+    $handler->addRevisionFromStream( $stream, $comment, $cUID );
     $handler->recordChange( $cUID, $nextRev );
     return $nextRev;
 }
@@ -272,11 +281,14 @@ sub saveTopic {
 
     my $handler = $this->getHandler($topicObject);
 
+    # just in case they are not sequential
+    my $nextRev = $handler->getNextRevisionID();
+    my $ti      = $topicObject->get('TOPICINFO');
+    $ti->{version} = $nextRev;
+    $ti->{author}  = $cUID;
+
     $handler->addRevisionFromText( $topicObject->getEmbeddedStoreForm(),
         'save topic', $cUID, $options->{forcedate} );
-
-    # just in case they are not sequential
-    my $nextRev = $handler->getLatestRevisionID();
 
     my $extra = $options->{minor} ? 'minor' : '';
     $handler->recordChange( $cUID, $nextRev, $extra );
@@ -288,11 +300,10 @@ sub repRev {
     my ( $this, $topicObject, $cUID, %options ) = @_;
     ASSERT( $topicObject->isa('Foswiki::Meta') ) if DEBUG;
     ASSERT($cUID) if DEBUG;
-
     my $info    = $topicObject->getRevisionInfo();
     my $handler = $this->getHandler($topicObject);
     $handler->replaceRevision( $topicObject->getEmbeddedStoreForm(),
-        'reprev', $info->{author}, $info->{date} );
+        'reprev', $cUID, $info->{date} );
     my $rev = $handler->getLatestRevisionID();
     $handler->recordChange( $cUID, $rev, 'minor, reprev' );
     return $rev;

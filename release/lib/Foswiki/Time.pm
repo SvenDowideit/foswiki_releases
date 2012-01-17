@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2011-03-12 23:11:04 +0100 (Sat, 12 Mar 2011) $ (revision $Rev: 11475 (2011-04-16) $)
+API version $Date: 2011-11-19 12:13:00 -0500 (Sat, 19 Nov 2011) $ (revision $Rev: 13483 (2011-12-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -35,9 +35,10 @@ package Foswiki::Time;
 use strict;
 use warnings;
 
+use Assert;
 use Foswiki ();
 
-our $VERSION = '$Rev: 11475 (2011-04-16) $';    # Subversion rev number
+our $VERSION = '$Rev: 13483 (2011-12-20) $';    # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -113,24 +114,17 @@ If the date format was not recognised, will return undef.
 sub parseTime {
     my ( $date, $defaultLocal ) = @_;
 
+    ASSERT( defined $date ) if DEBUG;
     $date =~ s/^\s*//;    #remove leading spaces without de-tainting.
     $date =~ s/\s*$//;
 
     require Time::Local;
 
     # NOTE: This routine *will break* if input is not one of below formats!
-    my $tzadj = 0;        # Zulu
-    if ($defaultLocal) {
-
-        # Local time at midnight on the epoch gives us minus the
-        # local difference. e.g. CST is GMT + 1, so midnight Jan 1 1970 CST
-        # is -01:00Z. But we don't want to give you that! Because it's
-        # wrong on Winblows, where localtime() of a negative number gives
-        # undef, resulting in a mad $tzadj. So we simply offset the
-        # base by 24 hours (86400 seconds). The params are simply the
-        # result of gmtime(86400);
-        $tzadj = 86400 - Time::Local::timelocal( 0, 0, 0, 2, 0, 70, 5, 1, 0 );
-    }
+    my $timelocal =
+      $defaultLocal
+      ? \&Time::Local::timelocal
+      : \&Time::Local::timegm;
 
     # try "31 Dec 2001 - 23:59"  (Foswiki date)
     # or "31 Dec 2001"
@@ -139,10 +133,12 @@ sub parseTime {
         my $year = $3;
         $year -= 1900 if ( $year > 1900 );
 
+        my $mon = $MON2NUM{ lc($2) };
+        return undef unless defined $mon;
+
         #TODO: %MON2NUM needs to be updated to use i8n
         #TODO: and should really work for long form of the month name too.
-        return Time::Local::timegm( 0, $5 || 0, $4 || 0, $1, $MON2NUM{ lc($2) },
-            $year ) - $tzadj;
+        return &$timelocal( 0, $5 || 0, $4 || 0, $1, $mon, $year );
     }
 
     # ISO date 2001-12-31T23:59:59+01:00
@@ -158,14 +154,18 @@ sub parseTime {
           ( $1, $2 || 1, $3 || 1, $4 || 0, $5 || 0, $6 || 0, $7 || '' );
         $M--;
         $Y -= 1900 if ( $Y > 1900 );
-        if ( $tz eq 'Z' ) {
-            $tzadj = 0;    # Zulu
+        if ($tz) {
+            my $tzadj = 0;
+            if ( $tz eq 'Z' ) {
+                $tzadj = 0;    # Zulu
+            }
+            elsif ( $tz =~ /([-+])(\d\d)(?::(\d\d))?/ ) {
+                $tzadj = ( $1 || '' ) . ( ( ( $2 * 60 ) + ( $3 || 0 ) ) * 60 );
+                $tzadj -= 0;
+            }
+            return Time::Local::timegm( $s, $m, $h, $D, $M, $Y ) - $tzadj;
         }
-        elsif ( $tz =~ /([-+])(\d\d)(?::(\d\d))?/ ) {
-            $tzadj = ( $1 || '' ) . ( ( ( $2 * 60 ) + ( $3 || 0 ) ) * 60 );
-            $tzadj -= 0;
-        }
-        return Time::Local::timegm( $s, $m, $h, $D, $M, $Y ) - $tzadj;
+        return &$timelocal( $s, $m, $h, $D, $M, $Y );
     }
 
     #any date that leads with a year (2 digit years too)
@@ -194,9 +194,10 @@ sub parseTime {
         #no defaulting yet so we can detect the 2009--12 error
         my ( $year, $M, $D, $h, $m, $s ) = ( $1, $2, $3, $4, $5, $6 );
 
-#without range checking on the 12 Jan 2009 case above, there is abmiguity - what is 14 Jan 12 ?
-#similarly, how would you decide what Jan 02 and 02 Jan are?
-#$month_p = $MON2NUM{ lc($month_p) } if (defined($MON2NUM{ lc($month_p) }));
+    # without range checking on the 12 Jan 2009 case above,
+    # there is ambiguity - what is 14 Jan 12 ?
+    # similarly, how would you decide what Jan 02 and 02 Jan are?
+    #$month_p = $MON2NUM{ lc($month_p) } if (defined($MON2NUM{ lc($month_p) }));
 
         #TODO: unhappily, this means 09 == 1909 not 2009
         $year -= 1900 if ( $year > 1900 );
@@ -219,8 +220,7 @@ sub parseTime {
         my $min  = $m || 0;
         my $sec  = $s || 0;
 
-        return Time::Local::timegm( $sec, $min, $hour, $day, $month, $year ) -
-          $tzadj;
+        return &$timelocal( $sec, $min, $hour, $day, $month, $year );
     }
 
     # give up, return undef
@@ -262,11 +262,13 @@ sub formatTime {
     my ( $epochSeconds, $formatString, $outputTimeZone ) = @_;
     my $value = $epochSeconds;
 
+    ASSERT( defined $epochSeconds ) if DEBUG;
+
     # use default Foswiki format "31 Dec 1999 - 23:59" unless specified
     $formatString   ||= '$longdate';
     $outputTimeZone ||= $Foswiki::cfg{DisplayTimeValues};
 
-    if ( $formatString =~ /http|email/i ) {
+    if ( $formatString =~ /http/i ) {
         $outputTimeZone = 'gmtime';
     }
 
@@ -460,6 +462,7 @@ sub formatDelta {
     my $secs     = shift;
     my $language = shift;
 
+    ASSERT( defined $secs ) if DEBUG;
     my $rem = $secs % ( 60 * 60 * 24 );
     my $days = ( $secs - $rem ) / ( 60 * 60 * 24 );
     $secs = $rem;
@@ -559,6 +562,8 @@ sub parseInterval {
     my @lt = localtime();
     my $today = sprintf( '%04d-%02d-%02d', $lt[5] + 1900, $lt[4] + 1, $lt[3] );
     my $now = $today . sprintf( 'T%02d:%02d:%02d', $lt[2], $lt[1], $lt[0] );
+
+    ASSERT( defined $interval ) if DEBUG;
 
     # replace $now and $today shortcuts
     $interval =~ s/\$today/$today/g;

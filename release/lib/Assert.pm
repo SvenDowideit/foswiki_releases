@@ -25,14 +25,14 @@ our %EXPORT_TAGS = (
     DEBUG  => [ 'ASSERT', 'UNTAINTED', 'TAINT', 'DEBUG' ],
 );
 
-our $VERSION = '$Rev: 11475 (2011-04-16) $';
-our $DIRTY   = lc('x');          # Used in TAINT
+our $VERSION = '$Rev: 13483 (2011-12-20) $';
+our $DIRTY   = lc('x');    # Used in TAINT
 
 Exporter::export_tags(qw(NDEBUG DEBUG));
 
 # constant.pm, alas, adds too much load time (yes, I benchmarked it)
-sub ASSERTS_ON  { 1 }            # CONSTANT
-sub ASSERTS_OFF { 0 }            # CONSTANT
+sub ASSERTS_ON  { 1 }      # CONSTANT
+sub ASSERTS_OFF { 0 }      # CONSTANT
 
 # Provides the same return value and the same context
 # for its parameters as the real TAINT and UNTAINTED

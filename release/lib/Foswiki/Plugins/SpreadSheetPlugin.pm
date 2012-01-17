@@ -12,8 +12,8 @@ use vars qw(
   $web $topic $user $installWeb $debug $skipInclude $doInit
 );
 
-our $VERSION           = '$Rev: 11360 (2011-04-10) $';
-our $RELEASE           = '10 Apr 2011';
+our $VERSION           = '$Rev: 13315 (2011-12-06) $';
+our $RELEASE           = '1.1.4';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION =
 'Add spreadsheet calculations like "$SUM($ABOVE())" to Foswiki tables and other topic text';
@@ -38,16 +38,16 @@ sub initPlugin {
     # CALC but in a tag handler instead of in commonTagsHandler. That means
     # you can't use table references, but you can rely on the execution order
     # relative to other macros.
-#    Foswiki::Func::registerTagHandler(
-#        "SSP",
-#        sub {
-#            my ( $session, $attributes, $topic, $web ) = @_;
-#            require Foswiki::Plugins::SpreadSheetPlugin::Calc;
-#            $Foswiki::Plugins::SpreadSheetPlugin::Calc::rPos = 0;
-#            $Foswiki::Plugins::SpreadSheetPlugin::Calc::cPos = 0;
-#            return Foswiki::Plugins::SpreadSheetPlugin::Calc::doCalc(
-#                $attributes->{_DEFAULT});
-#        });
+    #    Foswiki::Func::registerTagHandler(
+    #        "SSP",
+    #        sub {
+    #            my ( $session, $attributes, $topic, $web ) = @_;
+    #            require Foswiki::Plugins::SpreadSheetPlugin::Calc;
+    #            $Foswiki::Plugins::SpreadSheetPlugin::Calc::rPos = 0;
+    #            $Foswiki::Plugins::SpreadSheetPlugin::Calc::cPos = 0;
+    #            return Foswiki::Plugins::SpreadSheetPlugin::Calc::doCalc(
+    #                $attributes->{_DEFAULT});
+    #        });
 
     # Flag to skip calc if in include
     $skipInclude =

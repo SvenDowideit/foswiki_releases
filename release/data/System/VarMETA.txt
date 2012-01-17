@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1308346726" format="1.1" version="1"}%
 %META:TOPICPARENT{name="Macros"}%
 #VarMETA
 ---+++ META -- displays meta-data
@@ -9,7 +9,7 @@ Syntax: =%<nop>META{ "item" ...}%=
 
 Parameters:
    * ="form"= - generates the table showing the form fields. See
-     [[CompleteDocumentation#FormDefinition][Form Definition]] |
+     [[CompleteDocumentation#FormDefinition][Form Definition]].
    * ="attachments"= - generate a table of attachments
       * =all="on"= to show hidden attachments.
       * =title="..."= to show a title - only if attachments are displayed.

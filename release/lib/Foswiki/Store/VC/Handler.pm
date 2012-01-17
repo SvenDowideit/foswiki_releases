@@ -31,11 +31,19 @@ use IO::File   ();
 use File::Copy ();
 use File::Spec ();
 use File::Path ();
-use Fcntl    qw( :DEFAULT :flock SEEK_SET );
+use Fcntl qw( :DEFAULT :flock SEEK_SET );
 
 use Foswiki::Store                         ();
 use Foswiki::Sandbox                       ();
 use Foswiki::Iterator::NumberRangeIterator ();
+
+# use the locale if required to ensure sort order is correct
+BEGIN {
+    if ( $Foswiki::cfg{UseLocale} ) {
+        require locale;
+        import locale();
+    }
+}
 
 =begin TML
 
@@ -204,48 +212,195 @@ sub _controlFileName {
 Returns info where version is the number of the rev for which the info was recovered, date is the date of that rev (epoch s), user is the canonical user ID of the user who saved that rev, and comment is the comment associated with the rev.
 
 Designed to be overridden by subclasses, which can call up to this method
-if file-based rev info is required.
+if simple file-based rev info is required.
 
 =cut
 
 sub getInfo {
-    my $this = shift;
+    my $this =
+      shift;  # $version is not useful here, as we have no way to record history
 
     # SMELL: this is only required for the constant
     require Foswiki::Users::BaseUserMapping;
 
-    # If a topic file exists, grab the TOPICINFO from it. This is
-    # the default behaviour if no implementing class can come up
-    # with a better answer. Note that we only peek at the first line
-    # of the file, which is where a "proper" save will have left the tag.
+  # We only arrive here if the implementation getInfo can't serve the info; this
+  # will usually be because the ,v is missing or the topic cache is newer.
+
+    # If there is a .txt file, grab the TOPICINFO from it.
+    # Note that we only peek at the first line of the file,
+    # which is where a "proper" save will have left the tag.
     my $info = {};
+    if ( $this->noCheckinPending() ) {
+
+        # TOPICINFO may be OK
+        $this->_getTOPICINFO($info);
+    }
+    elsif ( -e $this->{rcsFile} ) {
+
+        # There is a checkin pending, and there is an rcs file.
+        # Ignore TOPICINFO
+        $info->{version} = $this->_numRevisions() + 1;
+        $info->{comment} = "pending";
+    }
+    else {
+
+# There is a checkin pending, but no RCS file. Make the best we can of TOPICINFO.
+        $this->_getTOPICINFO($info);
+        $info->{version} = 1;
+        $info->{comment} = "pending";
+    }
+    $info->{date}    = $this->getTimestamp() unless defined $info->{date};
+    $info->{version} = 1                     unless defined $info->{version};
+    $info->{comment} = ''                    unless defined $info->{comment};
+    $info->{author} ||= $Foswiki::Users::BaseUserMapping::UNKNOWN_USER_CUID;
+    return $info;
+}
+
+# Try and read TOPICINFO
+sub _getTOPICINFO {
+    my ( $this, $info ) = @_;
     my $f;
+
     if ( open( $f, '<', $this->{file} ) ) {
         local $/ = "\n";
         my $ti = <$f>;
         close($f);
         if ( defined $ti && $ti =~ /^%META:TOPICINFO{(.*)}%/ ) {
             require Foswiki::Attrs;
-            my $a = new Foswiki::Attrs($1);
+            my $a = Foswiki::Attrs->new($1);
 
             # Default bad revs to 1, not 0, because this is coming from
             # a topic on disk, so we know it's a "real" rev.
             $info->{version} = Foswiki::Store::cleanUpRevID( $a->{version} )
               || 1;
-            $info->{date}    = $a->{date}    if defined $a->{date};
-            $info->{author}  = $a->{author}  if defined $a->{author};
-            $info->{comment} = $a->{comment} if defined $a->{comment};
+            $info->{date}    = $a->{date};
+            $info->{author}  = $a->{author};
+            $info->{comment} = $a->{comment};
         }
     }
+}
 
-    # version, date, author and comment fields *must* be defined
-    $info->{version} = 1 unless defined $info->{version};
-    $info->{date} = $this->getTimestamp() unless defined $info->{date};
-    $info->{author} = $Foswiki::Users::BaseUserMapping::DEFAULT_USER_CUID
-      unless defined $info->{author};
-    $info->{comment} = ''
-      unless defined $info->{comment};
-    return $info;
+# Check to see if there is a newer non-,v file waiting to be checked in. If there is, then
+# all rev numbers have to be incremented, as they will auto-increment when it is finally
+# checked in (usually as the result of a save). This is also used to test the validity of
+# TOPICINFO, as a pending checkin does not contain valid TOPICINFO.
+sub noCheckinPending {
+    my $this    = shift;
+    my $isValid = 0;
+
+    if ( !-e $this->{file} ) {
+        $isValid = 1;    # Hmmmm......
+    }
+    else {
+        if ( -e $this->{rcsFile} ) {
+
+# Check the time on the rcs file; is the .txt newer?
+# Danger, Will Robinson! stat isn't reliable on all file systems, though [9] is claimed to be OK
+# See perldoc perlport for more on this.
+            local ${^WIN32_SLOPPY_STAT} =
+              1;         # don't need to open the file on Win32
+            my $rcsTime  = ( stat( $this->{rcsFile} ) )[9];
+            my $fileTime = ( stat( $this->{file} ) )[9];
+            $isValid = ( $rcsTime < $fileTime ) ? 0 : 1;
+        }
+    }
+    return $isValid;
+}
+
+# Must be implemented by subclasses
+sub ci {
+    die "Pure virtual method";
+}
+
+# Protected for use only in subclasses. Check that the object has a history
+# and the .txt is consistent with that history.
+sub _saveDamage {
+    my $this = shift;
+    return if $this->noCheckinPending();
+
+    # the version in the TOPICINFO may not be correct. We need
+    # to check the change in and update the TOPICINFO accordingly
+    my $t = $this->readFile( $this->{file} );
+
+    # If this is a topic, adjust the TOPICINFO
+    if ( defined $this->{topic} && !defined $this->{attachment} ) {
+        my $rev = -e $this->{rcsFile} ? $this->getLatestRevisionID() : 1;
+        $t =~ s/^%META:TOPICINFO{(.*)}%$//m;
+        $t =
+            '%META:TOPICINFO{author="'
+          . $Foswiki::Users::BaseUserMapping::UNKNOWN_USER_CUID
+          . '" comment="autosave" date="'
+          . time()
+          . '" format="1.1" version="'
+          . $rev . '"}%' . "\n$t";
+    }
+    $this->ci( 0, $t, 'autosave',
+        $Foswiki::Users::BaseUserMapping::UNKNOWN_USER_CUID, time() );
+}
+
+=begin TML
+
+---++ ObjectMethod addRevisionFromText($text, $comment, $cUID, $date)
+
+Add new revision. Replace file with text.
+   * =$text= of new revision
+   * =$comment= checkin comment
+   * =$cUID= is a cUID.
+   * =$date= in epoch seconds; may be ignored
+
+=cut
+
+sub addRevisionFromText {
+    my ( $this, $text, $comment, $user, $date ) = @_;
+    $this->init();
+
+    # Commit any out-of-band damage to .txt
+    $this->_saveDamage();
+    $this->ci( 0, $text, $comment, $user, $date );
+}
+
+=begin TML
+
+---++ ObjectMethod addRevisionFromStream($fh, $comment, $cUID, $date)
+
+Add new revision. Replace file with contents of stream.
+   * =$fh= filehandle for contents of new revision
+   * =$cUID= is a cUID.
+   * =$date= in epoch seconds; may be ignored
+
+=cut
+
+sub addRevisionFromStream {
+    my ( $this, $stream, $comment, $user, $date ) = @_;
+    $this->init();
+
+    # Commit any out-of-band damage to .txt
+    $this->_saveDamage();
+
+    $this->ci( 1, $stream, $comment, $user, $date );
+}
+
+=begin TML
+
+---++ ObjectMethod replaceRevision($text, $comment, $cUID, $date)
+
+Replace the top revision.
+   * =$text= is the new revision
+   * =$date= is in epoch seconds.
+   * =$cUID= is a cUID.
+   * =$comment= is a string
+
+=cut
+
+sub replaceRevision {
+    my $this = shift;
+    $this->_saveDamage();
+    $this->repRev(@_);
+}
+
+# Signature as for replaceRevision
+sub repRev {
+    die "Pure virtual method";
 }
 
 =begin TML
@@ -256,7 +411,8 @@ Get an iterator over the identifiers of revisions. Returns the most
 recent revision first.
 
 The default is to return an iterator from the current version number
-down to 1.   Return rev 0 if the file exists without history.
+down to 1.   Return rev 1 if the file exists without history. Return
+an empty iterator if the file does not exist.
 
 =cut
 
@@ -264,17 +420,18 @@ sub getRevisionHistory {
     my $this = shift;
     ASSERT( $this->{file} ) if DEBUG;
     unless ( -e $this->{rcsFile} ) {
+        require Foswiki::ListIterator;
         if ( -e $this->{file} ) {
-            return new Foswiki::ListIterator( [0] );
+            return Foswiki::ListIterator->new( [1] );
         }
         else {
-            return new Foswiki::ListIterator( [] );
+            return Foswiki::ListIterator->new( [] );
         }
     }
 
     # SMELL: what happens with the working file?
     my $maxRev = $this->getLatestRevisionID();
-    return new Foswiki::Iterator::NumberRangeIterator( $maxRev, 1 );
+    return Foswiki::Iterator::NumberRangeIterator->new( $maxRev, 1 );
 }
 
 =begin TML
@@ -287,7 +444,14 @@ been no revisions committed to the store.
 =cut
 
 sub getLatestRevisionID {
-    return shift->numRevisions() || 1;
+    my $this = shift;
+    return 0 unless -e $this->{file};
+    my $rev = $this->_numRevisions() || 1;
+
+    # If there is a pending pseudo-revision, need n+1, but only if there is
+    # an existing history
+    $rev++ unless $this->noCheckinPending() || !-e $this->{rcsFile};
+    return $rev;
 }
 
 =begin TML
@@ -306,7 +470,7 @@ doesn't get merged into rev 1.
 
 sub getNextRevisionID {
     my $this = shift;
-    return ( $this->numRevisions() || ( ( -e $this->{file} ) ? 1 : 0 ) ) + 1 ;
+    return $this->getLatestRevisionID() + 1;
 }
 
 =begin TML
@@ -341,8 +505,8 @@ sub getTopicNames {
     # the name filter is used to ensure we don't return filenames
     # that contain illegal characters as topic names.
     my @topicList =
-      sort
       map { /^(.*)\.txt$/; $1; }
+      sort
       grep { !/$Foswiki::cfg{NameFilter}/ && /\.txt$/ } readdir($dh);
     closedir($dh);
     return @topicList;
@@ -361,7 +525,7 @@ sub revisionExists {
     my ( $this, $rev ) = @_;
 
     # Rev numbers run from 1 to numRevisions
-    return $rev && $rev <= $this->numRevisions();
+    return $rev && $rev <= $this->_numRevisions();
 }
 
 =begin TML
@@ -434,10 +598,10 @@ if the main file revision is required.
 
 sub getRevision {
     my ($this) = @_;
-    if ( -e $this->{file} ) {
-        return (readFile( $this, $this->{file} ), 1 );
+    if ( defined $this->{file} && -e $this->{file} ) {
+        return ( readFile( $this, $this->{file} ), 1 );
     }
-    return (undef, 1);
+    return ( undef, 1 );
 }
 
 =begin TML
@@ -456,29 +620,6 @@ sub storedDataExists {
 
 =begin TML
 
----++ ObjectMethod getTimestamp() -> $integer
-
-Get the timestamp of the file
-Returns 0 if no file, otherwise epoch seconds
-
-=cut
-
-sub getTimestamp {
-    my ($this) = @_;
-    ASSERT( $this->{file} ) if DEBUG;
-
-    my $date = 0;
-    if ( -e $this->{file} ) {
-
-        # If the stat fails, stamp it with some arbitrary static
-        # time in the past (00:40:05 on 5th Jan 1989)
-        $date = ( stat $this->{file} )[9] || 600000000;
-    }
-    return $date;
-}
-
-=begin TML
-
 ---++ ObjectMethod restoreLatestRevision( $cUID )
 
 Restore the plaintext file from the revision at the head.
@@ -488,7 +629,7 @@ Restore the plaintext file from the revision at the head.
 sub restoreLatestRevision {
     my ( $this, $cUID ) = @_;
 
-    my $rev  = $this->getLatestRevisionID();
+    my $rev = $this->getLatestRevisionID();
     my ($text) = $this->getRevision($rev);
 
     # If there is no ,v, create it
@@ -641,8 +782,8 @@ sub copyAttachment {
 
     ASSERT( $store->isa('Foswiki::Store') ) if DEBUG;
 
-    my $oldWeb     = $this->{web};
-    my $oldTopic   = $this->{topic};
+    my $oldWeb   = $this->{web};
+    my $oldTopic = $this->{topic};
     $attachment ||= $this->{attachment};
 
     my $new = $store->getHandler( $newWeb, $newTopic, $attachment );
@@ -1122,7 +1263,7 @@ sub synchroniseAttachmentsList {
         if ( $filesListedInMeta{$file} ) {
 
             # Bring forward any missing yet wanted attributes
-            foreach my $field qw(comment attr user version) {
+            foreach my $field (qw(comment attr user version)) {
                 if ( $filesListedInMeta{$file}{$field} ) {
                     $filesListedInPub{$file}{$field} =
                       $filesListedInMeta{$file}{$field};
@@ -1188,7 +1329,7 @@ Generate string representation for debugging
 sub stringify {
     my $this = shift;
     my @reply;
-    foreach my $key qw(web topic attachment file rcsFile) {
+    foreach my $key (qw(web topic attachment file rcsFile)) {
         if ( defined $this->{$key} ) {
             push( @reply, "$key=$this->{$key}" );
         }
@@ -1289,12 +1430,31 @@ sub eachChange {
           }
           reverse split( /[\r\n]+/, readFile( $this, $file ) );
 
-        return new Foswiki::ListIterator( \@changes );
+        return Foswiki::ListIterator->new( \@changes );
     }
     else {
         my $changes = [];
-        return new Foswiki::ListIterator($changes);
+        return Foswiki::ListIterator->new($changes);
     }
+}
+
+# ObjectMethod getTimestamp() -> $integer
+# Get the timestamp of the file
+# Returns 0 if no file, otherwise epoch seconds
+# Used in subclasses
+
+sub getTimestamp {
+    my ($this) = @_;
+    ASSERT( $this->{file} ) if DEBUG;
+
+    my $date = 0;
+    if ( -e $this->{file} ) {
+
+        # If the stat fails, stamp it with some arbitrary static
+        # time in the past (00:40:05 on 5th Jan 1989)
+        $date = ( stat $this->{file} )[9] || 600000000;
+    }
+    return $date;
 }
 
 1;
@@ -1357,45 +1517,6 @@ Initialise a text file.
 
 =begin TML
 
----++ ObjectMethod addRevisionFromText($text, $comment, $cUID, $date)
-
-Add new revision. Replace file with text.
-   * =$text= of new revision
-   * =$comment= checkin comment
-   * =$cUID= is a cUID.
-   * =$date= in epoch seconds; may be ignored
-
-*Virtual method* - must be implemented by subclasses
-
-=begin TML
-
----++ ObjectMethod addRevisionFromStream($fh, $comment, $cUID, $date)
-
-Add new revision. Replace file with contents of stream.
-   * =$fh= filehandle for contents of new revision
-   * =$cUID= is a cUID.
-   * =$date= in epoch seconds; may be ignored
-
-*Virtual method* - must be implemented by subclasses
-
-=cut
-
-=begin TML
-
----++ ObjectMethod replaceRevision($text, $comment, $cUID, $date)
-
-Replace the top revision.
-   * =$text= is the new revision
-   * =$date= is in epoch seconds.
-   * =$cUID= is a cUID.
-   * =$comment= is a string
-
-*Virtual method* - must be implemented by subclasses
-
-=cut
-
-=begin TML
-
 ---++ ObjectMethod deleteRevision()
 
 Delete the last revision - do nothing if there is only one revision
@@ -1435,10 +1556,10 @@ given epoch-secs time, or undef it none could be found.
 *Virtual method* - must be implemented by subclasses
 
 =cut
-__END__
+
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

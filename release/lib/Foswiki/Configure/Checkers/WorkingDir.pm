@@ -7,61 +7,65 @@ use warnings;
 use Foswiki::Configure::Checker ();
 our @ISA = ('Foswiki::Configure::Checker');
 
+sub untaint {
+    $_[0] =~ m/^(.*)$/;
+    return $1;
+}
+
 sub check {
     my $this = shift;
 
+    my $d = $this->getCfg("{WorkingDir}");
     my $mess = $this->guessMajorDir( 'WorkingDir', 'working', 1 );
     $Foswiki::cfg{WorkingDir} =~ s#[/\\]+$##;
+    $d =~ s#[/\\]+$##;
 
-    # SMELL:   In a suexec environment, umask is forced to 077, blocking 
+    # SMELL:   In a suexec environment, umask is forced to 077, blocking
     # group and world access.  This is probably not bad for the working
     # directories.  But noting smell if mismatched permissions are questioned.
 
     #my $saveumask = umask();
     #umask ( oct(000));
 
-    if ( $mess ) {
-        $mess .= $this->NOTE('This directory will be created after the guessed settings are saved') unless (-d "$Foswiki::cfg{WorkingDir}" );
-        return $mess;   # guess will return message if a guess is made.
+    if ($mess) {
+        $mess .= $this->NOTE(
+'This directory will be created after the guessed settings are saved'
+        ) unless ( -d $d );
+        return $mess;    # guess will return message if a guess is made.
     }
 
+    $mess .= $this->showExpandedValue( $Foswiki::cfg{WorkingDir} );
 
-    unless ( -d "$Foswiki::cfg{WorkingDir}" ) {
-        mkdir("$Foswiki::cfg{WorkingDir}", oct(755) )
-          || return $this->ERROR(
-"$Foswiki::cfg{WorkingDir} does not exist, and I can't create it: $!"
-          );
-        $mess .= $this->NOTE("Created $Foswiki::cfg{WorkingDir}");
+    unless ( -d $d ) {
+        mkdir( untaint($d), oct(755) )
+          || return $mess
+          . $this->ERROR( "$d does not exist, and I can't create it: $!" );
+        $mess .= $this->NOTE("Created $d");
     }
 
-    unless ( -d "$Foswiki::cfg{WorkingDir}/tmp" ) {
-        if ( -e "$Foswiki::cfg{WorkingDir}/tmp" ) {
-            $mess .= $this->ERROR(
-"$Foswiki::cfg{WorkingDir}/tmp already exists, but is not a directory"
-            );
-        }
-        elsif ( !mkdir( "$Foswiki::cfg{WorkingDir}/tmp", oct(1777) ) ) {
+    unless ( -d "$d/tmp" ) {
+        if ( -e "$d/tmp" ) {
             $mess .=
-              $this->ERROR("Could not create $Foswiki::cfg{WorkingDir}/tmp");
+              $this->ERROR( "$d/tmp already exists, but is not a directory" );
+        }
+        elsif ( !mkdir( untaint("$d/tmp"), oct(1777) ) ) {
+            $mess .= $this->ERROR("Could not create $d/tmp");
         }
         else {
-            $mess .= $this->NOTE("Created $Foswiki::cfg{WorkingDir}/tmp");
+            $mess .= $this->NOTE("Created $d/tmp");
         }
     }
 
-    unless ( -d "$Foswiki::cfg{WorkingDir}/work_areas" ) {
-        if ( -e "$Foswiki::cfg{WorkingDir}/work_areas" ) {
+    unless ( -d "$d/work_areas" ) {
+        if ( -e "$d/work_areas" ) {
             $mess .= $this->ERROR(
-"$Foswiki::cfg{WorkingDir}/work_areas already exists, but is not a directory"
-            );
+                "$d/work_areas already exists, but is not a directory" );
         }
-        elsif ( !mkdir("$Foswiki::cfg{WorkingDir}/work_areas", oct(755)) ) {
-            $mess .= $this->ERROR(
-                "Could not create $Foswiki::cfg{WorkingDir}/work_areas");
+        elsif ( !mkdir( untaint("$d/work_areas"), oct(755) ) ) {
+            $mess .= $this->ERROR("Could not create $d/work_areas");
         }
         else {
-            $mess .=
-              $this->NOTE("Created $Foswiki::cfg{WorkingDir}/work_areas");
+            $mess .= $this->NOTE("Created $d/work_areas");
         }
     }
 
@@ -71,8 +75,7 @@ sub check {
     if ( $existing && -d $existing ) {
 
         # Try and move the contents of the old workarea
-        my $e =
-          $this->copytree( $existing, "$Foswiki::cfg{WorkingDir}/work_areas" );
+        my $e = $this->copytree( untaint($existing), untaint("$d/work_areas") );
         if ($e) {
             $mess .= $this->ERROR($e);
         }
@@ -80,29 +83,27 @@ sub check {
             $mess .= $this->WARN( "
 You have an existing {RCS}{WorkAreaDir} ($Foswiki::cfg{RCS}{WorkAreaDir}),
 so I have copied the contents of that directory into the new
-$Foswiki::cfg{WorkingDir}/work_areas. You should delete the old
+$d/work_areas. You should delete the old
 $Foswiki::cfg{RCS}{WorkAreaDir} when you are happy with
 the upgrade." );
             delete( $Foswiki::cfg{RCS}{WorkAreaDir} );
         }
     }
 
-    unless ( -d "$Foswiki::cfg{WorkingDir}/registration_approvals" ) {
-        if ( -e "$Foswiki::cfg{WorkingDir}/registration_approvals" ) {
+    unless ( -d "$d/registration_approvals" ) {
+        if ( -e "$d/registration_approvals" ) {
             $mess .= $this->ERROR(
-"$Foswiki::cfg{WorkingDir}/registration_approvals already exists, but is not a directory"
+"$d/registration_approvals already exists, but is not a directory"
             );
         }
-        elsif ( !mkdir("$Foswiki::cfg{WorkingDir}/registration_approvals", oct(755)) ) {
-            $mess .= $this->ERROR(
-"Could not create $Foswiki::cfg{WorkingDir}/registration_approvals"
-            );
+        elsif ( !mkdir( untaint("$d/registration_approvals"), oct(755) ) ) {
+            $mess .=
+              $this->ERROR( "Could not create $d/registration_approvals" );
         }
     }
 
     #umask($saveumask);
-    my $e = $this->checkTreePerms( $Foswiki::cfg{WorkingDir},
-        'rw', qr/configure\/backup\/|README/ );
+    my $e = $this->checkTreePerms( $d, 'rw', qr/configure\/backup\/|README/ );
     $mess .= $this->ERROR($e) if $e;
 
     return $mess;

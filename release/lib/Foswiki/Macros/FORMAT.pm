@@ -21,7 +21,7 @@ sub FORMAT {
     $params->{separator} =
       Foswiki::expandStandardEscapes( $params->{separator} );
 
-    my $type   = $params->{type} || 'topic';
+    my $type = $params->{type} || 'topic';
     $type = 'topic'
       unless ( $type eq 'string' );    #only support special type 'string'
 
@@ -34,7 +34,8 @@ sub FORMAT {
     $params->{type} = $this->{prefs}->getPreference('SEARCHVARDEFAULTTYPE')
       unless ( $params->{type} );
 
-    undef $params->{limit};     #do not polute FORMAT with the per web legacy mess (the code would be horrid.)
+    undef $params
+      ->{limit}; #do not polute FORMAT with the per web legacy mess (the code would be horrid.)
 
     try {
         my $listIterator;
@@ -48,7 +49,7 @@ sub FORMAT {
             # from Search::_makeTopicPattern (plus an added . to
             # allow web.topic)
             my @topics = map {
-                s/[^\*\_\-\+\.$Foswiki::regex{mixedAlphaNum}]//go;
+                s/[^\*\_\-\+\.\/$Foswiki::regex{mixedAlphaNum}]//go;
                 s/\*/\.\*/go;
                 $_
             } @list;
@@ -60,7 +61,7 @@ sub FORMAT {
         }
         my ( $ttopics, $searchResult, $tmplTail ) =
           $this->search->formatResults( undef, $listIterator, $params );
-        $s  = Foswiki::expandStandardEscapes($searchResult);
+        $s = Foswiki::expandStandardEscapes($searchResult);
     }
     catch Error::Simple with {
         my $message = (DEBUG) ? shift->stringify() : shift->{-text};
@@ -78,7 +79,7 @@ sub FORMAT {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

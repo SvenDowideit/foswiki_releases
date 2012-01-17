@@ -15,7 +15,7 @@
 
 
 %TMPL:DEF{"formstart"}%<div class="foswikiFormHolder" id="formHolder">
-<form name="main" action="%SCRIPTURLPATH{"save"}%/%WEB%/%TOPIC%" method="post">%TMPL:END%
+<form name="main" id="main" action="%SCRIPTURLPATH{"save"}%/%WEB%/%TOPIC%" method="post">%TMPL:END%
 
 
 %TMPL:DEF{"revCommentPluginOptions"}%%IF{ "context RevCommentPluginEnabled" then="<div class='revComment'><label for='comment'>Summary of changes</label> <input class='foswikiInputField' type='text' style='width:50%' name='comment' id='comment' /> %POPUPWINDOW{"%SYSTEMWEB%.RevComment" label="%MAKETEXT{"help"}%"}%</div>" else=""}%%TMPL:END%
@@ -44,13 +44,18 @@
 %TMPL:DEF{"topicinfo"}%%TMPL:P{"revCommentPluginOptions"}%%TMPL:P{"saveoptions"}%<div class="patternTopicActions foswikiFormStep"><div class="patternActionButtons">%TMPL:P{"action_buttons"}%<div class="foswikiClear"></div></div></div>%TMPL:END%
 
 
-%TMPL:DEF{"textarea"}%<div class="patternEditTopic"><textarea class="foswikiTextarea foswikiEditboxStyleProportional foswikiWysiwygEdit" id="topic" name="text" rows="%EDITBOXHEIGHT%" cols="%EDITBOXWIDTH%" style='%EDITBOXSTYLE%'>%TEXT%</textarea>%TMPL:P{"sig_textareabuttons"}%</div>%TMPL:END%
+%TMPL:DEF{"textarea"}%%IF{"{Validation}{Method}='strikeone'" then="<noscript>$percentTMPL:P{enable_js}$percent</noscript>"}%<div class="patternEditTopic"><textarea class="foswikiTextarea foswikiEditboxStyleProportional foswikiWysiwygEdit" id="topic" name="text" rows="%EDITBOXHEIGHT%" cols="%EDITBOXWIDTH%" style='%EDITBOXSTYLE%'>%TEXT%</textarea>%TMPL:P{"sig_textareabuttons"}%</div>%TMPL:END%
 
 
 %TMPL:DEF{"sig_textareabuttons"}%<div class="patternSigLine">%IF{"not context TinyMCEPluginEnabled or $nowysiwyg='1' or $NOWYSIWYG='1'" then='%TMPL:P{"textareabuttons"}%'}%%TMPL:P{"sig"}%<div class="foswikiClear"></div></div>%TMPL:END%
 
+%TMPL:DEF{"sig"}%<span class="patternSig"><input class="foswikiInputFieldReadOnly" size="41" name="sig" type="text" readonly="readonly" title='%MAKETEXT{"Select, copy and paste your signature text to the bottom of your entry"}%' id="sig" value="%TMPL:P{"sig_format"}%" /> <label for="sig" class="foswikiGrayText">%MAKETEXT{"Your signature to copy/paste"}%&nbsp;&nbsp;</label></span>%TMPL:END%
 
-%TMPL:DEF{"sig"}%<span class="patternSig"><input class="foswikiInputFieldReadOnly" size="41" name="sig" type="text" readonly="readonly" title='%MAKETEXT{"Select, copy and paste your signature text to the bottom of your entry"}%' id="sig" value="%SIGNATUREFORMAT%" /> <label for="sig" class="foswikiGrayText">%MAKETEXT{"Your signature to copy/paste"}%&nbsp;&nbsp;</label></span>%TMPL:END%
+%TMPL:DEF{"sig_format"}%%IF{
+	"defined SIGNATUREFORMAT"
+	then="%SIGNATUREFORMAT%"
+	else="-- <nop>%WIKIUSERNAME% - %DATE%"
+}%%TMPL:END%
 
 
 %{ HELP TEXTS }%

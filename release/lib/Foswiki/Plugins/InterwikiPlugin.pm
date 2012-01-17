@@ -26,8 +26,8 @@ use warnings;
 use Foswiki::Func    ();    # The plugins API
 use Foswiki::Plugins ();    # For the API version
 
-our $VERSION           = '$Rev: 11354 (2011-04-10) $';
-our $RELEASE           = '10 Apr 2011';
+our $VERSION           = '$Rev: 12957 (2011-10-31) $';
+our $RELEASE           = '1.1.2';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION =
 'Link !ExternalSite:Page text to external sites based on aliases defined in a rules topic';
@@ -55,8 +55,8 @@ sub initPlugin {
     my $ua  = $Foswiki::regex{upperAlpha};
     %interSiteTable = ();
     $sitePattern    = "([$ua][$man]+)";
-    $pagePattern =
-      "([${man}_\/][$man" . '"\'\.\/\+\_\,\&\;\:\=\!\?\%\#\@\-\(\)]*?)';
+    $pagePattern    = "((?:'[^']*')|(?:\"[^\"]*\")|(?:[${man}\_\~\%\/][$man"
+      . '"\'\.\/\+\_\~\,\&\;\:\=\!\?\%\#\@\-\(\)]*?))';
 
     # Get plugin preferences from InterwikiPlugin topic
     $interLinkFormat =
@@ -126,11 +126,25 @@ sub _link {
     $page    ||= '';
     $postfix ||= '';
 
+    my $upage = $page;
+    if ( $page =~ /^['"](.*)["']$/ ) {
+        $page  = $1;
+        $upage = Foswiki::urlEncode($1);
+    }
+
     my $text = $prefix;
     if ( defined( $interSiteTable{$site} ) ) {
         my $tooltip = $interSiteTable{$site}{tooltip};
         my $url     = $interSiteTable{$site}{url};
-        $url .= $page unless ( $url =~ /\$page/ );
+
+        #$url .= $page unless ( $url =~ /\$page/ );
+
+        if ( $url =~ /\$page/ ) {
+            $url =~ s/\$page/$upage/g;
+        }
+        else {
+            $url .= $upage;
+        }
         my $label = '$site:$page';
 
         if ($postfix) {

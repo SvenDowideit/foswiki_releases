@@ -30,9 +30,10 @@ sub ADDTOZONE {
     }
 
     foreach my $zone ( split( /\s*,\s*/, $zones ) ) {
-        if ($zone eq 'body') {
-          #print STDERR "WARNING: ADDTOZONE was called for zone 'body' ... rerouting it to zone 'script' ... please fix your templates\n";
-          $zone = 'script';
+        if ( $zone eq 'body' ) {
+
+#print STDERR "WARNING: ADDTOZONE was called for zone 'body' ... rerouting it to zone 'script' ... please fix your templates\n";
+            $zone = 'script';
         }
         $this->addToZone( $zone, $id, $text, $requires );
     }
@@ -41,7 +42,7 @@ sub ADDTOZONE {
 }
 
 1;
-__DATA__
+__END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
 Copyright (C) 2010 Foswiki Contributors. Foswiki Contributors

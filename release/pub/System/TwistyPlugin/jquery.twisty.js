@@ -5,8 +5,9 @@ $(showControl).hide();$(hideControl).show();}else{if(inMaySave&&ref.speed!=0){fo
 $(showControl).show();$(hideControl).hide();}
 if(inMaySave&&ref.saveSetting){foswiki.Pref.setPref(foswiki.TwistyPlugin.COOKIE_PREFIX
 +ref.name,ref.state);}
-if(ref.clearSetting){foswiki.Pref.setPref(foswiki.TwistyPlugin.COOKIE_PREFIX
-+ref.name,'');}}
+if(ref.clearSetting){if(foswiki.Pref.clearPref){foswiki.Pref.clearPref(foswiki.TwistyPlugin.COOKIE_PREFIX
++ref.name);}else{foswiki.Pref.setPref(foswiki.TwistyPlugin.COOKIE_PREFIX
++ref.name,'');}}}
 this._register=function(e){if(!e)return;var name=self._getName(e.id);var ref=self._storage[name];if(!ref){ref=new foswiki.TwistyPlugin.Storage();}
 if($(e).hasClass('twistyRememberSetting'))
 ref.saveSetting=true;if($(e).hasClass('twistyForgetSetting'))
