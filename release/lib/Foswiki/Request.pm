@@ -1,31 +1,4 @@
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This module is based/inspired on Catalyst framework, and also CGI,
-# CGI::Simple and HTTP::Headers modules. Refer to
-#
-# http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm,
-# http://search.cpan.org/~lds/CGI.pm-3.29/CGI.pm,
-# http://search.cpan.org/author/ANDYA/CGI-Simple-1.103/lib/CGI/Simple.pm, and
-# http://search.cpan.org/~gaas/libwww-perl-5.808/lib/HTTP/Headers.pm
-#
-# for credits and liscence details.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -53,13 +26,16 @@ Fields:
 =cut
 
 package Foswiki::Request;
-
 use strict;
+use warnings;
+
+use CGI ();
+our @ISA = ('CGI');
+
 use Assert;
-use Error;
-use IO::File;
+use Error    ();
+use IO::File ();
 use CGI::Util qw(rearrange);
-use base 'CGI';
 
 =begin TML
 
@@ -115,16 +91,46 @@ sub new {
 
 =begin TML
 
----++ ObjectMethod action() -> $action
+---++ ObjectMethod action([$action]) -> $action
+
 
 Gets/Sets action requested (view, edit, save, ...)
 
 =cut
 
 sub action {
-    return @_ == 1
-      ? $_[0]->{action}
-      : ( $ENV{FOSWIKI_ACTION} = $_[0]->{action} = $_[1] );
+    my ( $this, $action ) = @_;
+    if ( defined $action ) {
+
+        # Record the very first action set in this request. It will be required
+        # later if a redirect cache overlays this request.
+        $this->{base_action} = $action unless defined $this->{base_action};
+        $ENV{FOSWIKI_ACTION} = $this->{action} = $action;
+        return $action;
+    }
+    else {
+        return $this->{action};
+    }
+
+}
+
+=begin TML
+
+---++ ObjectMethod base_action() -> $action
+
+Get the first action ever set in this request object. This remains
+unchanged even if a request cache is unwrapped on to of this request.
+The idea is that callers can always find out the action that initiated
+the HTTP request. This is required for (for example) checking access
+controls.
+
+=cut
+
+sub base_action {
+    my $this = shift;
+    return defined $this->{base_action}
+      ? $this->{base_action}
+      : $this->action();
 }
 
 =begin TML
@@ -217,7 +223,7 @@ sub queryString {
 
 Returns many url info. 
    * If called without parameters or with -full => 1 returns full url, e.g. 
-     http://twiki.org/cgi-bin/view
+     http://mysite.net/view
    * If called with -base => 1 returns base url, e.g. http://twiki.org
    * -absolute => 1 returns absolute action path, e.g. /cgi-bin/view
    * -relative => 1 returns relative action path, e.g. view
@@ -246,6 +252,7 @@ sub url {
       defined $Foswiki::cfg{ScriptUrlPaths}{ $this->action }
       ? $Foswiki::cfg{ScriptUrlPaths}{ $this->action }
       : $Foswiki::cfg{ScriptUrlPath} . '/' . $this->action;
+    $name =~ s(//+)(/)g;
     $name .= $Foswiki::cfg{ScriptSuffix};
     if ($full) {
         my $vh = $this->header('X-Forwarded-Host') || $this->header('Host');
@@ -346,7 +353,7 @@ future, so it could be possible to get query and body parameters independently.
 
 sub queryParam {
     my $this = shift;
-    return undef if $this->method && $this->method eq 'POST';
+    return if $this->method && $this->method eq 'POST';
     return $this->param(@_);
 }
 
@@ -434,7 +441,7 @@ sub cookie {
         return () unless $this->{cookies}{$name};
         return $this->{cookies}{$name}->value if defined $name && $name ne '';
     }
-    return undef unless defined $name && $name ne '';
+    return unless defined $name && $name ne '';
     return new CGI::Cookie(
         -name  => $name,
         -value => $value,
@@ -566,7 +573,8 @@ sub save {
         my $key = Foswiki::urlEncode($name);
         foreach my $value ( $this->param($name) ) {
             $value = '' unless defined $value;
-            print $fh $key, "=", Foswiki::urlEncode($value), "\n";
+            print $fh Foswiki::urlEncode($key), '=',
+              Foswiki::urlEncode($value), "\n";
         }
     }
     print $fh "=\n";
@@ -733,3 +741,30 @@ Convenience method to get Referer uri.
 sub referer { shift->header('Referer') }
 
 1;
+__END__
+
+Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
+Foswiki Contributors are listed in the AUTHORS file in the root of this
+distribution. NOTE: Please extend that file, not this notice.
+
+This module is based/inspired on Catalyst framework, and also CGI,
+CGI::Simple and HTTP::Headers modules. Refer to
+http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm,
+http://search.cpan.org/~lds/CGI.pm-3.29/CGI.pm,
+http://search.cpan.org/author/ANDYA/CGI-Simple-1.103/lib/CGI/Simple.pm, and
+http://search.cpan.org/~gaas/libwww-perl-5.808/lib/HTTP/Headers.pm
+for full credits and license details.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

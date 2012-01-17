@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::UI::RDiff
@@ -10,11 +11,12 @@ UI functions for diffing.
 package Foswiki::UI::RDiff;
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
 
-require Foswiki;
-require Foswiki::UI;
+use Foswiki     ();
+use Foswiki::UI ();
 
 #TODO: this needs to be exposed to plugins and whoever might want to over-ride the rendering of diffs
 #Hash, indexed by diffType (+,-,c,u,l.....)
@@ -40,22 +42,28 @@ my %format = (
 #TODO: ***URGENT*** the diff rendering dies badly when you have table cell changes and context
 #TODO: ?type={history|diff} so that you can do a normal diff between r1.3 and r1.32 (rather than a history) (and when doing a history, we maybe should not expand %SEARCH...
 
-#| Description: | twiki render a cell of data from a Diff |
+#| Description: | renders a cell of data from a diff |
 #| Parameter: =$data= |  |
 #| Parameter: =$topic= |  |
 #| Return: =$text= | Formatted html text |
 #| TODO: | this should move to Render.pm |
 sub _renderCellData {
-    my ( $session, $data, $web, $topic ) = @_;
-    ASSERT($topic) if DEBUG;
-    if ($data) {
-        $data =~ s(^%META:FIELD{(.*)}%.*$)
-          (_renderAttrs($1,'|*FORM FIELD $title*|$name|$value|'))gem;
-        $data =~ s(^%META:([A-Z]+){(.*)}%$)
-          ('|*META '.$1.'*|'._renderAttrs($2).'|')gem;
+    my ( $session, $data, $topicObject ) = @_;
 
-        $data = $session->handleCommonTags( $data, $web, $topic );
-        $data = $session->renderer->getRenderedVersion( $data, $web, $topic );
+    if ($data) {
+
+        # SMELL: assumption about storage of meta-data embedded in topic
+        # text
+        $data =~ s/^%META:FIELD{(.*)}%.*$/
+          _renderAttrs($1, '|*FORM FIELD $title*|$name|$value|')/gem;
+        $data =~ s/^%META:([A-Z]+){(.*)}%$/
+          '|*META '.$1.'*|'._renderAttrs($2).'||'/gem;
+        if ( Foswiki::Func::getContext()->{'TablePluginEnabled'} ) {
+            $data =
+              "\n" . '%TABLE{summary="' . $session->i18n->maketext('Topic data') . '" tablerules="all" databg="#ffffff" headeralign="left"}%' . "\n" . $data;
+        }
+        $data = $topicObject->expandMacros($data);
+        $data = $topicObject->renderTML($data);
 
         # Match up table tags, remove comments
         if ( $data =~ m/<\/?(th|td|table)\b/i ) {
@@ -90,7 +98,7 @@ sub _renderAttrs {
     require Foswiki::Store;
     if ($f) {
         for my $key ( keys %$attrs ) {
-            my $av = Foswiki::Store::dataDecode( $attrs->{$key} );
+            my $av = Foswiki::Meta::dataDecode( $attrs->{$key} );
             $f =~ s/\$$key\b/$av/g;
         }
     }
@@ -119,7 +127,7 @@ sub _sideBySideRow {
         },
         $right . '&nbsp;'
     );
-    return CGI::Tr( $d1 . $d2 );
+    return CGI::Tr( {}, $d1 . $d2 );
 }
 
 #| Description: | render the Diff entry using side by side |
@@ -129,11 +137,11 @@ sub _sideBySideRow {
 #| Return: =$result= | Formatted html text |
 #| TODO: | this should move to Render.pm |
 sub _renderSideBySide {
-    my ( $session, $web, $topic, $diffType, $left, $right ) = @_;
+    my ( $session, $topicObject, $diffType, $left, $right ) = @_;
     my $result = '';
 
-    $left  = _renderCellData( $session, $left,  $web, $topic );
-    $right = _renderCellData( $session, $right, $web, $topic );
+    $left  = _renderCellData( $session, $left,  $topicObject );
+    $right = _renderCellData( $session, $right, $topicObject );
 
     if ( $diffType eq '-' ) {
         $result .= _sideBySideRow( $left, $right, '-', 'u' );
@@ -153,10 +161,9 @@ sub _renderSideBySide {
                 bgcolor => $format{l}[0],
                 class   => $format{l}[1],
             },
-            CGI::th( { align => 'center' },
+            CGI::th(
                 ( $session->i18n->maketext( 'Line: [_1]', $left ) ) )
               . CGI::th(
-                { align => 'center' },
                 ( $session->i18n->maketext( 'Line: [_1]', $right ) )
               )
         );
@@ -186,7 +193,7 @@ sub _renderDebug {
     $right =~ s/</&lt;/go;
     $right =~ s/>/&gt;/go;
 
-    $result = CGI::Tr( CGI::td( 'type: ' . $diffType ) );
+    $result = CGI::Tr( {}, CGI::td( {}, 'type: ' . $diffType ) );
 
     my %classMap = (
         '+' => ['foswikiDiffAddedText'],
@@ -205,7 +212,7 @@ sub _renderDebug {
             { class => 'foswikiDiffDebug' },
             CGI::td(
                 { class => 'foswikiDiffDebugLeft ' . $styleClassLeft },
-                CGI::div($left)
+                CGI::div( {}, $left )
             )
         );
     }
@@ -214,7 +221,7 @@ sub _renderDebug {
             { class => 'foswikiDiffDebug' },
             CGI::td(
                 { class => 'foswikiDiffDebugRight ' . $styleClassRight },
-                CGI::div($right)
+                CGI::div( {}, $right )
             )
         );
     }
@@ -240,19 +247,24 @@ sub _sequentialRow {
         );
     }
     else {
-        $row = CGI::td("&nbsp;");
+        $row = CGI::td(
+            {
+                class   => 'foswikiDiffUnchangedMarker',
+            },
+            '&nbsp;' );
     }
-    $row .= CGI::td( { class => "twikiDiff${bodycls}Text" }, $data );
-    $row = CGI::Tr($row);
+    $row .= CGI::td( { class => "foswikiDiff${bodycls}Text" }, $data );
+    $row = CGI::Tr( {}, $row );
     if ($bg) {
         return CGI::Tr(
+            {},
             CGI::td(
                 {
                     bgcolor => $bg,
-                    class   => "twikiDiff${hdrcls}Header",
+                    class   => "foswikiDiff${hdrcls}Header",
                     colspan => 9
                 },
-                CGI::b( $session->i18n->maketext($hdrcls) . ': ' )
+                CGI::b( {}, $session->i18n->maketext($hdrcls) . ': ' )
             )
         ) . $row;
     }
@@ -268,37 +280,36 @@ sub _sequentialRow {
 #| Return: =$result= | Formatted html text |
 #| TODO: | this should move to Render.pm |
 sub _renderSequential {
-    my ( $session, $web, $topic, $diffType, $left, $right ) = @_;
+    my ( $session, $topicObject, $diffType, $left, $right ) = @_;
     my $result = '';
-    ASSERT($topic) if DEBUG;
 
 #note: I have made the colspan 9 to make sure that it spans all columns (thought there are only 2 now)
     if ( $diffType eq '-' ) {
         $result .=
           _sequentialRow( '#FFD7D7', 'Deleted', 'Deleted',
-            _renderCellData( $session, $left, $web, $topic ),
+            _renderCellData( $session, $left, $topicObject ),
             '-', '&lt;', $session );
     }
     elsif ( $diffType eq '+' ) {
         $result .=
           _sequentialRow( '#D0FFD0', 'Added', 'Added',
-            _renderCellData( $session, $right, $web, $topic ),
+            _renderCellData( $session, $right, $topicObject ),
             '+', '&gt;', $session );
     }
     elsif ( $diffType eq 'u' ) {
         $result .=
           _sequentialRow( undef, 'Unchanged', 'Unchanged',
-            _renderCellData( $session, $right, $web, $topic ),
+            _renderCellData( $session, $right, $topicObject ),
             'u', '', $session );
     }
     elsif ( $diffType eq 'c' ) {
         $result .=
           _sequentialRow( '#D0FFD0', 'Changed', 'Deleted',
-            _renderCellData( $session, $left, $web, $topic ),
+            _renderCellData( $session, $left, $topicObject ),
             '-', '&lt;', $session );
         $result .=
           _sequentialRow( undef, 'Changed', 'Added',
-            _renderCellData( $session, $right, $web, $topic ),
+            _renderCellData( $session, $right, $topicObject ),
             '+', '&gt;', $session );
     }
     elsif ( $diffType eq 'l' && $left ne '' && $right ne '' ) {
@@ -309,7 +320,6 @@ sub _renderSequential {
             },
             CGI::th(
                 {
-                    align   => 'left',
                     colspan => 9
                 },
                 (
@@ -334,7 +344,7 @@ sub _renderSequential {
 #| Return: =$text= | output html for one renderes revision diff |
 #| TODO: | move into Render.pm |
 sub _renderRevisionDiff {
-    my ( $session, $web, $topic, $sdiffArray_ref, $renderStyle ) = @_;
+    my ( $session, $topicObject, $sdiffArray_ref, $renderStyle ) = @_;
 
     #combine sequential array elements that are the same diffType
     my @diffArray = ();
@@ -383,14 +393,15 @@ sub _renderRevisionDiff {
             $next_ref = undef;
         }
         if ( $renderStyle eq 'sequential' ) {
-            $result .= _renderSequential( $session, $web, $topic, @$diff_ref );
+            $result .= _renderSequential( $session, $topicObject, @$diff_ref );
         }
         elsif ( $renderStyle eq 'sidebyside' ) {
             $result .= CGI::Tr(
+                {},
                 CGI::td( { width => '50%' }, '' ),
                 CGI::td( { width => '50%' }, '' )
             );
-            $result .= _renderSideBySide( $session, $web, $topic, @$diff_ref );
+            $result .= _renderSideBySide( $session, $topicObject, @$diff_ref );
         }
         elsif ( $renderStyle eq 'debug' ) {
             $result .= _renderDebug(@$diff_ref);
@@ -401,14 +412,15 @@ sub _renderRevisionDiff {
     #don't forget the last one ;)
     if ($diff_ref) {
         if ( $renderStyle eq 'sequential' ) {
-            $result .= _renderSequential( $session, $web, $topic, @$diff_ref );
+            $result .= _renderSequential( $session, $topicObject, @$diff_ref );
         }
         elsif ( $renderStyle eq 'sidebyside' ) {
             $result .= CGI::Tr(
+                {},
                 CGI::td( { width => '50%' }, '' ),
                 CGI::td( { width => '50%' }, '' )
             );
-            $result .= _renderSideBySide( $session, $web, $topic, @$diff_ref );
+            $result .= _renderSideBySide( $session, $topicObject, @$diff_ref );
         }
         elsif ( $renderStyle eq 'debug' ) {
             $result .= _renderDebug(@$diff_ref);
@@ -417,6 +429,7 @@ sub _renderRevisionDiff {
     return CGI::table(
         {
             class       => 'foswikiDiffTable',
+            summary     => 'changes to ' . $topicObject->topic,
             width       => '100%',
             cellspacing => 0,
             cellpadding => 0
@@ -427,13 +440,13 @@ sub _renderRevisionDiff {
 
 =begin TML
 
----++ StaticMethod diff( $session, $web, $topic, $query )
+---++ StaticMethod diff( $session )
 
 =diff= command handler.
 This method is designed to be
 invoked via the =UI::run= method.
 
-Renders the differences between version of a TwikiTopic
+Renders the differences between version of a topic
 | topic | topic that we are showing the differences of |
 | rev1 | the higher revision |
 | rev2 | the lower revision |
@@ -451,224 +464,245 @@ TODO:
 sub diff {
     my $session = shift;
 
-    my $query   = $session->{request};
-    my $webName = $session->{webName};
-    my $topic   = $session->{topicName};
+    my $query = $session->{request};
+    my $web   = $session->{webName};
+    my $topic = $session->{topicName};
 
-    Foswiki::UI::checkWebExists( $session, $webName, $topic, 'diff' );
-    Foswiki::UI::checkTopicExists( $session, $webName, $topic, 'diff' );
+    Foswiki::UI::checkWebExists( $session, $web, 'diff' );
+    Foswiki::UI::checkTopicExists( $session, $web, $topic, 'diff' );
+
+    my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
 
     my $renderStyle =
          $query->param('render')
-      || $session->{prefs}->getPreferencesValue('DIFFRENDERSTYLE')
+      || $session->{prefs}->getPreference('DIFFRENDERSTYLE')
       || 'sequential';
     my $diffType = $query->param('type') || 'history';
     my $contextLines = $query->param('context');
     unless ( defined $contextLines ) {
-        $session->{prefs}->getPreferencesValue('DIFFCONTEXTLINES');
+        $session->{prefs}->getPreference('DIFFCONTEXTLINES');
         $contextLines = 3 unless defined $contextLines;
     }
-    my $rev1 = $query->param('rev1');
-    my $rev2 = $query->param('rev2');
+    my $revHigh = Foswiki::Store::cleanUpRevID( $query->param('rev1') );
+    my $revLow  = Foswiki::Store::cleanUpRevID( $query->param('rev2') );
 
-    my $skin = $session->getSkin();
-    my $tmpl = $session->templates->readTemplate( 'rdiff', $skin );
+    my $tmpl = $session->templates->readTemplate('rdiff');
     $tmpl =~ s/\%META{.*?}\%//go;    # remove %META{'parent'}%
 
-    my ( $before, $difftmpl, $after, $tail ) = split( /%REPEAT%/, $tmpl );
+    # The template is split by up to 4 %REPEAT% tags. The sections are:
+    # $before - text before any output
+    # $difftmpl - template for a single diff
+    # $after - text after the diffs
+    # tail - appears to generate revision info for each of the
+    # displayed revisions, but not sure - looks like a legacy thing, it's
+    # not used in any of the existing templates.
+    my ( $before, $difftmpl, $after, $tail ) = split( /%REPEAT%/, $tmpl, 4 );
 
     $before ||= '';
     $after  ||= '';
     $tail   ||= '';
 
-    my $maxrev = $session->{store}->getRevisionNumber( $webName, $topic );
-    $maxrev =~ s/r?1\.//go;          # cut 'r' and major
+    my $revIt   = $topicObject->getRevisionHistory();
+    my @history = $revIt->all();                        # most recent rev first
 
+    my ( $olderi, $neweri );                            # indexes into history
     if ( $diffType eq 'last' ) {
-        $rev1 = $maxrev;
-        $rev2 = $maxrev - 1;
+        $neweri = 0;
+        $olderi = ( scalar @history > 1) ? $neweri + 1 : 0;
+    }
+    else {
+        for ( my $i = 0 ; $i <= $#history ; $i++ ) {
+            $neweri = $i if ( $history[$i] == $revHigh );
+            $olderi = $i if ( $history[$i] == $revLow );
+            last if ( defined $olderi && defined $neweri );
+        }
+        $neweri = 0         unless defined $neweri;
+        $olderi = $#history unless defined $olderi;
     }
 
-    $rev1 = $session->{store}->cleanUpRevID($rev1);
-    $rev1 = $maxrev if ( $rev1 < 1 );
-    $rev1 = $maxrev if ( $rev1 > $maxrev );
+    my $revTitleHigh = $history[$neweri];
+    my $revTitleLow = ( $olderi != $neweri ) ? $history[$olderi] : '';
 
-    $rev2 = $session->{store}->cleanUpRevID($rev2);
-    $rev2 = 1 if ( $rev2 < 1 );
-    $rev2 = $maxrev if ( $rev2 > $maxrev );
+    # Limit the total number of diffs to avoid DoS
+    my $step =
+      int( ( $olderi - $neweri ) / $Foswiki::cfg{MaxRevisionsInADiff} + 0.5 );
+    $step = 1 if $step < 1;
 
-    my $revTitle1 = $rev1;
-    my $revTitle2 = ( $rev1 != $rev2 ) ? $rev2 : '';
-
-    $before =~ s/%REVTITLE1%/$revTitle1/go;
-    $before =~ s/%REVTITLE2%/$revTitle2/go;
-    $before = $session->handleCommonTags( $before, $webName, $topic );
-    $before =
-      $session->renderer->getRenderedVersion( $before, $webName, $topic );
+    $before =~ s/%REVTITLE1%/$revTitleHigh/go;
+    $before =~ s/%REVTITLE2%/$revTitleLow/go;
+    $before = $topicObject->expandMacros($before);
+    $before = $topicObject->renderTML($before);
 
     my $page = $before;
 
     # do one or more diffs
-    $difftmpl = $session->handleCommonTags( $difftmpl, $webName, $topic );
-    my $r1             = $rev1;
-    my $r2             = $rev2;
+    $difftmpl = $topicObject->expandMacros($difftmpl);
+    my $rNewer         = $neweri;
+    my $rOlder         = $olderi;
     my $isMultipleDiff = 0;
 
-    if ( ( $diffType eq 'history' ) && ( $r1 > $r2 + 1 ) ) {
-        $r2             = $r1 - 1;
+    if ( $diffType eq 'history' && $olderi > $neweri + 1 ) {
+        $rOlder         = $neweri + $step;
         $isMultipleDiff = 1;
     }
 
+    my %toms;
+
     do {
+        last if ( $rOlder > $#history );
+
+        my $rHigh = $history[$rNewer];
+        my $rLow  = $history[$rOlder];
+
+        # Load the revs being diffed
+        $toms{$rHigh} =
+          Foswiki::Meta->load( $session, $topicObject->web, $topicObject->topic,
+            $rHigh )
+          unless $toms{$rHigh};
+        ASSERT(
+            $toms{$rHigh}->getLoadedRev() == $rHigh,
+            $toms{$rHigh}->getLoadedRev() . " == $rHigh"
+        ) if DEBUG;
+        $toms{$rLow} =
+          Foswiki::Meta->load( $session, $topicObject->web, $topicObject->topic,
+            $rLow )
+          unless $toms{$rLow};
+        ASSERT(
+            $toms{$rLow}->getLoadedRev() == $rLow,
+            $toms{$rLow}->getLoadedRev() . " == $rLow"
+        ) if DEBUG;
+
         my $diff = $difftmpl;
-        $diff =~ s/%REVTITLE1%/$r1/go;
-        $diff =~ s/%REVTITLE2%/$r2/go;
+        $diff =~ s/%REVTITLE1%/$rHigh/go;
+        $diff =~ s/%REVTITLE2%/$rLow/go;
 
         my $rInfo  = '';
         my $rInfo2 = '';
         my $text;
-        if ( $r1 > $r2 + 1 ) {
+        if ( $rHigh > $rLow + 1 ) {
             $rInfo = $session->i18n->maketext( "Changes from r[_1] to r[_2]",
-                $r2, $r1 );
+                $rLow, $rHigh );
         }
         else {
             $rInfo =
-              $session->renderer->renderRevisionInfo( $webName, $topic, undef,
-                $r1, '$date - $wikiusername' );
+              $session->renderer->renderRevisionInfo( $topicObject, $rHigh,
+                '$date - $wikiusername' );
             $rInfo2 =
-              $session->renderer->renderRevisionInfo( $webName, $topic, undef,
-                $r1, '$rev ($date - $time) - $wikiusername' );
+              $session->renderer->renderRevisionInfo( $topicObject, $rHigh,
+                '$rev ($date - $time) - $wikiusername' );
         }
 
         # eliminate white space to prevent wrap around in HR table:
         $rInfo  =~ s/\s+/&nbsp;/g;
         $rInfo2 =~ s/\s+/&nbsp;/g;
-        my $diffArrayRef =
-          $session->{store}
-          ->getRevisionDiff( $session->{user}, $webName, $topic, $r2, $r1,
-            $contextLines );
-        $text = _renderRevisionDiff( $session, $webName, $topic, $diffArrayRef,
-            $renderStyle );
+
+        # Check access rights
+        my $rd;
+        if ( !$toms{$rHigh}->haveAccess() ) {
+            $rd = [ [ '-', " *Revision $rHigh is unreadable* ", '' ] ];
+            if ( !$toms{$rLow}->haveAccess() ) {
+                push( @$rd, [ '+', '', " *Revision $rLow is unreadable* " ] );
+            }
+            else {
+                foreach ( split( "\n", $rLow ) ) {
+                    push( @$rd, [ '+', '', $_ ] );
+                }
+            }
+        }
+        elsif ( !$toms{$rLow}->haveAccess() ) {
+            $rd = [ [ '+', '', " *Revision $rLow is unreadable* " ] ];
+            foreach ( split( "\n", $rHigh ) ) {
+                push( @$rd, [ '-', $_, '' ] );
+            }
+        }
+        else {
+            $rd = $toms{$rLow}->getDifferences( $rHigh, $contextLines );
+        }
+
+        $text =
+          _renderRevisionDiff( $session, $topicObject, $rd, $renderStyle );
+
         $diff =~ s/%REVINFO1%/$rInfo/go;
         $diff =~ s/%REVINFO2%/$rInfo2/go;
         $diff =~ s/%TEXT%/$text/go;
         $page .= $diff;
-        $r1 = $r1 - 1;
-        $r2 = $r2 - 1;
-        $r2 = 1 if ( $r2 < 1 );
-    } while ( $diffType eq 'history' && ( $r1 > $rev2 || $r1 == 1 ) );
+        $rNewer += $step;
+        $rOlder += $step;
+        $rOlder = $#history if $rOlder > $#history;
+    } while ( $diffType eq 'history' && $rNewer < $olderi );
 
-    if ( $Foswiki::cfg{Log}{rdiff} ) {
-        $session->logEvent('rdiff', $webName . '.' . $topic, "$rev1 $rev2" );
-    }
+    $session->logEvent( 'rdiff', $web . '.' . $topic, "$revHigh $revLow" );
 
-    my $i         = $maxrev;
-    my $j         = $maxrev;
-    my $revisions = '';
-    my $breakRev  = 0;
-    if (   $Foswiki::cfg{NumberOfRevisions} > 0
-        && $Foswiki::cfg{NumberOfRevisions} < $maxrev )
-    {
-        $breakRev = $maxrev - $Foswiki::cfg{NumberOfRevisions} + 1;
-    }
+    # Generate the revisions navigator
+    require Foswiki::UI::View;
+    my $revisions =
+      Foswiki::UI::View::revisionsAround( $session, $topicObject,
+        $history[$neweri], $history[$neweri], $history[0] );
 
-#SMELL: this should be the same variable as in view script, and so on - thus be configurable
-    my $revSeperator = '&lt;';
-
-    while ( $i > 0 ) {
-        $revisions .= ' '
-          . CGI::a(
-            {
-                href => $session->getScriptUrl(
-                    0, 'view', $webName, $topic, rev => $i
-                ),
-                rel => 'nofollow'
-            },
-            'r' . $i
-          );
-        if ( $i != 1 ) {
-            if ( $i == $breakRev ) {
-                $i = 1;
-            }
-            else {
-                if ( ( $i == $rev1 ) && ( !$isMultipleDiff ) ) {
-                    $revisions .= ' ' . $revSeperator;
-                }
-                else {
-                    $j = $i - 1;
-                    $revisions .= ' '
-                      . CGI::a(
-                        {
-                            href => $session->getScriptUrl(
-                                0, 'rdiff', $webName, $topic,
-                                rev1 => $i,
-                                rev2 => $j
-                            ),
-                            rel => 'nofollow'
-                        },
-                        $revSeperator
-                      );
-                }
-            }
-        }
-        $i--;
-    }
-
-    $i = $rev1;
     my $tailResult = '';
-    my $revTitle   = '';
-    while ( $i >= $rev2 ) {
-        $revTitle = CGI::a(
-            {
-                href => $session->getScriptUrl(
-                    0, 'view', $webName, $topic, rev => $i
-                ),
-                rel => 'nofollow'
-            },
-            $i
-        );
-        my $revInfo =
-          $session->renderer->renderRevisionInfo( $webName, $topic, undef, $i );
-        $tailResult .= $tail;
-        $tailResult =~ s/%REVTITLE%/$revTitle/go;
-        $tailResult =~ s/%REVINFO%/$revInfo/go;
-        $i--;
-    }
-    $after =~ s/%TAIL%/$tailResult/go;
-    $after =~ s/%REVISIONS%/$revisions/go;
-    $after =~ s/%CURRREV%/$rev1/go;
-    $after =~ s/%MAXREV%/$maxrev/go;
 
-    $after = $session->handleCommonTags( $after, $webName, $topic );
-    $after = $session->renderer->getRenderedVersion( $after, $webName, $topic );
+    if ( defined $tail ) {
+
+        # SMELL: made this conditional as it doesn't seem to be used
+        # Generate information about each of the revs shown
+        my $i        = $neweri;
+        my $revTitle = '';
+        while ( $i <= $olderi ) {
+            last if ( $i > $#history );
+            my $n = $history[$i];
+            $revTitle = CGI::a(
+                {
+                    href => $session->getScriptUrl(
+                        0, 'view', $web, $topic, rev => $n
+                    ),
+                    rel => 'nofollow'
+                },
+                $i
+            );
+            my $revInfo =
+              $session->renderer->renderRevisionInfo( $topicObject, undef, $n );
+            $tailResult .= $tail;
+            $tailResult =~ s/%REVTITLE%/$revTitle/go;
+            $tailResult =~ s/%REVINFO%/$revInfo/go;
+            $i += $step;
+        }
+    }
+    $after =~ s/%TAIL%/$tailResult/go;    # SMELL: unused in templates
+
+    $after =~ s/%REVISIONS%/$revisions/go;
+    $after =~ s/%CURRREV%/$revHigh/go;
+    $after =~ s/%MAXREV%/$history[0]/go;
+
+    $after = $topicObject->expandMacros($after);
+    $after = $topicObject->renderTML($after);
     $page .= $after;
 
     $session->writeCompletePage($page);
+
+    return;
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

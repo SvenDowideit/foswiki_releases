@@ -1,12 +1,12 @@
 %META:TOPICPARENT{name="Plugins"}%
 ---+!! Wysiwyg Plugin
 <!--
-   * Set SHORTDESCRIPTION = Translator framework for Wysiwyg editors
+   * Set SHORTDESCRIPTION = Translator framework for WYSIWYG editors
 -->
 <!-- Do _not_ attempt to edit this topic; it is auto-generated. Please add comments/questions/remarks to the Dev topic instead. -->
 %SHORTDESCRIPTION%
 
-Support for the integration of WYSIWYG (What-You-See-Is-What-You-Get) editors. On its own, the only thing this plugin gives you is a stand-alone HTML to TML (topic markup language) translator script. For WYSIWYG editing in Foswiki and Foswiki, you will also need to install a specific editor package such as Foswiki:Extensions.TinyMCEPlugin.
+Support for the integration of WYSIWYG (What-You-See-Is-What-You-Get) editors. On its own, the only thing this plugin gives you is a stand-alone HTML to TML (topic markup language) translator script. For WYSIWYG editing you will also need to install a specific editor package such as Foswiki:Extensions.TinyMCEPlugin.
 
 This plugin provides a generic framework that supports editing of topics using any browser-based HTML editor. It works by transforming TML into HTML for the editor, and then transforming HTML back into TML on save.
 
@@ -145,22 +145,42 @@ Plugins that extend the syntax using macros, such as =%MYMACRO%=, should work fi
 *Implementors note* plugins that use XML-like tags may call [[%SCRIPTURLPATH{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Plugins::WysiwygPlugin][Foswiki::Plugins::WysiwygPlugin::addXMLTag()]] from their =initPlugin= handlers to make WysiwygPlugin protect the content between XML-like tags, just like it does for macros. 
 
 ---+++ Overlapping styles
-Because Foswiki uses a "best guess" approach to some formatting, it allows overlapping of tags in a way forbidden by HTML, and it is impossible to guarantee 100% that formating in the original Foswiki document will still be there when the same document is loaded and then saved through the WysiwygPlugin. The most obvious case of this is to do with styles. For example, the sentence
-<verbatim>
+Because Foswiki uses a "best guess" approach to some formatting, it allows overlapping of tags in a way forbidden by HTML, and it is impossible to guarantee 100% that formatting in the original Foswiki document will still be there when the same document is loaded and then saved through the WysiwygPlugin. The most obvious case of this is to do with styles. For example, the sentence
+<verbatim class="tml">
 *bold _bold-italic* italic_
 </verbatim>
 is legal in TML, but in HTML is represented by
-<verbatim>
+<verbatim class="tml">
 <strong>bold <em>bold-italic</em></strong> <em>italic</em>
 </verbatim>
 which gets translated back to TML as
-<verbatim>
+<verbatim class="tml">
 *bold _bold-italic_* _italic_
 </verbatim>
 which is correct by construction, but does not render correctly in Foswiki. This problem is unfortunately unavoidable due to the way TML works.
 
----+++ Flattening of =&lt;div&gt;= tags
-The "Normal" format command in the current release of TinyMCEPlugin depends on WysiwygPlugin flattening =&lt;div&gt;= tags. If you have a customised =WYSIWYGPLUGIN_STICKYBITS= set, check that plain =&lt;div&gt;= tags will be flattened if you expect this feature to work. It is expected that this requirement will be removed in a future release of TinyMCEPlugin.
+---+++ Rowspan processing needs %SYSTEMWEB%.TablePlugin
+
+WysiwygPlugin is able to convert tables with cells that span rows into TML. This requires syntax provided by the %SYSTEMWEB%.TablePlugin (that is, the =| ^ |= markup). WysiwygPlugin will therefore only perform row-span related conversion if %SYSTEMWEB%.TablePlugin is enabled. %SYSTEMWEB%.TablePlugin is enabled by default and hence WysiwygPlugin converts tables with cells that span rows between TML and HTML by default.
+
+If %SYSTEMWEB%.TablePlugin is *not* enabled, then TML table cells containing only =^= are not converted to rowspans, and HTML tables containing rowspans are not converted to TML.
+
+---+++ TinyMCEPlugin integration
+%STARTSECTION{"tinymceintegration"}%
+   * Foswikitask:Item2174 - WysiwygPlugin removes line breaks
+      * Work-around: Use the =* Set NOWYSIWYG = 1= setting to disable WYSIWYG on line-sensitive topics
+   * Foswikitask:Item1391 - =&lt;div&gt;= (and other) tags disappear
+      * Description: WysiwygPlugin is aggressive in cleaning up the output of TinyMCEPlugin, and sometimes removes advanced XHTML markup
+      * Work-around: Consult WysiwygPlugin's documentation for =WYSIWYGPLUGIN_STICKYBITS= if more tags/attributes should be preserved, alternatively use =* Set NOWYSIWYG = 1= to disable WYSIWYG on sensitive topics
+   * Foswikitask:Item1396 - Anchors are not handled by WysiwygPlugin
+   * Foswikitask:Item5955 - WysiwygPlugin fails to roundtrip tables with align="center", border attributes, etc.
+      * Description: Sometimes tables will fail to be converted to TML syntax (will stay as HTML) because there are attributes on the table (such as alignment or border decorations) that WysiwygPlugin does not know how to preserve. If such attributes are necessary, please use [[VarTABLE]] instead.
+      * Work-around:
+         * Click inside the offending table
+         * Click the table toolbar button (usually used to create a new table)
+         * With the exception of =Cols= and =Rows=, delete/reset all content from the fields on the 'General' and 'Advanced' tabs.
+         * Write a [[VarTABLE]] macro above the offending table that adds the desired attributes safely
+%ENDSECTION{"tinymceintegration"}%
 
 ---++ Plugin Info
 
@@ -174,11 +194,22 @@ Many thanks to the following sponsors for supporting this work:
 |  Author: | [[http://c-dot.co.uk][Crawford Currie]] |
 |  Copyright | &copy; ILOG 2005 http://www.ilog.fr |
 |  License | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
-|  Version: | 6068 (2010-01-17) |
-|  Release: | 17 Jan 2010 |
+|  Version: | 8123 (2010-07-11) |
+|  Release: | 28 Jun 2010 |
 |  Change History: | |
+|  28 Jun 2010 | Foswikitask:Item761, Foswikitask:Item2311, Foswikitask:Item5990, Foswikitask:Item9170: Fix conversion between character encodings. Any characters may be entered in the WYSIWYG editor, regardless of the site's encoding. Where possible, they are converted to the site encoding, otherwise they become entities. <br />\
+                 Foswikitask:Item2254: Fix cursor-movement problems on Mozilla browsers (introduced by Foswikitask:Item1798)<br/>\
+                 Foswikitask:Item2605: Can now place cursor into empty list-item<br/>\
+                 Foswikitask:Item1417: Can now move cursor above a table at start of a topic and below a table at the end of the topic <br />\
+                 Foswikitask:Item9148: Protect &lt;br /&gt; tags at the end of a protected line (e.g. in a macro parameter)<br/>\
+                 Foswikitask:Item6068: Protect newlines within a &lt;pre&gt; block<br/>\
+                 Foswikitask:Item2259: Keep the content of &lt;big&gt; and &lt;var&gt; tags <br />\
+                 Foswikitask:Item8289: Fix stand-alone (command-line) HTML-to-TML conversion |
+|  21 May 2010 | Foswikitask:Item5221: Use Wysiwyg transition to remove usually unwanted paragraph html tags in table cells, which are otherwise impossible to remove in !TinyMCE up to at least 3.3.6<br/>\
+                 Foswikitask:Item8274: Fix problem where Wysiwyg transition merges two consecutive lists (a result of work on Foswikitask:Item2254) |
 |  17 Jan 2010 | Foswikitask:Item2337: ATTACHFILESIZELIMIT check fails confusingly if value is "0 " |
-|  08 Dec 2009 | Foswikitask:Item2447: Add TinyMCEPlugin's &lt;div&gt; flattening requirement to Known Issues <br/> Foswikitask:Item2352: Use Foswiki's regex instead of a hard-coded regex, so that WysiwygPlugin will always "see" macros in the same way as Foswiki's renderer<br/> Foswikitask:Item2286: Cleaning up missing calls to Foswiki::finish() |
+|  18 Dec 2009 | Foswikitask:Item2511: move code out of the plugin module to accelerate loading |
+|  18 Nov 2009 | Foswikitask:Item2369: Convert tables with cells that span rows |
 |  22 Oct 2009 | Foswikitask:Item2183: Protect div style= by default |
 |  18 Sep 2009 | Foswikitask:Item1980: Prevent dataloss when saving a topic in Wysiwyg where there are a pair of sticky tags inside verbatim tags |
 |  28 Jun 2009 | Foswikitask:Item1770: Protect XML tags registered by plugins, and not just the content between them (Michael Tempest) |
@@ -194,17 +225,17 @@ Many thanks to the following sponsors for supporting this work:
 |  28 Mar 2008 | TWikibug:Item5294: fixed angle brackets in plain text and promoted sticky to be higher priority than any other tag, solving several problems in one go |
 |  24 Jan 2008 | TWikibug:Item5257: remove extra spaces at end of Set lines |
 |  20 Dec 2007 | TWikibug:Item5022: made TT font size same as verbatim. Had to add a new style to do it, as TMCE didn't want to play with TT or CODE tags. TWikibug:Item5138: post-conversion of 8-bit entities to characters to aid searching etc. |
-| 19 Dec 2007 | TWikibug:Item4836: make the parser tolerant of META, so pasting OO docs works TWikibug:Item4969: autoclose BR and HR tags TWikibug:Item5132: fixed IMG tags TWikibug:Item5076: fixed line-sensitive TML embedded in tables |
-|  8 Nov 2007 | TWikibug:Item4923: fixed blocking of table conversion due to empty attributes TWikibug:Item4936: An em embedded in an em was getting eaten TWikibug:Item4817: added typewriter text button TWikibug:Item4850: added font colour controls TWikibug:Item4645: added REST handlers for upload and fetching lists of attachments |
-|  2 Nov 2007 | TWikibug:Item4903: corrected over-enthusiastive interpretation of ! as an escape |
+|  19 Dec 2007 | TWikibug:Item4836: make the parser tolerant of META, so pasting OO docs works TWikibug:Item4969: autoclose BR and HR tags TWikibug:Item5132: fixed IMG tags TWikibug:Item5076: fixed line-sensitive TML embedded in tables |
+|  08 Nov 2007 | TWikibug:Item4923: fixed blocking of table conversion due to empty attributes TWikibug:Item4936: An em embedded in an em was getting eaten TWikibug:Item4817: added typewriter text button TWikibug:Item4850: added font colour controls TWikibug:Item4645: added REST handlers for upload and fetching lists of attachments |
+|  02 Nov 2007 | TWikibug:Item4903: corrected over-enthusiastive interpretation of ! as an escape |
 |  21 Oct 2007 | TWikibug:Item4788: fixed unbalanced protect, which could cause loss of protected status TWikibug:Item4811: noautolink *looks* like an HTML construct but in fact is not; the tag is infact an "on-off" switch and does not imply any HTML structure, so cannot be converted to a DIV or a span, so has to be removed. TWikibug:Item4747: added &lt;sticky&gt; to try to overcome limitations in translation TWikibug:Item4831: added increased flexibility in deciding what HTML get converted to TML, and what does not. Analysed all the HTML4 tags to establish initial settings. TWikibug:Item4847: don't call non-existent function with older HTML::Parser releases TWikibug:Item4844: Saving a table from IE didn't convert it back to TML TWikibug:Item4855: table rows generated from TWiki variables were being eaten |
-|  6 Oct 2007 | TWikibug:Item4700: fixed colspans TWikibug:Item4701: removed extra line between %TABLE and the table TWikibug:Item4705: fixed spacing around literal and verbatim blocks TWikibug:Item4706: merge adjacent verbatim blocks separated only by whitespace TWikibug:Item4712: fixed eating of noautolink and literal TWikibug:Item4763: list items spanning multiple lines fixed TWikibug:Item4867: released tml2html |
+|  06 Oct 2007 | TWikibug:Item4700: fixed colspans TWikibug:Item4701: removed extra line between %TABLE and the table TWikibug:Item4705: fixed spacing around literal and verbatim blocks TWikibug:Item4706: merge adjacent verbatim blocks separated only by whitespace TWikibug:Item4712: fixed eating of noautolink and literal TWikibug:Item4763: list items spanning multiple lines fixed TWikibug:Item4867: released tml2html |
 |  17 Sep 2007 | TWikibug:Item4647: TWikibug:Item4652: problems related to DIV fixed. TWikibug:Item4653: fixed multi-line twiki variables |
 |  16 Sep 2007 | TWikibug:Item4630: polished up the way the secret string is done, to ensure synch between perl and JS. Item4622: added UTF-8 handling steps that fixup malformed UTF8 strings before presenting them to the editor (saves Moz) and stops the editor passing them back to TWiki (saves IE). Removed extra entity decoding steps that were causing problems. TWikibug:Item4629: fixed issues with verbatim, highlighted by previous mangling of this topic |
 |  13 Sep 2007 | TWikibug:Item4613 cleaned up spurious message when navigating away TWikibug:Item4615 fixed incorrect rendering of emphasis next to br |
 |  12 Sep 2007 | TWikibug:Item4604 Fixes to REST handler, and add ability to trigger HTML2TML conversion from a content comment alone (required for some editors) TWikibug:Item4588 fixes to conversion of double-character emphases |
-|  7 Sep 2007 | TWikibug:Item4503 excess empty lines TWikibug:Item4486 no toc headers with unofficial syntax TWikibug:Item4560: empty lines lost TWikibug:Item4566: corrupted table on save TWikibug:Item4550 section tags being eaten |
-|  4 Sep 2007 | TWikibug:Item4534 TWikibug:Item4535 fixed |
+|  07 Sep 2007 | TWikibug:Item4503 excess empty lines TWikibug:Item4486 no toc headers with unofficial syntax TWikibug:Item4560: empty lines lost TWikibug:Item4566: corrupted table on save TWikibug:Item4550 section tags being eaten |
+|  04 Sep 2007 | TWikibug:Item4534 TWikibug:Item4535 fixed |
 | See Subversion logs for earlier revisions ||
 |  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">HTML::Parser</td><td align="left">&gt;=3.28</td><td align="left">Required. Available from [[http://cpan.uwinnipeg.ca/search?query=HTML%3A%3AParser&mode=dist][CPAN]].</td></tr><tr><td align="left">HTML::Entities</td><td align="left">&gt;=1.25</td><td align="left">Required. Available from [[http://cpan.uwinnipeg.ca/search?query=HTML%3A%3AEntities&mode=dist][CPAN]].</td></tr><tr><td align="left">Encode</td><td align="left">&gt;=2.01</td><td align="left">Required.</td></tr></table> |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |

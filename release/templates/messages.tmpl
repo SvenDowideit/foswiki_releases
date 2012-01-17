@@ -52,7 +52,7 @@
 %TMPL:END%
 %TMPL:DEF{"move_err"}%
 ---+++ %MAKETEXT{"Attachment move failed"}%
-%MAKETEXT{"During move of attachment [_1] to [_2] an error was found. Please notify your [_3] administrator." args="%PARAM3%, <nop>%PARAM1%.<nop>%PARAM2%, <nop>%WIKITOOLNAME%"}%
+%MAKETEXT{"During move of attachment =[_1]= to [_2] an error was found." args="%PARAM3%, <nop>%PARAM1%.<nop>%PARAM2%, <nop>%WIKITOOLNAME%"}%
 
 %PARAM4%
 
@@ -85,7 +85,7 @@
 
 %TMPL:DEF{"not_wikiword"}%
 ---+++ %MAKETEXT{"New topic name [_1] is not a [_2]" args="\"<nop>%PARAM1%\", <nop>WikiWord"}%
-%MAKETEXT{"Please go back in your browser and choose a topic name that is a [_1].WikiWord or check the allow non-Wiki Word box" args="%SYSTEMWEB%"}%
+%MAKETEXT{"Please go back in your browser and choose a topic name that is a [[%SYSTEMWEB%.WikiWord][WikiWord]] or check the allow non-Wiki Word box"}%
 %TMPL:END%
 
 %TMPL:DEF{"empty_topic_name"}%
@@ -117,6 +117,14 @@
 %IF{"NOT {EnableHierarchicalWebs}" then="%MAKETEXT{"Hierarchical Webs is currently disabled, you cannot create Nested webs."}%"}%
 
 %MAKETEXT{"Please go back in your browser and try again."}%
+%TMPL:END%
+%TMPL:DEF{"invalid_topic_parameter"}%
+---+++ %MAKETEXT{"[_1] is not a valid value for the [_2] parameter" args="'%PARAM1%','%PARAM2%'"}%
+%MAKETEXT{"Either the name is invalid, or it refers to a non-existant topic."}%
+%TMPL:END%
+%TMPL:DEF{"invalid_form_name"}%
+---+++ %MAKETEXT{"[_1] is not a valid form name" args="'%PARAM1%'"}%
+%MAKETEXT{"Either the name is invalid, or it refers to a non-existant form."}%
 %TMPL:END%
 %TMPL:DEF{"web_exists"}%
 ---+++ %MAKETEXT{"Cannot create web [_1] because it already exists" args="\"%PARAM1%\""}%
@@ -205,7 +213,7 @@
 
 <form action="%SCRIPTURLPATH{"register"}%" method="post">
 <input type="hidden" name="action" value="verify" size="20" />
-<input type="text" name="code" class="foswikiInputField" size="20" />
+<input type="text" name="code" size="20" class="foswikiInputField" />
 <input type="submit" class="foswikiSubmit" value=' %MAKETEXT{"Submit"}% ' />
 </form>
 
@@ -326,8 +334,14 @@
 
 %MAKETEXT{"The required field [_1] was not filled in." args="*<noautolink>%PARAM1%</noautolink>*"}%
 
-%MAKETEXT{"Go back in your browser and insert information for all mandatory fields."}%
+%MAKETEXT{"Go back in your browser and insert values for all mandatory fields before saving again"}%%IF{"{Validation}{Method}!='none'" then="%MAKETEXT{"
+(just select 'OK' when you are asked to confirm your save)
+"}%"}%
+
 %TMPL:END%
+
+%TMPL:DEF{"formdef_missing"}%%MAKETEXT{"Form definition '[_1]' not found" args="%PARAM1%"}%%TMPL:END%
+
 %TMPL:DEF{"no_form_def"}%
 ---+++ %MAKETEXT{"Form Definition [_1] missing" args="%PARAM1%.<nop>%PARAM2%"}%
 %MAKETEXT{"See [_1] for information about Form Definitions." args="%SYSTEMWEB%.DataForms"}%
@@ -352,7 +366,7 @@
 %MAKETEXT{"This can be automatically upgraded by:"}%
 
    * %MAKETEXT{"Creating a suitable Form Definition topic"}%
-   * %MAKETEXT{"Adding a [_1] variable in WebPreferences" args="=WEBFORMS="}%
+   * %MAKETEXT{"Adding a [_1] preference in WebPreferences" args="=WEBFORMS="}%
 
 %MAKETEXT{"You will probably have to ask your administrator, [_1], to do this." args="%WIKIWEBMASTER%"}%
 %TMPL:END%
@@ -412,11 +426,14 @@
 %TMPL:DEF{no_such_template}%
 %MAKETEXT{"Could not find template"}% =%PARAM1%=
 
-%MAKETEXT{"Check your configuration settings for {TemplateDir} and {TemplatePath}. If that's not the problem, it may be because you have a setting of [_1] that is pointing to a template that doesn't exist." args="=%PARAM2%="}%
+%MAKETEXT{"Check your configuration settings for {TemplateDir} and {TemplatePath}."}%
+<div%IF{"'%PARAM2%'" then=" style='display:none'"}%>
+%MAKETEXT{"If that's not the problem, it may be because you have a setting of [_1] that is pointing to a template that doesn't exist." args="=%PARAM2%="}%
 
 %MAKETEXT{"[_1] is currently set to [_2]" args="=%PARAM2%=,<code><nop>%PARAM1%</code>"}%
 
 (%MAKETEXT{"don't forget to check your Topic Settings"}%)
+</div>
 %TMPL:END%
 
 %TMPL:DEF{post_method_only}%
@@ -431,6 +448,77 @@
 %MAKETEXT{"If you are developing a Foswiki application, see [_1] for a description of the correct parameters." args="%SYSTEMWEB%.CommandAndCGIScripts#%PARAM1%"}%
 
 %TMPL:END%
+
+%{-----------------------------------}%
+%TMPL:DEF{"no_users_to_add_to_group"}%
+---+++ %MAKETEXT{"No username specified"}%
+
+%MAKETEXT{"You need to specify a valid user to add to a group."}%
+%TMPL:END%
+
+%TMPL:DEF{"no_group_specified_for_add_to_group"}%
+---+++ %MAKETEXT{"No group name specified"}%
+%MAKETEXT{"You need to specify a valid group name to add users to a group."}%
+
+%TMPL:END%
+
+%TMPL:DEF{"problem_adding_to_group"}%
+---+++ %MAKETEXT{"Errors adding users to group"}%
+
+%MAKETEXT{"There were errors adding [_1] to the [_2] group. " args="%PARAM1%, %PARAM2%"}%
+
+%MAKETEXT{"Please check to ensure you have permission to modify the group."}%
+
+%MAKETEXT{"See %MAINWEB%.WikiGroups to see the result."}%%TMPL:END%
+
+
+%TMPL:END%
+
+%TMPL:DEF{"added_users_to_group"}%
+---+++ %MAKETEXT{"Success adding users to group"}%
+
+%MAKETEXT{"[_1] added to the [_2] group. " args="%PARAM1%, %PARAM2%"}%
+
+%MAKETEXT{"See %MAINWEB%.WikiGroups to see the result."}%%TMPL:END%
+
+%TMPL:DEF{"group_upgraded"}%
+---+++ %MAKETEXT{"Upgraded group"}%
+
+%MAKETEXT{"[_1] group topic upgraded. " args="%PARAM1%"}%
+
+%MAKETEXT{"See %MAINWEB%.WikiGroups to see the result."}%%TMPL:END%
+%{-----------------------------------}%
+%TMPL:DEF{"no_users_to_remove_from_group"}%
+---+++ %MAKETEXT{"No username specified"}%
+
+%MAKETEXT{"You need to specify a valid user to remove from a group."}%
+%TMPL:END%
+
+%TMPL:DEF{"no_group_specified_for_remove_from_group"}%
+---+++ %MAKETEXT{"No group name specified"}%
+%MAKETEXT{"You need to specify a valid group name to remove users from a group."}%
+
+%TMPL:END%
+
+%TMPL:DEF{"problem_removing_from_group"}%
+---+++ %MAKETEXT{"Errors removing users from groups"}%
+
+%MAKETEXT{"There were errors removing [_1] from the [_2] group. " args="%PARAM1%, %PARAM2%"}%
+
+%MAKETEXT{"Please check to ensure you have permission to modify the group."}%
+
+%MAKETEXT{"See %MAINWEB%.WikiGroups to see the result."}%%TMPL:END%
+
+
+%TMPL:END%
+
+%TMPL:DEF{"removed_users_from_group"}%
+---+++ %MAKETEXT{"Success removing users from group"}%
+
+%MAKETEXT{"[_1] removed from the [_2] group. " args="%PARAM1%, %PARAM2%"}%
+
+%MAKETEXT{"See %MAINWEB%.WikiGroups to see the result."}%%TMPL:END%
+
 %{
     Messages for oopsleaseconflict
 }%
@@ -541,3 +629,9 @@
 %MAKETEXT{"Contact [_1] if you have any questions." args="%WIKIWEBMASTER%"}%
 
 %TMPL:END%
+%TMPL:DEF{"ENCODE_bad_1"}%%MAKETEXT{"ENCODE failed - =type= cannot be used alongside =old= and =new= "}%%TMPL:END%
+%TMPL:DEF{"ENCODE_bad_2"}%%MAKETEXT{"ENCODE failed - both of =old= and =new= must be given"}%%TMPL:END%
+%TMPL:DEF{"ENCODE_bad_3"}%%MAKETEXT{"ENCODE failed - token '%PARAM1%' is repeated in =old= "}%%TMPL:END%
+%TMPL:DEF{"EXPAND_nomacro"}%%MAKETEXT{"EXPAND failed - no macro"}%%TMPL:END%
+%TMPL:DEF{"EXPAND_noscope"}%%MAKETEXT{"EXPAND failed - no such topic '%PARAM1%'"}% %TMPL:END%
+%TMPL:DEF{"EXPAND_noaccess"}%%MAKETEXT{"EXPAND failed - access to '%PARAM1%' denied"}%%TMPL:END%

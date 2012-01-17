@@ -1,3 +1,4 @@
+# See bottom of file for license and copyright information
 
 =pod
 
@@ -33,8 +34,10 @@ package Foswiki::Plugins::EditTablePlugin::Core;
 use strict;
 use warnings;
 use Assert;
-use Foswiki::Func;
+use Error qw(:try);
 use CGI qw( :all );
+
+use Foswiki::Func;
 use Foswiki::Plugins::EditTablePlugin::Data;
 use Foswiki::Plugins::EditTablePlugin::EditTableData;
 
@@ -389,7 +392,7 @@ s/$PATTERN_TABLE_ROW/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr++, $doE
             && $isEditingTable )
         {
             _debug("editTableTag before changing TABLE tag=$editTableTag");
-            my $TABLE_EDIT_TAGS = 'disableallsort="on" databg="#ffffff"';
+            my $TABLE_EDIT_TAGS = 'disableallsort="on" databg="#fff"';
             if ( $editTableTag !~ /%TABLE{.*?}%/ ) {
 
                 # no TABLE tag at all
@@ -466,17 +469,19 @@ s/$PATTERN_TABLE_ROW/handleTableRow( $1, $2, $tableNr, $isNewRow, $rowNr++, $doE
     # START SAVE
 
     if ($doSave) {
-        my $error =
-          Foswiki::Func::saveTopic( $web, $topic, $meta, $topicText,
-            { dontlog => ( $mode & $MODE->{SAVEQUIET} ) } );
-
-        Foswiki::Func::setTopicEditLock( $web, $topic, 0 );    # unlock Topic
         my $url = Foswiki::Func::getViewUrl( $web, $topic );
-        $url .= "#edittable$inSaveTableNr";
-        if ($error) {
+        try {
+            Foswiki::Func::saveTopic(
+                $web, $topic, $meta, $topicText,
+                { dontlog => ( $mode & $MODE->{SAVEQUIET} ) } );
+        } catch Error::Simple with {
+            my $e = shift;
             $url =
-              Foswiki::Func::getOopsUrl( $web, $topic, 'oopssaveerr', $error );
-        }
+              Foswiki::Func::getOopsUrl( $web, $topic, 'oopssaveerr',
+                                        "Save failed: ".$e->{-text});
+        };
+        Foswiki::Func::setTopicEditLock( $web, $topic, 0 );    # unlock Topic
+        $url .= "#edittable$inSaveTableNr";
         Foswiki::Func::redirectCgiQuery( $query, $url );
         return;
     }
@@ -1812,7 +1817,7 @@ sub handleTableRow {
     }    # /if ($doEdit)
 
     # render final value in view mode (not edit or save)
-    Foswiki::Plugins::EditTablePlugin::decodeFormatTokens($text)
+    Foswiki::Func::decodeFormatTokens($text)
       if ( !$doSave && !$doEdit );
 
     return $text;
@@ -2064,23 +2069,29 @@ sub _debug {
 
 1;
 
-__DATA__
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Arthur Clemens, arthur@visiblearea.com and Foswiki contributors
-# Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and
-# TWiki Contributors.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
-# This is the EditTablePlugin used to edit tables in place.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2008-2009 Arthur Clemens, arthur@visiblearea.com
+and Foswiki contributors
+Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and
+TWiki Contributors.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

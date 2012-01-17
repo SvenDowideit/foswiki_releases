@@ -1,20 +1,4 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) Michael Daum
-# Copyright (C) Arthur Clemens, arthur@visiblearea.com
-# Copyright (C) Rafael Alvarez, soronthar@sourceforge.net
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details, published at
-# http://www.gnu.org/copyleft/gpl.html
-#
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -26,19 +10,19 @@ package Foswiki::Plugins::TwistyPlugin;
 
 use Foswiki::Func ();
 use CGI::Cookie   ();
+use CGI           ();
 use strict;
+use warnings;
 
-use vars qw( @modes $doneHeader $doneDefaults $twistyCount
+use vars qw( @twistystack $doneHeader $doneDefaults
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-our $VERSION = '$Rev: 6737 (2010-03-13) $';
+our $VERSION = '$Rev: 9310 (2010-09-22) $';
 
-our $RELEASE = '1.5.3.1';
+our $RELEASE = '1.6.6';
 our $SHORTDESCRIPTION =
   'Twisty section Javascript library to open/close content dynamically';
 our $NO_PREFS_IN_TOPIC = 1;
-
-our $pluginName = 'TwistyPlugin';
 
 my $TWISTYPLUGIN_COOKIE_PREFIX  = "TwistyPlugin_";
 my $TWISTYPLUGIN_CONTENT_HIDDEN = 0;
@@ -51,14 +35,17 @@ sub initPlugin {
     # check for Plugins.pm versions
     if ( $Foswiki::Plugins::VERSION < 1.1 ) {
         Foswiki::Func::writeWarning(
-            "Version mismatch between $pluginName and Plugins.pm");
+            "Version mismatch between TwistyPlugin and Plugins.pm");
         return 0;
     }
 
     $doneDefaults = 0;
     $doneHeader   = 0;
-    $twistyCount  = 0;
 
+    _exportAnimationSpeed();
+
+    Foswiki::Plugins::JQueryPlugin::registerPlugin( 'twisty',
+        'Foswiki::Plugins::TwistyPlugin::TWISTY' );
     Foswiki::Func::registerTagHandler( 'TWISTYSHOW',      \&_TWISTYSHOW );
     Foswiki::Func::registerTagHandler( 'TWISTYHIDE',      \&_TWISTYHIDE );
     Foswiki::Func::registerTagHandler( 'TWISTYBUTTON',    \&_TWISTYBUTTON );
@@ -70,6 +57,23 @@ sub initPlugin {
     return 1;
 }
 
+sub _exportAnimationSpeed {
+
+    my $pref =
+         Foswiki::Func::getPreferencesValue('TWISTYANIMATIONSPEED')
+      || Foswiki::Func::getPluginPreferencesValue('TWISTYANIMATIONSPEED')
+      || '0';
+
+    # add TWISTYANIMATIONSPEED to the html head so
+    # that it may be used in the client JS with
+    # foswiki.getPreference('TWISTYANIMATIONSPEED')
+    Foswiki::Func::addToZone("head", "TWISTYPLUGIN::META", <<"HERE");
+<meta name="foswiki.TWISTYANIMATIONSPEED" content="$pref" />
+HERE
+
+    return;
+}
+
 sub _setDefaults {
     return if $doneDefaults;
     $doneDefaults = 1;
@@ -77,7 +81,7 @@ sub _setDefaults {
     $prefMode =
          Foswiki::Func::getPreferencesValue('TWISTYMODE')
       || Foswiki::Func::getPluginPreferencesValue('TWISTYMODE')
-      || 'span';
+      || 'div';
     $prefShowLink =
          Foswiki::Func::getPreferencesValue('TWISTYSHOWLINK')
       || Foswiki::Func::getPluginPreferencesValue('TWISTYSHOWLINK')
@@ -91,17 +95,27 @@ sub _setDefaults {
       || Foswiki::Func::getPluginPreferencesValue('TWISTYREMEMBER')
       || '';
 
+    return;
 }
 
 sub _addHeader {
     return if $doneHeader;
     $doneHeader = 1;
 
-    # Untaint is required if use locale is on
-    Foswiki::Func::loadTemplate(
-        Foswiki::Sandbox::untaintUnchecked( lc($pluginName) ) );
-    my $header = Foswiki::Func::expandTemplate('twisty:header');
-    Foswiki::Func::addToHEAD( $pluginName, $header );
+    if ( Foswiki::Func::getContext()->{JQueryPluginEnabled} ) {
+        Foswiki::Plugins::JQueryPlugin::createPlugin('twisty');
+    }
+    else {
+        my $header;
+        Foswiki::Func::loadTemplate('twistyplugin');
+
+        $header =
+            Foswiki::Func::expandTemplate("TwistyPlugin/twisty")
+          . Foswiki::Func::expandTemplate("TwistyPlugin/twisty.css");
+        Foswiki::Func::expandCommonVariables($header);
+    }
+
+    return;
 }
 
 sub _TWISTYSHOW {
@@ -109,7 +123,7 @@ sub _TWISTYSHOW {
     _setDefaults();
 
     my $mode = $params->{'mode'} || $prefMode;
-    my $btn = _twistyBtn( 'show', @_ );
+    my $btn = _twistyBtn( 'show', $session, $params, $theTopic, $theWeb );
     return Foswiki::Func::decodeFormatTokens(
         _wrapInButtonHtml( $btn, $mode ) );
 }
@@ -118,7 +132,7 @@ sub _TWISTYHIDE {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
     _setDefaults();
     my $mode = $params->{'mode'} || $prefMode;
-    my $btn = _twistyBtn( 'hide', @_ );
+    my $btn = _twistyBtn( 'hide', $session, $params, $theTopic, $theWeb );
     return Foswiki::Func::decodeFormatTokens(
         _wrapInButtonHtml( $btn, $mode ) );
 }
@@ -128,14 +142,20 @@ sub _TWISTYBUTTON {
     _setDefaults();
 
     my $mode = $params->{'mode'} || $prefMode;
-    my $btnShow = _twistyBtn( 'show', @_ );
-    my $btnHide = _twistyBtn( 'hide', @_ );
+    my $btnShow = _twistyBtn( 'show', $session, $params, $theTopic, $theWeb );
+    my $btnHide = _twistyBtn( 'hide', $session, $params, $theTopic, $theWeb );
     my $prefix = $params->{'prefix'} || '';
     my $suffix = $params->{'suffix'} || '';
     my $btn    = $prefix . $btnShow . $btnHide . $suffix;
     return Foswiki::Func::decodeFormatTokens(
         _wrapInButtonHtml( $btn, $mode ) );
 }
+
+=pod
+
+If no ID is passed, creates a new unique id based on web and topic. Adds a random number for cases the twisty is loaded through AJAX.
+
+=cut
 
 sub _TWISTY {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
@@ -144,9 +164,12 @@ sub _TWISTY {
     my $id = $params->{'id'};
     if ( !defined $id || $id eq '' ) {
         $params->{'id'} = _createId( $params->{'id'}, $theWeb, $theTopic );
+
+        # randomize this id in case the twisty is loaded through AJAX
+        $params->{'id'} .= int( rand(10000) ) + 1;
     }
-    $params->{'id'} .= ++$twistyCount;
-    return _TWISTYBUTTON(@_) . _TWISTYTOGGLE(@_);
+    return _TWISTYBUTTON( $session, $params, $theTopic, $theWeb )
+      . _TWISTYTOGGLE( $session, $params, $theTopic, $theWeb );
 }
 
 sub _TWISTYTOGGLE {
@@ -158,7 +181,7 @@ sub _TWISTYTOGGLE {
     _setDefaults();
     my $idTag = $id . 'toggle';
     my $mode = $params->{'mode'} || $prefMode;
-    unshift @modes, $mode;
+    push( @twistystack, { mode => $mode, id => $idTag } );
 
     my $isTrigger = 0;
     my $cookieState = _readCookie( $session, $idTag );
@@ -173,23 +196,24 @@ sub _TWISTYTOGGLE {
 
 sub _ENDTWISTYTOGGLE {
     my ( $session, $params, $theTopic, $theWeb ) = @_;
-    my $mode = shift @modes;
+    my $twisty = pop @twistystack;
 
     return
-"<span class='foswikiAlert'>woops, ordering error: got an ENDTWISTY before seeing a TWISTY</span>"
-      unless $mode;
+"<div class='foswikiAlert'>woops, ordering error: got an ENDTWISTY before seeing a TWISTY</div>"
+      unless $twisty->{mode};
 
-    my $modeTag = ($mode) ? '</' . $mode . '>' : '';
-    return $modeTag . _wrapInContentHtmlClose($mode);
+    my $modeTag = ( $twisty->{mode} ) ? '</' . $twisty->{mode} . '>' : '';
+    return $modeTag . _wrapInContentHtmlClose($twisty);
 }
 
 sub _createId {
     my ( $inRawId, $inWeb, $inTopic ) = @_;
 
     my $id;
-    if ( $inRawId ) {
+    if ($inRawId) {
         $id = $inRawId;
-    } else {
+    }
+    else {
         $id = "$inWeb$inTopic";
     }
     $id =~ s/\//subweb/go;
@@ -209,7 +233,13 @@ sub _twistyBtn {
     if ( !defined $id || $id eq '' ) {
         return '';
     }
-    my $idTag = $id . $twistyControlState if ($twistyControlState) || '';
+    my $idTag;
+    if ($twistyControlState) {
+        $idTag = $id . $twistyControlState;
+    }
+    else {
+        $idTag = '';
+    }
 
     my $defaultLink =
       ( $twistyControlState eq 'show' ) ? $prefShowLink : $prefHideLink;
@@ -225,7 +255,6 @@ sub _twistyBtn {
     if ( !defined $link ) {
         $link = $defaultLink || '';
     }
-    my $linkClass = $params->{'linkclass'} ? " $params->{'linkclass'}" : '';
     my $img =
          $params->{ $twistyControlState . 'img' }
       || $params->{'img'}
@@ -252,15 +281,19 @@ sub _twistyBtn {
       ? '<img src="' . $imgleft . '" border="0" alt="" />'
       : '';
 
-    my $imgLinkTag =
-        '<a href="#">'
-      . $imgLeftTag
-      . '<span class="foswikiLinkLabel foswikiUnvisited'
-      . $linkClass . '">'
-      . $link
-      . '</span>'
-      . $imgTag
-      . $imgRightTag . '</a>';
+    my @linkClasses;
+    push( @linkClasses, $params->{'linkclass'} ) if $params->{'linkclass'};
+
+    my $imgLinkTag = CGI::a(
+        {
+            href  => '#',
+            class => join( ' ', @linkClasses )
+        },
+        $imgLeftTag
+          . CGI::span( { class => 'foswikiLinkLabel foswikiUnvisited' }, $link )
+          . $imgTag
+          . $imgRightTag
+    );
 
     my $isTrigger = 1;
     my $props     = '';
@@ -294,12 +327,12 @@ sub _createHtmlProperties {
     $startHidden = 1 if ( $start eq 'hide' );
     my $startShown;
     $startShown = 1 if ( $start eq 'show' );
+    my @propList = ();
 
     _setDefaults();
     my $remember = $params->{'remember'} || $prefRemember;
     my $noscript = $params->{'noscript'} || '';
-    my $noscriptHide;
-    $noscriptHide = 1 if ( $noscript eq 'hide' );
+    my $noscriptHide = ( $noscript eq 'hide' ) ? 1 : 0;
     $mode ||= $prefMode;
 
     my @classList = ();
@@ -340,36 +373,24 @@ sub _createHtmlProperties {
         {
             $shouldHideTrigger = 0;
         }
-        push( @classList, 'twistyHidden' ) if $shouldHideTrigger;
+        push( @classList, 'foswikiHidden' ) if $shouldHideTrigger;
     }
 
     # assume content should be hidden
     # unless explicitly said otherwise
-    my $shouldHideContent = 1;
     if ( !$isTrigger ) {
         push( @classList, 'twistyContent' );
-
-        if ( $state eq $TWISTYPLUGIN_CONTENT_SHOWN ) {
-            $shouldHideContent = 0;
-        }
-        push( @classList, 'foswikiMakeHidden' ) if $shouldHideContent;
     }
 
     # deprecated
     # should be done by Foswiki template scripts instead
     if ( !$isTrigger && $noscriptHide ) {
-        if ( $mode eq 'div' ) {
-            push( @classList, 'foswikiMakeVisibleBlock' );
-        }
-        else {
-            push( @classList, 'foswikiMakeVisibleInline' );
-        }
+        push( @classList, 'foswikiMakeVisible' );
     }
 
     # let javascript know we have set the state already
     push( @classList, 'twistyInited' . $state );
 
-    my @propList = ();
     push( @propList, 'id="' . $idTag . '"' );
     my $classListString = join( " ", @classList );
     push( @propList, 'class="' . $classListString . '"' );
@@ -392,7 +413,7 @@ sub _readCookie {
     return '' if !$idTag;
 
     # which state do we use?
-    my $cgi    = new CGI;
+    my $cgi    = CGI->new();
     my $cookie = $cgi->cookie('FOSWIKIPREF');
     my $tag    = $idTag;
     $tag =~ s/^(.*)(hide|show|toggle)$/$1/go;
@@ -421,18 +442,47 @@ sub _wrapInContentHtmlOpen {
 }
 
 sub _wrapInContentHtmlClose {
-    my ($mode) = @_;
-    return "</$mode><!--/twistyPlugin-->";
+    my ($twisty) = @_;
+    my $closeTag = "</$twisty->{mode}>";
+
+    return $closeTag;
 }
 
 sub _wrapInContainerHideIfNoJavascripOpen {
     my ($mode) = @_;
-    return '<' . $mode . ' class="twistyPlugin foswikiMakeVisibleInline">';
+
+    return '<' . $mode . ' class="twistyPlugin foswikiMakeVisible">';
 }
 
 sub _wrapInContainerDivIfNoJavascripClose {
     my ($mode) = @_;
-    return '</' . $mode . '><!--/twistyPlugin foswikiMakeVisibleInline-->';
+
+    return '</' . $mode . '>';
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) Michael Daum
+Copyright (C) Arthur Clemens, arthur@visiblearea.com
+Copyright (C) Rafael Alvarez, soronthar@sourceforge.net
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

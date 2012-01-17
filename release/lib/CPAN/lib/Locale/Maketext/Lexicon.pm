@@ -1,7 +1,8 @@
 package Locale::Maketext::Lexicon;
-$Locale::Maketext::Lexicon::VERSION = '0.49';
 
 use strict;
+
+$Locale::Maketext::Lexicon::VERSION = '0.49';
 
 =head1 NAME
 
@@ -18,7 +19,8 @@ As part of a localization class, automatically glob for available
 lexicons:
 
     package Hello::I18N;
-    use base 'Locale::Maketext';
+    use Locale::Maketext;
+    our @ISA = qw( Locale::Maketext );
     use Locale::Maketext::Lexicon {
         '*' => [Gettext => '/usr/local/share/locale/*/LC_MESSAGES/hello.mo'],
         _decode => 1,   # decode lexicon entries into utf8-strings
@@ -27,7 +29,8 @@ lexicons:
 Explicitly specify languages, during compile- or run-time:
 
     package Hello::I18N;
-    use base 'Locale::Maketext';
+    use Locale::Maketext;
+    our @ISA = qw( Locale::Maketext );
     use Locale::Maketext::Lexicon {
         de => [Gettext => 'hello_de.po'],
         fr => [
@@ -43,7 +46,8 @@ Explicitly specify languages, during compile- or run-time:
 Alternatively, as part of a localization subclass:
 
     package Hello::I18N::de;
-    use base 'Hello::I18N';
+    use Hello::I18N;
+    our @ISA = qw( Hello::I18N );
     use Locale::Maketext::Lexicon (Gettext => \*DATA);
     __DATA__
     # Some sample data

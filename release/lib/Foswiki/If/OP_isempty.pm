@@ -1,4 +1,4 @@
-# See bottom of file for copyright and license details
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -7,9 +7,12 @@
 =cut
 
 package Foswiki::If::OP_isempty;
-use base 'Foswiki::Query::UnaryOP';
 
 use strict;
+use warnings;
+
+use Foswiki::Query::UnaryOP ();
+our @ISA = ('Foswiki::Query::UnaryOP');
 
 sub new {
     my $class = shift;
@@ -28,20 +31,19 @@ sub evaluate {
     my $eval = $a->_evaluate(@_);
     return 1 unless $eval;
     return 0 if ( $session->{request}->param($eval) );
-    return 0 if ( $session->{prefs}->getPreferencesValue($eval) );
-    return 0 if ( $session->{SESSION_TAGS}{$eval} );
+    return 0 if ( $session->{prefs}->getPreference($eval) );
     return 1;
 }
 
 1;
+__END__
+Author: Rafael Alvarez (http://www.soronthar.com)
 
-__DATA__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
-
-Copyright (C) 2005-2009 Foswiki Contributors. All Rights Reserved.
-Foswiki Contributors are listed in the AUTHORS file in the root of
-this distribution. NOTE: Please extend that file, not this notice.
+Copyright (C) 2005-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
@@ -54,5 +56,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-
-Author: Rafael Alvarez (http://www.soronthar.com)

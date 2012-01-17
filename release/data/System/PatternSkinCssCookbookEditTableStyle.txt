@@ -1,6 +1,5 @@
-%META:TOPICINFO{author="ProjectContributor" date="1134249079" format="1.1" version="1"}%
-%META:TOPICPARENT{name="PatternSkin"}%
-
+%META:TOPICINFO{author="ProjectContributor" date="1282772512" format="1.1" version="1"}%
+%META:TOPICPARENT{name="PatternSkinCssCookbook"}%
 ---+!! PatternSkinCssCookbook Recipe: [[Foswiki:Extensions.EditTablePlugin][EditTable]] style
 
 *Cookbook example to illustrate control over !EditTable edit styles.*
@@ -17,12 +16,12 @@ Test table:
 
 <div class="foswikiHelp">
 This line loads the extra style definition:
-<verbatim>
+<verbatim class="tml">
    * Set USERSTYLEURL = %ATTACHURLPATH%/edittable.css
 </verbatim>
 You can write this line in %SYSTEMWEB%.DefaultPreferences, in %USERSWEB%.SitePreferences, in WebPreferences, in your user topic or on a single page.
 </div>
+<!-- %JQREQUIRE{"chili"}% -->
 
 
-
-%META:FILEATTACHMENT{name="edittable.css" attachment="edittable.css" attr="" comment="" date="1134249078" path="edittable.css" size="388" stream="edittable.css" user="ProjectContributor" version="1"}%
+%META:FILEATTACHMENT{name="edittable.css" attachment="edittable.css" attr="" comment="" date="1282772512" path="edittable.css" size="388" stream="edittable.css" user="ProjectContributor" version="1"}%

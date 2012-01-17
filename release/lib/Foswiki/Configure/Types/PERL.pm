@@ -13,37 +13,25 @@
 package Foswiki::Configure::Types::PERL;
 
 use strict;
+use warnings;
 
-use Foswiki::Configure::Type;
-use Data::Dumper;
+use Foswiki::Configure::Type ();
+our @ISA = ('Foswiki::Configure::Type');
 
-use base 'Foswiki::Configure::Type';
-
-sub _stringifyValue {
-    my $perl = shift;
-    return $perl unless ref($perl);
-    my $v = Data::Dumper->Dump( [$perl], ['x'] );
-    $v =~ s/^\$x = (.*);\s*$/$1/s;
-    $v =~ s/^\s*//gm;
-    return $v;
-}
+use Data::Dumper ();
 
 sub prompt {
-    my ( $this, $id, $opts, $value ) = @_;
-    my $v = _stringifyValue($value);
-    return CGI::textarea(
-        -name    => $id,
-        -value   => $v,
-        -rows    => 10,
-        -columns => 80,
-        -class   => 'foswikiTextarea',
-    );
-}
+    my ( $this, $id, $opts, $value, $class ) = @_;
 
-sub hiddenInput {
-    my ( $this, $id, $value ) = @_;
-    my $v = _stringifyValue($value);
-    return CGI::hidden($id, $v);
+    my $v = Data::Dumper->Dump( [$value], ['x'] );
+    $v =~ s/^\$x = (.*);\s*$/$1/s;
+    $v =~ s/^     //gm;
+
+    # Force textarea
+    my $size = $Foswiki::DEFAULT_FIELD_WIDTH_NO_CSS;
+    $opts .= " ${size}x10" unless ( $opts =~ /\b(\d+)x(\d+)\b/ );
+
+    return $this->SUPER::prompt( $id, $opts, $v, $class );
 }
 
 # verify that the string is a legal rvalue according to the grammar
@@ -77,16 +65,17 @@ sub _rvalue {
 sub string2value {
     my ( $this, $val ) = @_;
 
-    $val =~ s/^[[:space:]]+(.*?)$/$1/s; # strip at start
-    $val =~ s/^(.*?)[[:space:]]+$/$1/s; # strip at end
+    $val =~ s/^[[:space:]]+(.*?)$/$1/s;    # strip at start
+    $val =~ s/^(.*?)[[:space:]]+$/$1/s;    # strip at end
 
     my $s;
     if ( $s = _rvalue($val) ) {
+
         # Parse failed, return as a string.
         die
 "Could not parse text to a data structure (at: $s)\nPlease go back and check if the text has the correct syntax.";
     }
-    $val =~ /(.*)/s;    # parsed, so safe to untaint
+    $val =~ /(.*)/s;                       # parsed, so safe to untaint
     return eval $1;
 }
 
@@ -124,29 +113,28 @@ sub equals {
 }
 
 1;
-__DATA__
-#
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

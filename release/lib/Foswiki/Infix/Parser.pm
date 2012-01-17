@@ -1,4 +1,4 @@
-# See bottom of file for copyright and license details
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -14,10 +14,11 @@ Escapes are supported in strings, using backslash.
 package Foswiki::Infix::Parser;
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
-require Foswiki::Infix::Error;
-require Foswiki::Infix::Node;
+use Foswiki::Infix::Error ();
+use Foswiki::Infix::Node  ();
 
 # Set to 1 for debug
 sub MONITOR_PARSER { 0 }
@@ -86,6 +87,18 @@ sub new {
       : qr/\w+/;
 
     return $this;
+}
+
+=begin TML
+
+---++ ObjectMethod finish()
+Break circular references.
+
+=cut
+
+sub finish {
+    my $self = shift;
+
 }
 
 =begin TML
@@ -215,8 +228,14 @@ sub _parse {
                 push( @opers, $op );
             }
             elsif ( $$input =~ s/^\s*(['"])(|.*?[^\\])\1// ) {
-                print STDERR "Tok: qs '$1'\n" if MONITOR_PARSER;
+                my $q   = $1;
                 my $val = $2;
+                print STDERR "Tok: qs '$q'\n" if MONITOR_PARSER;
+
+                # Handle escaped characters in the string. This is where
+                # expansions such as \n are handled
+                $val =~
+s/(?<!\\)\\(0[0-7]{2}|x[a-fA-F0-9]{2}|x{[a-fA-F0-9]+}|n|t|\\|$q)/eval('"\\'.$1.'"')/ge;
                 push( @opands,
                     $this->{client_class}
                       ->newLeaf( $val, $Foswiki::Infix::Node::STRING ) );
@@ -302,22 +321,22 @@ sub _apply {
 }
 
 1;
+__END__
+Author: Crawford Currie http://c-dot.co.uk
 
-__DATA__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
@@ -329,5 +348,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-
-Author: Crawford Currie http://c-dot.co.uk

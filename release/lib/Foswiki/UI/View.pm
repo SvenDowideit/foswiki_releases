@@ -11,14 +11,16 @@ UI delegate for view function
 package Foswiki::UI::View;
 
 use strict;
+use warnings;
 use integer;
-use Monitor;
+use Monitor ();
 use Assert;
 
-require Foswiki;
-require Foswiki::UI;
-require Foswiki::Sandbox;
-require Foswiki::OopsException;
+use Foswiki                ();
+use Foswiki::UI            ();
+use Foswiki::Sandbox       ();
+use Foswiki::OopsException ();
+use Foswiki::Store         ();
 
 =begin TML
 
@@ -42,69 +44,118 @@ The view is controlled by CGI parameters as follows:
 sub view {
     my $session = shift;
 
-    my $query     = $session->{request};
-    my $webName   = $session->{webName};
-    my $topicName = $session->{topicName};
+    my $query = $session->{request};
+    my $web   = $session->{webName};
+    my $topic = $session->{topicName};
+
+    my $cache = $session->{cache};
+    my $cachedPage;
+    $cachedPage = $cache->getPage( $web, $topic ) if $cache;
+    if ($cachedPage) {
+        print STDERR "found $web.$topic in cache\n"
+          if $Foswiki::cfg{Cache}{Debug};
+        Monitor::MARK("found page in cache");
+
+        # render uncacheable areas
+        my $text = $cachedPage->{text};
+        $cache->renderDirtyAreas( \$text ) if $cachedPage->{isDirty};
+
+        # set status
+        my $status = $cachedPage->{status};
+        if ( $status == 302 ) {
+            $session->{response}->redirect( $cachedPage->{location} );
+        }
+        else {
+            $session->{response}->status($status);
+        }
+
+        # set headers
+        $session->generateHTTPHeaders( 'view', $cachedPage->{contentType},
+            $text, $cachedPage );
+
+        # send it out
+        $session->{response}->print($text);
+
+        Monitor::MARK('Wrote HTML');
+        $session->logEvent( 'view', $web . '.' . $topic, '(cached)' );
+
+        return;
+    }
+
+    print STDERR "computing page for $web.$topic\n"
+      if $Foswiki::cfg{Cache}{Debug};
 
     my $raw = $query->param('raw') || '';
     my $contentType = $query->param('contenttype');
 
-    my $showRev  = 1;
     my $logEntry = '';
-    my $revdate  = '';
-    my $revuser  = '';
-    my $store    = $session->{store};
 
     # is this view indexable by search engines? Default yes.
     my $indexableView = 1;
-
-    Foswiki::UI::checkWebExists( $session, $webName, $topicName, 'view' );
-
-    my $skin = $session->getSkin();
-
-    my $rev = $store->cleanUpRevID( $query->param('rev') );
-
-    my $topicExists = $store->topicExists( $webName, $topicName );
-
-    # text and meta of the _latest_ rev of the topic
-    my ( $currText, $currMeta );
-
-    # text and meta of the chosen rev of the topic
-    my ( $meta, $text );
     my $viewTemplate;
-    if ($topicExists) {
-        require Foswiki::Time;
-        ( $currMeta, $currText ) =
-          $store->readTopic( $session->{user}, $webName, $topicName, undef );
-        Foswiki::UI::checkAccess( $session, $webName, $topicName, 'VIEW',
-            $session->{user}, $currText );
-        ( $revdate, $revuser, $showRev ) = $currMeta->getRevisionInfo();
-        $revdate = Foswiki::Time::formatTime($revdate);
 
-        if ( !$rev || $rev > $showRev ) {
-            $rev = $showRev;
-        }
+    Foswiki::UI::checkWebExists( $session, $web, 'view' );
 
-        if ( $rev < $showRev ) {
-            ( $meta, $text ) = $store->readTopic(
-                $session->{user}, $webName, $topicName, $rev );
+    my $requestedRev = Foswiki::Store::cleanUpRevID( $query->param('rev') );
+    my $showLatest   = !$requestedRev;
+    my $showRev;
 
-            ( $revdate, $revuser ) = $meta->getRevisionInfo();
-            $revdate = Foswiki::Time::formatTime($revdate);
-            $logEntry .= 'r' . $rev;
+    my $topicObject;    # the stub of the topic we are to display
+    my $text;           # the text to display, *not* necessarily
+                        # the same as $topicObject->text
+    my $revIt;          # Iterator over the range of available revs
+    my $maxRev;
+
+    if ( $session->topicExists( $web, $topic ) ) {
+
+        # Load the most recent rev. This *should* be maxRev, but may
+        # not say it is because the TOPICINFO could be up the spout
+        $topicObject = Foswiki::Meta->load( $session, $web, $topic );
+        Foswiki::UI::checkAccess( $session, 'VIEW', $topicObject );
+
+        $revIt  = $topicObject->getRevisionHistory();
+        # The topic exists; it must have at least one rev
+        ASSERT( $revIt->hasNext() ) if DEBUG;
+        $maxRev = $revIt->next();
+
+        if ( defined $requestedRev ) {
+
+            # Is the requested rev id known?
+            $revIt->reset();
+            while ( $revIt->hasNext() ) {
+                if ( $requestedRev eq $revIt->next() ) {
+                    $showRev = $requestedRev;
+                    last;
+                }
+            }
+
+            # if rev was not found; show max rev
+            $showRev = $maxRev unless ( defined $showRev );
+
+            if ( $showRev ne $maxRev ) {
+
+                # Load the old revision instead
+                $topicObject =
+                  Foswiki::Meta->load( $session, $web, $topic, $showRev );
+                if ( !$topicObject->haveAccess('VIEW') ) {
+                    throw Foswiki::AccessControlException( 'VIEW',
+                        $session->{user}, $web, $topic,
+                        $Foswiki::Meta::reason );
+                }
+                $logEntry .= 'r' . $requestedRev;
+            }
         }
         else {
-
-            # viewing the most recent rev
-            ( $text, $meta ) = ( $currText, $currMeta );
+            $showRev = $maxRev;
         }
 
-        # So we're reading an existing topic here.  It is about time
-        # to apply the 'section' selection (and maybe others in the
-        # future as well).  $text is cleared unless a named section
-        # matching the 'section' URL parameter is found.
         if ( my $section = $query->param('section') ) {
-            my ( $ntext, $sections ) = Foswiki::parseSections($text);
+
+            # Apply the 'section' selection (and maybe others in the
+            # future as well).  $text is cleared unless a named section
+            # matching the 'section' URL parameter is found.
+            my ( $ntext, $sections ) =
+              Foswiki::parseSections( $topicObject->text() );
             $text = '';    # in the beginning, there was ... NO section
           FINDSECTION:
             for my $s (@$sections) {
@@ -115,44 +166,56 @@ sub view {
                 }
             }
         }
+        else {
 
+            # Otherwise take the full topic text
+            $text = $topicObject->text();
+        }
     }
-    else {                 # Topic does not exist yet
+    else {    # Topic does not exist yet
+        $topicObject = Foswiki::Meta->new( $session, $web, $topic );
         $indexableView = 0;
         $session->enterContext('new_topic');
         $session->{response}->status(404);
-        $rev = 1;
+        $showRev      = 1;
+        $maxRev       = 0;
         $viewTemplate = 'TopicDoesNotExistView';
         $logEntry .= ' (not exist)';
-        $raw = ''; # There is no raw view of a topic that doesn't exist
+        $raw = '';    # There is no raw view of a topic that doesn't exist
+        $revIt = new Foswiki::ListIterator( [1] );
     }
 
     if ($raw) {
         $indexableView = 0;
         $logEntry .= ' raw=' . $raw;
         if ( $raw eq 'debug' || $raw eq 'all' ) {
-            $text = $store->getDebugText( $meta, $text );
+
+            # We want to see the embedded store form
+            $text = $topicObject->getEmbeddedStoreForm();
         }
     }
 
-    if ( $Foswiki::cfg{Log}{view} ) {
-        $session->logEvent('view', $webName . '.' . $topicName, $logEntry );
-    }
+    $text = '' unless defined $text;
+
+    $session->logEvent( 'view', $topicObject->web . '.' . $topicObject->topic,
+        $logEntry );
 
     # Note; must enter all contexts before the template is read, as
     # TMPL:P is expanded on the fly in the template reader. :-(
     my ( $revTitle, $revArg ) = ( '', '' );
-    if ( $rev < $showRev ) {
+    $revIt->reset();
+    if ( $showRev && $showRev != $revIt->next() ) {
         $session->enterContext('inactive');
 
         # disable edit of previous revisions
-        $revTitle = '(r' . $rev . ')';
-        $revArg   = '&rev=' . $rev;
+        $revTitle = '(r' . $showRev . ')';
+        $revArg   = '&rev=' . $showRev;
     }
 
     my $template =
-         $viewTemplate || $query->param('template')
-      || $session->{prefs}->getPreferencesValue('VIEW_TEMPLATE')
+         $viewTemplate
+      || $query->param('template')
+      || $session->{prefs}->getPreference('VIEW_TEMPLATE')
       || 'view';
 
     # Always use default view template for raw=debug, raw=all and raw=on
@@ -160,20 +223,10 @@ sub view {
         $template = 'view';
     }
 
-    my $tmpl = $session->templates->readTemplate( $template, $skin );
-    if ( !$tmpl && $template ne 'view' ) {
-        $tmpl = $session->templates->readTemplate( 'view', $skin );
-    }
+    my $tmpl = $session->templates->readTemplate( $template, no_oops => 1 );
 
-    if ( !$tmpl ) {
-        throw Foswiki::OopsException(
-            'attention',
-            def    => 'no_such_template',
-            web    => $webName,
-            topic  => $topicName,
-            params => [ $template, 'VIEW_TEMPLATE' ]
-        );
-    }
+    # If the VIEW_TEMPLATE (or other) doesn't exist, default to view.
+    $tmpl = $session->templates->readTemplate('view') unless defined($tmpl);
 
     $tmpl =~ s/%REVTITLE%/$revTitle/g;
     $tmpl =~ s/%REVARG%/$revArg/g;
@@ -188,55 +241,10 @@ sub view {
         $tmpl =~ s/<meta name="robots"[^>]*>//goi;
     }
 
-    # Show revisions around the one being displayed
-    # we start at $showRev then possibly jump near $rev if too distant
-    my $revsToShow = $Foswiki::cfg{NumberOfRevisions} + 1;
-    $revsToShow = $showRev if $showRev < $revsToShow;
-    my $doingRev = $showRev;
-    my $revs     = '';
-    while ( $revsToShow > 0 ) {
-        $revsToShow--;
-        if ( $doingRev == $rev ) {
-            $revs .= 'r' . $rev;
-        }
-        else {
-            $revs .= CGI::a(
-                {
-                    href => $session->getScriptUrl(
-                        0, 'view', $webName, $topicName, rev => $doingRev
-                    ),
-                    rel => 'nofollow'
-                },
-                "r$doingRev"
-            );
-        }
-        if ( $doingRev - $rev >= $Foswiki::cfg{NumberOfRevisions} ) {
-
-            # we started too far away, need to jump closer to $rev
-            use integer;
-            $doingRev = $rev + $revsToShow / 2;
-            $doingRev = $revsToShow if $revsToShow > $doingRev;
-            $revs .= ' | ';
-            next;
-        }
-        if ($revsToShow) {
-            $revs .= '&nbsp;'
-              . CGI::a(
-                {
-                    href => $session->getScriptUrl(
-                        0, 'rdiff', $webName, $topicName,
-                        rev1 => $doingRev,
-                        rev2 => $doingRev - 1
-                    ),
-                    rel => 'nofollow'
-                },
-                '&lt;'
-              ) . '&nbsp;';
-        }
-        $doingRev--;
-    }
-
-    $tmpl =~ s/%REVISIONS%/$revs/go;
+    # Show revisions around the one being displayed.
+    $tmpl =~ s/%REVISIONS%/
+      revisionsAround(
+          $session, $topicObject, $requestedRev, $showRev, $maxRev)/e;
 
     ## SMELL: This is also used in Foswiki::_TOC. Could insert a tag in
     ## TOC and remove all those here, finding the parameters only once
@@ -260,6 +268,7 @@ sub view {
     # Note: This feature is experimental and may be replaced by an
     # alternative solution not requiring additional tags.
     my ( $start, $end );
+
     # SMELL: unchecked implicit untaint of data that *may* be coming from
     # a topic (topics can be templates)
     if ( $tmpl =~ m/^(.*)%TEXT%(.*)$/s ) {
@@ -302,13 +311,13 @@ sub view {
     # If minimalist is set, images and anchors will be stripped from text
     my $minimalist = 0;
     if ($contentType) {
-        $minimalist = ( $skin =~ /\brss/ );
+        $minimalist = ( $session->getSkin() =~ /\brss/ );
     }
-    elsif ( $skin =~ /\brss/ ) {
+    elsif ( $session->getSkin() =~ /\brss/ ) {
         $contentType = 'text/xml';
         $minimalist  = 1;
     }
-    elsif ( $skin =~ /\bxml/ ) {
+    elsif ( $session->getSkin() =~ /\bxml/ ) {
         $contentType = 'text/xml';
         $minimalist  = 1;
     }
@@ -318,15 +327,13 @@ sub view {
     else {
         $contentType = 'text/html';
     }
-    $session->{SESSION_TAGS}{MAXREV}  = $showRev;
-    $session->{SESSION_TAGS}{CURRREV} = $rev;
+    $session->{prefs}->setSessionPreferences(
+        MAXREV  => $maxRev,
+        CURRREV => $showRev
+    );
 
     # Set page generation mode to RSS if using an RSS skin
-    $session->enterContext('rss') if $skin =~ /\brss/;
-
-    # Set the meta-object that contains the rendering info
-    # SMELL: hack to get around not having a proper topic object model
-    $session->enterContext( 'can_render_meta', $meta ) if $meta;
+    $session->enterContext('rss') if $session->getSkin() =~ /\brss/;
 
     my $page;
 
@@ -337,13 +344,16 @@ sub view {
     # we do _not_ want to create a textarea.
     # raw=on&skin=text is deprecated; use raw=text instead.
     Monitor::MARK('Ready to render');
-    if ( $raw eq 'text' || $raw eq 'all' || ( $raw && $skin eq 'text' ) ) {
+    if (   $raw eq 'text'
+        || $raw eq 'all'
+        || ( $raw && $session->getSkin() eq 'text' ) )
+    {
 
         # use raw text
         $page = $text;
     }
     else {
-        my @args = ( $session, $webName, $topicName, $meta, $minimalist );
+        my @args = ( $topicObject, $minimalist );
 
         $session->enterContext('header_text');
         $page = _prepare( $start, @args );
@@ -355,13 +365,13 @@ sub view {
                 my $p = $session->{prefs};
                 $page .= CGI::textarea(
                     -readonly => 'readonly',
-                    -rows     => $p->getPreferencesValue('EDITBOXHEIGHT'),
-                    -cols     => $p->getPreferencesValue('EDITBOXWIDTH'),
-                    -style    => $p->getPreferencesValue('EDITBOXSTYLE'),
+                    -rows     => $p->getPreference('EDITBOXHEIGHT'),
+                    -cols     => $p->getPreference('EDITBOXWIDTH'),
+                    -style    => $p->getPreference('EDITBOXSTYLE'),
                     -class    => 'foswikiTextarea foswikiTextareaRawView',
                     -id       => 'topic',
                     -default  => $text
-                );
+                   );
             }
         }
         else {
@@ -384,11 +394,10 @@ sub view {
 }
 
 sub _prepare {
-    my ( $text, $session, $webName, $topicName, $meta, $minimalist ) = @_;
+    my ( $text, $topicObject, $minimalist ) = @_;
 
-    $text = $session->handleCommonTags( $text, $webName, $topicName, $meta );
-    $text =
-      $session->renderer->getRenderedVersion( $text, $webName, $topicName );
+    $text = $topicObject->expandMacros($text);
+    $text = $topicObject->renderTML($text);
     $text =~ s/( ?) *<\/?(nop|noautolink)\/?>\n?/$1/gois;
 
     if ($minimalist) {
@@ -402,182 +411,118 @@ sub _prepare {
 
 =begin TML
 
----++ StaticMethod viewfile( $session, $web, $topic, $query )
+---++ StaticMethod revisionsAround($session, $topicObject, $requestedRev, $showRev, $maxRev) -> $output
 
-=viewfile= command handler.
-This method is designed to be
-invoked via the =UI::run= method.
-Command handler for viewfile. View a file in the browser.
-Some parameters are passed in CGI query:
-| =filename= | Attachment to view |
-| =rev= | Revision to view |
+Calculate the revisions spanning the current one for display in the bottom
+bar.
 
 =cut
 
-sub viewfile {
-    my $session = shift;
+sub revisionsAround {
+    my ( $session, $topicObject, $requestedRev, $showRev, $maxRev ) = @_;
 
-    my $query = $session->{request};
+    my $revsToShow = $Foswiki::cfg{NumberOfRevisions} + 1;
 
-    my $topic   = $session->{topicName};
-    my $webName = $session->{webName};
+    # Soak up the revision iterator
+    my $revIt          = $topicObject->getRevisionHistory();
+    my @revs           = $revIt->all();
+    my $maxRevDisjoint = 0;
 
-    my $fileName;
-    my $pathInfo;
+    if ( $Foswiki::cfg{NumberOfRevisions} ) {
 
-    if (defined($ENV{REDIRECT_STATUS}) && defined($ENV{REQUEST_URI})) {
-        # this is a redirect - can be used to make 404,401 etc URL's
-        # more foswiki tailored and is also used in TWikiCompatibility
-        $pathInfo = $ENV{REQUEST_URI};
-        # ignore parameters, as apache would.
-        $pathInfo =~ s/^(.*)(\?|#).*/$1/;
-        $pathInfo =~ s|$Foswiki::cfg{PubUrlPath}||; #remove pubUrlPath
-    }
-    elsif ( defined( $query->param('filename') ) ) {
-        # Filename is an attachment to the topic in the standard path info
-        # /Web/Topic?filename=Attachment.gif
-        $fileName = $query->param('filename');
-    }
-    else {
-        # This is a standard path extended by the attachment name e.g.
-        # /Web/Topic/Attachment.gif
-        $pathInfo = $query->path_info();
-    }
-
-    if ($pathInfo) {
-        my @path = split( /\/+/, $pathInfo );
-        shift(@path) unless ($path[0]);   # remove leading empty string
-
-        # work out the web, topic and filename
-        $webName = '';
-        while ( $path[0]
-                  && ($session->{store}->webExists($webName.$path[0]))) {
-            $webName .= shift(@path).'/';
+        # Locate the preferred rev in the array
+        my $showIndex = $#revs;
+        my $left      = 0;
+        my $right     = $Foswiki::cfg{NumberOfRevisions};
+        if ($requestedRev) {
+            while ( $showIndex && $revs[$showIndex] != $showRev ) {
+                $showIndex--;
+            }
+            $right = $showIndex + $Foswiki::cfg{NumberOfRevisions} - 1;
+            $right = scalar(@revs) if $right > scalar(@revs);
+            $left  = $right - $Foswiki::cfg{NumberOfRevisions};
+            if ( $left < 0 ) {
+                $left  = 0;
+                $right = $Foswiki::cfg{NumberOfRevisions};
+            }
         }
-        # The web name has been validated, untaint
-        chop($webName); # trailing /
-        $webName = Foswiki::Sandbox::untaintUnchecked($webName);
+        splice( @revs, $right ) if ( $right < scalar(@revs) );
+        splice( @revs, 0, $left );
+        if ( $left > 0 ) {
 
-        # The next element on the path has to be the topic name
-        $topic = shift(@path);
-        if (!$topic) {
-            throw Foswiki::OopsException(
-                    'attention',
-                    def    => 'no_such_attachment',
-                    web    => $webName,
-                    topic  => $topic || 'Unknown',
-                    status => 404,
-                    params => [ 'viewfile', '?' ]
-                   );
-        }
-        # Topic has been validated
-        $topic = Foswiki::Sandbox::untaintUnchecked($topic);
-        # What's left in the path is the attachment name.
-        $fileName = join('/', @path);
-    }
-
-    # According to SvenDowideit, you can't remove the /'s from the filename,
-    # as there are directories below the pub/web/topic.
-    #$fileName = Foswiki::Sandbox::sanitizeAttachmentName($fileName);
-    $fileName = Foswiki::Sandbox::normalizeFileName($fileName);
-
-    if ( !$fileName ) {
-        throw Foswiki::OopsException(
-            'attention',
-            def    => 'no_such_attachment',
-            web    => 'Unknown',
-            topic  => 'Unknown',
-            status => 404,
-            params => [ 'viewfile', '?' ]
-        );
-    }
-
-    # decode filename in case it is urlencoded and/or utf8, see Item9462
-    $fileName = Foswiki::urlDecode($fileName);
-    my $decodedFileName = $session->UTF82SiteCharSet($fileName);
-    $fileName = $decodedFileName if defined $decodedFileName;
-
-    #print STDERR "VIEWFILE: web($webName), topic($topic), file($fileName)\n";
-
-    my $rev = $session->{store}->cleanUpRevID( $query->param('rev') );
-    unless ( $fileName
-        && $session->{store}->attachmentExists( $webName, $topic, $fileName ) )
-    {
-        throw Foswiki::OopsException(
-            'attention',
-            def    => 'no_such_attachment',
-            web    => $webName,
-            topic  => $topic,
-            status => 404,
-            params => [ 'viewfile', $fileName || '?' ]
-        );
-    }
-    # Something is seriously wrong if any of these is tainted. If they are,
-    # find out why and validate them at the input point.
-    if (DEBUG) {
-        ASSERT(UNTAINTED($topic));
-        ASSERT(UNTAINTED($webName));
-        ASSERT(UNTAINTED($fileName));
-        ASSERT(UNTAINTED($rev));
-    }
-
-    # TSA SMELL: Maybe could be less memory hungry if get a file handle
-    # and set response body to it. This way engines could send data the
-    # best way possible to each one
-    my $fileContent = $session->{store}->readAttachment(
-        $session->{user}, $webName, $topic, $fileName, $rev );
-
-    my $type   = _suffixToMimeType( $fileName );
-    my $length = length($fileContent);
-    my $dispo  = 'inline;filename=' . $fileName;
-
-    #re-set to 200, in case this was a 404 or other redirect
-    $session->{response}->status(200);
-    $session->{response}->header(
-        -type => $type, qq(Content-Disposition="$dispo") );
-    $session->{response}->print($fileContent);
-}
-
-sub _suffixToMimeType {
-    my ( $attachment ) = @_;
-
-    my $mimeType = 'text/plain';
-    if ( $attachment && $attachment =~ /\.([^.]+)$/ ) {
-        my $suffix = $1;
-        my $types = Foswiki::readFile( $Foswiki::cfg{MimeTypesFileName} );
-        if ($types =~ /^([^#]\S*).*?\s$suffix(?:\s|$)/im) {
-            $mimeType = $1;
+            # Put the max rev back in at the front, and flag
+            # special treatment
+            $maxRevDisjoint = 1;
+            unshift( @revs, $maxRev );
         }
     }
-    return $mimeType;
+
+    my $output = '';
+    my $r      = 0;
+    while ( $r < scalar(@revs) ) {
+        if ( $revs[$r] == $showRev ) {
+            $output .= 'r' . $showRev;
+        }
+        else {
+            $output .= CGI::a(
+                {
+                    href => $session->getScriptUrl(
+                        0,                 'view',
+                        $topicObject->web, $topicObject->topic,
+                        rev => $revs[$r]
+                    ),
+                    rel => 'nofollow'
+                },
+                'r' . $revs[$r]
+            );
+        }
+        if ( $r == 0 && $maxRevDisjoint ) {
+            $output .= ' | ';
+        }
+        elsif ( $r < $#revs ) {
+            $output .= '&nbsp;'
+              . CGI::a(
+                {
+                    href => $session->getScriptUrl(
+                        0, 'rdiff', $topicObject->web, $topicObject->topic,
+                        rev1 => $revs[ $r + 1 ],
+                        rev2 => $revs[$r]
+                    ),
+                    rel => 'nofollow'
+                },
+                '&lt;'
+              ) . '&nbsp;';
+        }
+        $r++;
+    }
+    return $output;
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# Based on parts of Ward Cunninghams original Wiki and JosWiki.
-# Copyright (C) 1998 Markus Peter - SPiN GmbH (warpi@spin.de)
-# Some changes by Dave Harris (drh@bhresearch.co.uk) incorporated
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved.
+Based on parts of Ward Cunninghams original Wiki and JosWiki.
+Copyright (C) 1998 Markus Peter - SPiN GmbH (warpi@spin.de)
+Some changes by Dave Harris (drh@bhresearch.co.uk) incorporated
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

@@ -10,4 +10,3 @@
      =%<nop>INCLUDE{"%<nop>SYSTEMWEB%.YouAreHere"}%=
 
    * [[%SCRIPTURLPATH{"search"}%/%WEB%?scope=text&amp;regex=on&amp;web=all&amp;search=INCLUDE.*YouAreHere&amp;casesensitive=on&amp;nosummary=on&amp;nototal=on][List]] all topics which include this topic.
-

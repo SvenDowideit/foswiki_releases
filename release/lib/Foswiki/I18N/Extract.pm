@@ -12,13 +12,18 @@ Depends on Locale::Maketext::Extract (part of CPAN::Locale::Maketext::Lexicon).
 package Foswiki::I18N::Extract;
 
 use strict;
+use warnings;
 
-use vars qw( $initialised $initError );
+our $initError;
 
 BEGIN {
-    eval "use base 'Locale::Maketext::Extract'";
-    $initError   = $@;
-    $initialised = !$initError;
+    require Locale::Maketext::Extract;
+    if ($@) {
+        $initError = $@;
+    }
+    else {
+        @Foswiki::I18N::Extract::ISA = ('Locale::Maketext::Extract');
+    }
 }
 
 ##########################################################
@@ -37,9 +42,9 @@ sub new {
     my $class   = shift;
     my $session = shift;
 
-    unless ($initialised) {
-        $session->logger->log('warning', $initError) if $session;
-        return undef;
+    if ( defined $initError ) {
+        $session->logger->log( 'warning', $initError ) if $session;
+        return;
     }
 
     my $self = new Locale::Maketext::Extract;
@@ -84,23 +89,23 @@ sub extract {
         $line++;
     }
 
- # Foswiki's %MAKETEXT{...}% inside a search format would look like this:
- # %SEARCH{... format=" ... $percntMAKETEXT{\"...\" args=\"\"}$percnt ..." ...}%
- #
- # XXX: the regex down there matches a sequence formed be an escaped double
- # quote (\"), followed by characters that are not doublequotes OR
- # double-escaped doublequotes (\\\"), and terminated with another escaped
- # double-quote.
- #
- # SMELL: although here we can extract properly the string, %SEARCH{...}%
- # won't convert (\\\") inside format into (") as we do here. So it's best
- # to avoid trying to put doublequotes inside a MAKETEXT that is inside
- # a %SEARCH{...}% format.
+# Foswiki's %MAKETEXT{...}% inside a search format would look like this:
+# %SEARCH{... format=" ... $percntMAKETEXT{\"...\" args=\"\"}$percent ..." ...}%
+#
+# XXX: the regex down there matches a sequence formed be an escaped double
+# quote (\"), followed by characters that are not doublequotes OR
+# double-escaped doublequotes (\\\"), and terminated with another escaped
+# double-quote.
+#
+# SMELL: although here we can extract properly the string, %SEARCH{...}%
+# won't convert (\\\") inside format into (") as we do here. So it's best
+# to avoid trying to put doublequotes inside a MAKETEXT that is inside
+# a %SEARCH{...}% format.
     $line = 1;
     pos($_) = 0;
     my @_lines = split( /\n/, $_ );
     foreach (@_lines) {
-        while (m/\$percntMAKETEXT\{\s*(string=)?(\\"(\\\\\\"|[^"])*\\")/gm) {
+        while (m/\$perce?ntMAKETEXT\{\s*(string=)?(\\"(\\\\\\"|[^"])*\\")/gm) {
 
             # remove the enclosing [\"]'s:
             my $str = substr( $2, 2, -2 );
@@ -117,28 +122,28 @@ sub extract {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

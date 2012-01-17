@@ -1,4 +1,4 @@
-# See bottom of file for license and copyright details
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -10,10 +10,13 @@ can *store* multiple values.
 =cut
 
 package Foswiki::Form::ListFieldDefinition;
-use base 'Foswiki::Form::FieldDefinition';
 
 use strict;
+use warnings;
 use Assert;
+
+use Foswiki::Form::FieldDefinition ();
+our @ISA = ('Foswiki::Form::FieldDefinition');
 
 =begin TML
 
@@ -46,24 +49,22 @@ sub getOptions {
     if ( !scalar(@vals) ) {
         my $topic = $this->{definingTopic} || $this->{name};
         my $session = $this->{session};
+
         my ( $fieldWeb, $fieldTopic ) =
           $session->normalizeWebTopicName( $this->{web}, $topic );
 
-        my $store = $session->{store};
-        if ( $store->topicExists( $fieldWeb, $fieldTopic ) ) {
+        $fieldWeb = Foswiki::Sandbox::untaint( $fieldWeb,
+            \&Foswiki::Sandbox::validateWebName );
+        $fieldTopic = Foswiki::Sandbox::untaint( $fieldTopic,
+            \&Foswiki::Sandbox::validateTopicName );
 
-            # We have validated that the topic exists so OK to untaint
-            $fieldWeb = Foswiki::Sandbox::untaintUnchecked( $fieldWeb );
-            $fieldTopic = Foswiki::Sandbox::untaintUnchecked( $fieldTopic ); 
+        if ( $session->topicExists( $fieldWeb, $fieldTopic ) ) {
 
-            my ( $meta, $text ) =
-              $store->readTopic( $session->{user}, $fieldWeb, $fieldTopic,
-                undef );
+            my $meta = Foswiki::Meta->load( $session, $fieldWeb, $fieldTopic );
+            next unless $meta->haveAccess('VIEW');
 
             # Process SEARCHES for Lists
-            $text =
-              $this->{session}
-              ->handleCommonTags( $text, $this->{web}, $topic, $meta );
+            my $text = $meta->expandMacros( $meta->text() );
 
             # SMELL: yet another table parser
             my $inBlock = 0;
@@ -88,21 +89,20 @@ sub getOptions {
 }
 
 1;
-__DATA__
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2001-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2001-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
@@ -114,4 +114,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-

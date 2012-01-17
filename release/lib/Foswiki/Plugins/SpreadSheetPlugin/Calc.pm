@@ -1,23 +1,4 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
-# Copyright (C) 2008-2009 Foswiki Contributors
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details, published at
-# http://www.gnu.org/copyleft/gpl.html
-#
-# As per the GPL, removal of this notice is prohibited.
-#
-# =========================
+# See bottom of file for license and copyright information
 #
 # This is part of Foswiki's Spreadsheet Plugin.
 #
@@ -28,6 +9,7 @@
 package Foswiki::Plugins::SpreadSheetPlugin::Calc;
 
 use strict;
+use warnings;
 use Time::Local;
 
 # =========================
@@ -113,6 +95,7 @@ sub CALC {
                 $line =~ s/^(\s*\|)(.*)\|\s*$/$2/o;
                 $before = $1;
                 @row = split( /\|/o, $line, -1 );
+                $row[0] = '' unless @row; # See Item5163
                 push( @tableMatrix, [@row] );
                 $rPos++;
                 $line = "$before";
@@ -242,7 +225,7 @@ sub doFunc {
         $format =~ s/^\s*(.*?)\s*$/$1/;    #Strip leading and trailing spaces
         $res    =~ s/^\s*(.*?)\s*$/$1/;
         $value  =~ s/^\s*(.*?)\s*$/$1/;
-        $res =~ m/^(.*)$/; # SMELL why do we need to untaint
+        $res    =~ m/^(.*)$/;              # SMELL why do we need to untaint
         $res = $1;
         if ( $format eq "DOLLAR" ) {
             my $neg = 1 if $value < 0;
@@ -524,7 +507,8 @@ s/\$([A-Z]+)$escToken([0-9]+)\((.*?)$escToken\2\)/&doFunc($1,$3)/geo;
     }
     elsif ( $theFunc eq "RIGHT" ) {
         $i      = $rPos + 1;
-        $result = "R$i:C$cPos..R$i:C32000";
+        my $c   = $cPos + 2;
+        $result = "R$i:C$c..R$i:C32000";
 
     }
     elsif ( $theFunc eq "DEF" ) {
@@ -1025,16 +1009,18 @@ s/\$([A-Z]+)$escToken([0-9]+)\((.*?)$escToken\2\)/&doFunc($1,$3)/geo;
     }
     elsif ( $theFunc eq "LISTJOIN" ) {
         my ( $sep, $str ) = _properSplit( $theAttr, 2 );
-        $str    = "" unless ( defined($str) );
-	# SMELL: repairing standard delimiter ", " in the constructed string to our custom separator
+        $str = "" unless ( defined($str) );
+
+# SMELL: repairing standard delimiter ", " in the constructed string to our custom separator
         $result = _listToDelimitedString( getList($str) );
-	if ( length $sep ) {
-	    $sep    =~ s/\$comma/,/go;
-	    $sep    =~ s/\$sp/ /go;
-	    $sep    =~ s/\$nop//go;	# make sure $nop appears before $n otherwise you end up with "\nop"
-	    $sep    =~ s/\$n/\n/go;
-	    $result =~ s/, /$sep/go;
-	}
+        if ( length $sep ) {
+            $sep =~ s/\$comma/,/go;
+            $sep =~ s/\$sp/ /go;
+            $sep =~ s/\$nop//go
+              ; # make sure $nop appears before $n otherwise you end up with "\nop"
+            $sep    =~ s/\$n/\n/go;
+            $result =~ s/, /$sep/go;
+        }
     }
     elsif ( $theFunc eq "LISTSIZE" ) {
         my @arr = getList($theAttr);
@@ -1366,7 +1352,7 @@ sub getList {
         else {
 
             # list item
-            $list[ $#list + 1 ] = $_;
+            push( @list, split(/\s*,\s*/, $_ ));
         }
     }
     return @list;
@@ -1624,8 +1610,28 @@ sub _workingDays {
     return $work_days;
 }
 
-# =========================
-
 1;
 
-# EOF
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

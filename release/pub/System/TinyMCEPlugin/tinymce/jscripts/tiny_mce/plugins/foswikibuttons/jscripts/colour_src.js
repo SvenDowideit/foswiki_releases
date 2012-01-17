@@ -17,8 +17,8 @@
 
 var ColoursDlg = {
 
-	preInit : function() {
-		tinyMCEPopup.requireLangPack();
+    preInit: function() {
+        tinyMCEPopup.requireLangPack();
     },
 
     // invoked on load from the body of the dialog
@@ -29,16 +29,8 @@ var ColoursDlg = {
     // Functions specific to the actions of the colour-setting dialog
     set: function(colour) {
         var ted = tinyMCE.activeEditor;
-        var s = ted.selection.getContent();
-        if (s.length > 0) {
-            // Styled spans don't work inside the editor for some reason
-            s = '<font class="WYSIWYG_COLOR" color="' +
-                colour
-                + '">' + s + '</font>';
-            ted.selection.setContent(s);
-            ted.nodeChanged();
-        }
-		tinyMCEPopup.close();
+        ted.formatter.apply('WYSIWYG_COLOR', {value: colour});
+        tinyMCEPopup.close();
     }
 };
 

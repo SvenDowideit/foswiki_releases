@@ -1,12 +1,12 @@
 %{ This is a default template }%%TMPL:INCLUDE{"foswiki"}%
 
-%TMPL:DEF{"notes"}%   * <a class="foswikiPopUp" target='FileAttachment' href="%SCRIPTURL{view}%/%SYSTEMWEB%/FileAttachment" rel='nofollow'>FileAttachment</a> %MAKETEXT{"has more information about attaching files." args=""}%%TMPL:END%
+%TMPL:DEF{"notes"}%%ICON{info}% %POPUPWINDOW{"%SYSTEMWEB%.FileAttachment" label="%MAKETEXT{"Get help on attaching files"}%"}%%JQREQUIRE{"popupwindow"}%%TMPL:END%
 
 %TMPL:DEF{"existingattachments"}%%META{"attachments" all="on" title="<h2>%MAKETEXT{"Attachments of [_1]" args="<nop>%TOPIC%"}%</h2>"}%%TMPL:END%
 
 %TMPL:DEF{"attachform"}%%TMPL:P{"attachformstart"}%%TMPL:P{"newfile"}%%TMPL:P{"comment"}%%TMPL:P{"properties"}%%TMPL:P{"hiddenfields"}%%TMPL:P{"attachformend"}%%TMPL:END%
 
-%TMPL:DEF{"attachformstart"}%<table width="100%">%TMPL:END%
+%TMPL:DEF{"attachformstart"}%<table width="100%" summary="%MAKETEXT{"Attach a file"}%">%TMPL:END%
 
 %TMPL:DEF{"attachformend"}%</table>%TMPL:END%
 

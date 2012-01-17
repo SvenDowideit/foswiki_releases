@@ -31,9 +31,15 @@ easily be coverted into a true singleton (template manager).
 package Foswiki::Templates;
 
 use strict;
+use warnings;
 use Assert;
 
-require Foswiki::Attrs;
+use Foswiki::Attrs ();
+
+# Enable TRACE to get HTML comments in the output showing where templates
+# (both DEFs and files) open and close. Will probably bork the output, so
+# normally you should use it with a bin/view command-line.
+use constant TRACE => 0;
 
 =begin TML
 
@@ -160,6 +166,7 @@ sub tmplP {
     my $val = '';
     if ( exists( $this->{VARS}->{$template} ) ) {
         $val = $this->{VARS}->{$template};
+        $val = "<!--$template-->$val<!--/$template-->" if (TRACE);
         foreach my $p ( keys %$params ) {
             if ( $p eq 'then' || $p eq 'else' ) {
                 $val =~ s/%$p%/$this->expandTemplate($1)/ge;
@@ -168,6 +175,7 @@ sub tmplP {
                 $val =~ s/%$p%/$params->{$p}/ge;
             }
         }
+        $val =~ s/%TMPL:PREV%/%TMPL:P{"$template:_PREV"}%/g;
         $val =~ s/%TMPL:P{(.*?)}%/$this->expandTemplate($1)/ge;
     }
 
@@ -176,30 +184,19 @@ sub tmplP {
 
 =begin TML
 
----++ ObjectMethod readTemplate ( $name, $skins, $web ) -> $text
+---++ ObjectMethod readTemplate ( $name, %options ) -> $text
+
+Reads a template, loading the definitions therein.
 
 Return value: expanded template text
 
-Reads a template, constructing a candidate name for the template thus
-   0 looks for file =$name.$skin.tmpl= (for each skin)
-      0 in =templates/$web=
-      0 in =templates=, look for
-   0 looks for file =$name.tmpl=
-      0 in =templates/$web=
-      0 in =templates=, look for
-   0 if a template is not found, tries in this order
-      0 parse =$name= into a web name (default to $web) and a topic name and looks for this topic
-      0 looks for topic =${skin}Skin${name}Template= 
-         0 in $web (for each skin)
-         0 in =Foswiki::cfg{SystemWebName}= (for each skin)
-      0 looks for topic =${name}Template=
-         0 in $web (for each skin)
-         0 in =Foswiki::cfg{SystemWebName}= (for each skin)
-In the event that the read fails (template not found, access permissions fail)
-returns the empty string ''.
+By default throws an OopsException if the template was not found or the 
+access controls denied access.
 
-=$skin=, =$web= and =$name= are forced to an upper-case first character
-when composing user topic names.
+%options include:
+   * =skin= - skin name, 
+   * =web= - web to search
+   * =no_oops= - if true, will not throw an exception. Instead, returns undef.
 
 If template text is found, extracts include statements and fully expands them.
 Also extracts template definitions and adds them to the
@@ -208,27 +205,45 @@ list of loaded templates, overwriting any previous definition.
 =cut
 
 sub readTemplate {
-    my ( $this, $name, $skins, $web ) = @_;
+    my ( $this, $name, %opts ) = @_;
+    ASSERT($name) if DEBUG;
+    my $skins = $opts{skins} || $this->{session}->getSkin();
+    my $web = $opts{web} || $this->{session}->{webName};
 
     $this->{files} = ();
 
     # recursively read template file(s)
     my $text = _readTemplateFile( $this, $name, $skins, $web );
 
-    # SMELL: unchecked implicit untaint?
-    while ( $text =~ /%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/s ) {
-        $text =~
-s/%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/_readTemplateFile( $this, $1, $skins, $web )/geo;
+    # Check file was found
+    unless( defined $text ) {
+        # if no_oops is given, return undef silently
+        if ($opts{no_oops}) {
+            return undef;
+        } else {
+            throw Foswiki::OopsException(
+                'attention',
+                def    => 'no_such_template',
+                params => [
+                    $name,
+                    # More info for overridable templates
+                    ($name =~ /^(view|edit)$/) ? $name.'_TEMPLATE' : '' ]
+               );
+        }
     }
 
-    # Kill comments, marked by %{ ... }%
-    $text =~ s/%{.*?}%//sg;
+    # SMELL: unchecked implicit untaint?
+    while ( $text =~ /%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/s ) {
+        $text =~ s/%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/
+          _readTemplateFile( $this, $1, $skins, $web ) || ''/ge;
+    }
 
-    if ( !( $text =~ /%TMPL\:/s ) ) {
+    if ( $text !~ /%TMPL\:/ ) {
+        # no %TMPL's to process
 
-        # no template processing
-        $text =~
-          s|^(( {3})+)|"\t" x (length($1)/3)|geom;    # leading spaces to tabs
+        # SMELL: legacy - leading spaces to tabs, should not be required
+        $text =~ s|^(( {3})+)|"\t" x (length($1)/3)|geom;
+
         return $text;
     }
 
@@ -244,7 +259,20 @@ s/%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/_readTemplateFile( $this, $1, $skins, $we
 
             # handle %TMPL:DEF{key}%
             if ($key) {
-                $this->{VARS}->{$key} = $val;
+
+                # if the key is already defined, rename the existing
+                # template to  key:_PREV
+                my $new_value  = $val;
+                my $prev_key   = $key;
+                my $prev_value = $this->{VARS}->{$prev_key};
+                $this->{VARS}->{$prev_key} = $new_value;
+                while ($prev_value) {
+                    $new_value                 = $prev_value;
+                    $prev_key                  = "$prev_key:_PREV";
+                    $prev_value                = $this->{VARS}->{$prev_key};
+                    $this->{VARS}->{$prev_key} = $new_value;
+                }
+
             }
             $key = $1;
 
@@ -252,12 +280,25 @@ s/%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/_readTemplateFile( $this, $1, $skins, $we
             $val = $2;
 
         }
-        elsif (/^END%[\n\r]*(.*)/s) {
+        elsif (/^END%[\s\n\r]*(.*)/s) {
 
             # handle %TMPL:END%
-            $this->{VARS}->{$key} = $val;
-            $key                  = '';
-            $val                  = '';
+
+            # if the key is already defined, rename the existing template to
+            # key:_PREV
+            my $new_value  = $val;
+            my $prev_key   = $key;
+            my $prev_value = $this->{VARS}->{$prev_key};
+            $this->{VARS}->{$prev_key} = $new_value;
+            while ($prev_value) {
+                $new_value                 = $prev_value;
+                $prev_key                  = "$prev_key:_PREV";
+                $prev_value                = $this->{VARS}->{$prev_key};
+                $this->{VARS}->{$prev_key} = $new_value;
+            }
+
+            $key = '';
+            $val = '';
 
             # SMELL: unchecked implicit untaint?
             $result .= $1;
@@ -275,31 +316,28 @@ s/%TMPL\:INCLUDE{[\s\"]*(.*?)[\"\s]*}%/_readTemplateFile( $this, $1, $skins, $we
     # handle %TMPL:P{"..."}% recursively
     $result =~ s/(%TMPL\:P{.*?}%)/_expandTrivialTemplate( $this, $1)/geo;
 
-    $result =~ s|^(( {3})+)|"\t" x (length($1)/3)|geom; # leading spaces to tabs
+    # SMELL: legacy - leading spaces to tabs, should not be required
+    $result =~ s|^(( {3})+)|"\t" x (length($1)/3)|geom;
+
     return $result;
 }
 
-# STATIC: Return value: raw template text, or '' if read fails
+# STATIC: Return value: raw template text, or undef if read fails
 sub _readTemplateFile {
     my ( $this, $name, $skins, $web ) = @_;
     my $session = $this->{session};
-    my $store   = $session->{store};
-
-    $skins = $session->getSkin() unless defined($skins);
 
     #print STDERR "SKIN path is $skins\n";
-    $web  ||= $session->{webName};
-    $name ||= '';
 
-    # SMELL: not i18n-friendly (can't have accented characters in skin name)
+    # SMELL: not i18n-friendly (can't have accented characters in template name)
     # zap anything suspicious
     $name  =~ s/[^A-Za-z0-9_,.\/]//go;
-    $skins =~ s/[^A-Za-z0-9_,.]//go;
 
     # if the name ends in .tmpl, then this is an explicit include from
     # the templates directory. No further searching required.
     if ( $name =~ /\.tmpl$/ ) {
-        return Foswiki::readFile( $Foswiki::cfg{TemplateDir} . '/' . $name );
+        return _decomment(
+            _readFile( $session, "$Foswiki::cfg{TemplateDir}/$name" ) );
     }
 
     my $userdirweb  = $web;
@@ -312,14 +350,25 @@ sub _readTemplateFile {
 
         # if the name can be parsed into $web.$name, then this is an attempt
         # to explicit include that topic. No further searching required.
-        if (
-            validateTopic(
-                $session,     $store, $session->{user},
-                $userdirname, $userdirweb
-            )
-          )
-        {
-            return retrieveTopic( $store, $userdirweb, $userdirname );
+        if ( $session->topicExists( $userdirweb, $userdirname ) ) {
+            my $meta =
+              Foswiki::Meta->load( $session, $userdirweb, $userdirname );
+
+            # Check we are allowed access
+            unless ( $meta->haveAccess( 'VIEW', $session->{user} ) ) {
+                return $this->{session}->inlineAlert( 'alerts', 'access_denied',
+                    "$userdirweb.$userdirname" );
+            }
+            my $text = $meta->text();
+            $text = '' unless defined $text;
+
+            $text =
+                "<!--$userdirweb/$userdirname-->" 
+              . $text
+              . "<!--/$userdirweb/$userdirname-->"
+              if (TRACE);
+
+            return _decomment($text);
         }
     }
     else {
@@ -344,7 +393,7 @@ sub _readTemplateFile {
       )
     {
 
-        #TWikiCompatibility, need to test to see if there is a twiki.skin tmpl
+        # TWikiCompatibility, need to test to see if there is a twiki.skin tmpl
         @templatePath =
           @{ $Foswiki::cfg{Plugins}{TWikiCompatibilityPlugin}{TemplatePath} };
     }
@@ -367,7 +416,8 @@ sub _readTemplateFile {
 
                 # Could also use $Skin, $Web, $Name to indicate uppercase
                 $userdir  = 1;
-                $skin     = ucfirst($skin);
+                # Again untainting when using ucfirst
+                $skin     = Foswiki::Sandbox::untaintUnchecked( ucfirst($skin) );
                 $webName  = $userdirweb;
                 $tmplName = $userdirname;
             }
@@ -383,12 +433,9 @@ sub _readTemplateFile {
                 my ( $web1, $name1 ) =
                   $session->normalizeWebTopicName( $web, $file );
 
-                if (
-                    validateTopic(
-                        $session, $store, $session->{user}, $name1, $web1
-                    )
-                  )
-                {
+                if ( $session->topicExists( $web1, $name1 ) ) {
+
+                    # recursion prevention.
                     next
                       if (
                         defined(
@@ -396,74 +443,90 @@ sub _readTemplateFile {
                               ->{ 'topic' . $session->{user}, $name1, $web1 }
                         )
                       );
-
-                    #recursion prevention.
                     $this->{files}
                       ->{ 'topic' . $session->{user}, $name1, $web1 } = 1;
-                    return retrieveTopic( $store, $web1, $name1 );
+
+                    # access control
+                    my $meta = Foswiki::Meta->load( $session, $web1, $name1 );
+                    next unless $meta->haveAccess( 'VIEW', $session->{user} );
+
+                    my $text = $meta->text();
+                    $text = '' unless defined $text;
+
+                    $text = "<!--$web1.$name1-->$text<!--/$web1.$name1-->"
+                      if (TRACE);
+
+                    return _decomment( $text );
                 }
             }
-            else {
-                if ( validateFile($file) ) {
-                    next if ( defined( $this->{files}->{$file} ) );
+            elsif ( -e $file ) {
+                next if ( defined( $this->{files}->{$file} ) );
 
-                    #recursion prevention.
-                    $this->{files}->{$file} = 1;
-                    return Foswiki::readFile($file);
-                }
+                # recursion prevention.
+                $this->{files}->{$file} = 1;
+
+                return _decomment( _readFile( $session, $file ) );
             }
         }
     }
 
-    # SMELL: should really
-    #throw Error::Simple( 'Template '.$name.' was not found' );
-    # instead of
-    #print STDERR "Template $name could not be found anywhere\n";
-    #Is Failing Silently the best option here?
-    return '';
+    # File was not found
+    return undef;
 }
 
-sub validateFile {
-    my $file = shift;
-    return -e $file;
+sub _readFile {
+    my ( $session, $fn ) = @_;
+    my $F;
+
+    if ( open( $F, '<', $fn ) ) {
+        local $/;
+        my $text = <$F>;
+        close($F);
+
+        $text = "<!--$fn-->$text<!--/$fn-->" if (TRACE);
+
+        return $text;
+    }
+    else {
+        $session->logger->log( 'warning', "$fn: $!" );
+        return undef;
+    }
 }
 
-sub validateTopic {
-    my ( $session, $store, $user, $topic, $web ) = @_;
-    return $store->topicExists( $web, $topic )
-      && $session->security->checkAccessPermission( 'VIEW', $user, undef, undef,
-        $topic, $web );
-}
+sub _decomment {
+    my $text = shift;
 
-sub retrieveTopic {
-    my ( $store, $web, $topic ) = @_;
-    my ( $meta, $text ) = $store->readTopic( undef, $web, $topic, undef );
+    return $text unless $text;
+
+    # Kill comments, marked by %{ ... }%
+    # (and remove whitespace either side of the comment)
+    $text =~ s/\s*%{.*?}%\s*//sg;
     return $text;
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

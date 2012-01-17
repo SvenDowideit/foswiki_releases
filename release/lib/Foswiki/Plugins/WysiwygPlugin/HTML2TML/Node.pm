@@ -1,19 +1,4 @@
-# Copyright (C) 2005 ILOG http://www.ilog.fr
-# and Foswiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of the Foswiki distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 # The generator works by expanding and HTML parse tree to "decorated"
 # text, where the decorators are non-printable characters. These characters
@@ -33,9 +18,11 @@ See also Foswiki::Plugins::WysiwygPlugin::HTML2TML::Leaf
 =cut
 
 package Foswiki::Plugins::WysiwygPlugin::HTML2TML::Node;
-use base 'Foswiki::Plugins::WysiwygPlugin::HTML2TML::Base';
+use Foswiki::Plugins::WysiwygPlugin::HTML2TML::Base;
+our @ISA = qw( Foswiki::Plugins::WysiwygPlugin::HTML2TML::Base );
 
 use strict;
+use warnings;
 
 use Foswiki::Func;    # needed for regular expressions
 use Assert;
@@ -44,6 +31,14 @@ use vars qw( $reww );
 
 use Foswiki::Plugins::WysiwygPlugin::Constants;
 use Foswiki::Plugins::WysiwygPlugin::HTML2TML::WC;
+
+my %jqueryChiliClass = map { $_ => 1 }
+    qw( cplusplus csharp css bash delphi html java js 
+        lotusscript php-f php sql tml );
+
+my %tml2htmlClass = map { $_ => 1 }
+    qw( WYSIWYG_PROTECTED WYSIWYG_STICKY TMLverbatim WYSIWYG_LINK
+        TMLhtml );
 
 =pod
 
@@ -79,9 +74,10 @@ sub stringify {
     my $r = '';
     if ( $this->{tag} ) {
         $r .= '<' . $this->{tag};
-        foreach my $attr ( keys %{ $this->{attrs} } ) {
+        foreach my $attr ( sort keys %{ $this->{attrs} } ) {
             $r .= " " . $attr . "='" . $this->{attrs}->{$attr} . "'";
         }
+        $r .= ' /' if $WC::SELFCLOSING{ lc($this->{tag}) };
         $r .= '>';
     }
     if ($shallow) {
@@ -94,7 +90,7 @@ sub stringify {
             $kid = $kid->{next};
         }
     }
-    if ( $this->{tag} ) {
+    if ( $this->{tag} and not $WC::SELFCLOSING{ lc($this->{tag}) } ) {
         $r .= '</' . $this->{tag} . '>';
     }
     return $r;
@@ -239,15 +235,19 @@ generate TML)
 sub rootGenerate {
     my ( $this, $opts ) = @_;
 
+    #print STDERR "Raw       [", WC::debugEncode($this->stringify()), "]\n\n";
     $this->cleanParseTree();
 
+    #print STDERR "Cleaned   [", WC::debugEncode($this->stringify()), "]\n\n";
     # Perform some transformations on the parse tree
     $this->_collapse();
+
+    #print STDERR "Collapsed [", WC::debugEncode($this->stringify()), "]\n\n";
 
     my ( $f, $text ) = $this->generate($opts);
 
     # Debug support
-    #print STDERR "Converted ",WC::debugEncode($text),"\n";
+    #print STDERR "Converted [",WC::debugEncode($text),"]\n";
 
     # Move leading \n out of protected region. Delicate hack fix required to
     # maintain Foswiki variables at the start of lines.
@@ -272,6 +272,7 @@ s/$WC::CHECKw(($WC::PON|$WC::POFF)?[$WC::CHECKn$WC::CHECKs$WC::NBSP $WC::NBBR])/
     $text =~ s/<br( \/)?>$WC::NBBR/$WC::NBBR/g;    # Remove BR before P
 
     #die "Converted ",WC::debugEncode($text),"\n";
+    #print STDERR "Conv2     [",WC::debugEncode($text),"]\n";
 
     my @regions = split( /([$WC::PON$WC::POFF])/o, $text );
     my $protect = 0;
@@ -341,6 +342,10 @@ s/$WC::CHECKw(($WC::PON|$WC::POFF)?[$WC::CHECKn$WC::CHECKs$WC::NBSP $WC::NBBR])/
         $tml =~ s/$WC::CHECK1/ /go;
         $tml =~ s/$WC::CHECK2/ /go;
 
+        # Item5127: Remove BR just before EOLs
+        unless ($protect) {
+            $tml =~ s/<br( \/)?>\n/\n/g;
+        }
         #print STDERR WC::debugEncode($before);
         #print STDERR " -> '",WC::debugEncode($tml),"'\n";
         $text .= $tml;
@@ -355,8 +360,7 @@ s/$WC::CHECKw(($WC::PON|$WC::POFF)?[$WC::CHECKn$WC::CHECKs$WC::NBSP $WC::NBBR])/
     $text =~ s/^\n*//s;
     $text =~ s/\s*$/\n/s;
 
-    # Item5127: Remove BR just before EOLs
-    $text =~ s/<br( \/)?>\n/\n/g;
+    #print STDERR "TML       [",WC::debugEncode($text),"]\n";
 
     return $text;
 }
@@ -489,6 +493,10 @@ sub generate {
         return $this->_defaultTag($options);
     }
 
+    if ( $this->hasClass('TMLhtml') ) {
+        return $this->_defaultTag($options & ~$WC::VERY_CLEAN);
+    }
+
     my $tag = $this->{tag};
 
     if ( $this->hasClass('WYSIWYG_LITERAL') ) {
@@ -608,19 +616,28 @@ sub _htmlParams {
     my ( $attrs, $options ) = @_;
     my @params;
 
-    while ( my ( $k, $v ) = each %$attrs ) {
-        next unless $k;
+    # Sort the attributes when converting back to TML
+    # so that the conversion is deterministic
+    ATTR: for my $k ( sort keys %$attrs ) {
+        next ATTR unless $k;
+        my $v = $attrs->{$k};
         if ( $k eq 'class' ) {
-
-            # if cleaning aggressively, remove class attributes completely
-            next if ( $options & $WC::VERY_CLEAN );
-            foreach my $c
-              qw(WYSIWYG_PROTECTED WYSIWYG_STICKY TMLverbatim WYSIWYG_LINK) {
-                $v =~ s/\b$c\b//;
-            }
-            $v =~ s/\s+/ /;
+            my @classes;
             $v =~ s/^\s*(.*?)\s*$/$1/;
-            next unless $v;
+            CLASS: for my $class (split /\s+/, $v) {
+                next CLASS unless $class =~ /\S/;
+                next CLASS if $tml2htmlClass{$class};
+
+                # if cleaning aggressively, remove class attributes
+                # except for the JQuery "Chili" classes
+                next CLASS if ( $options & $WC::VERY_CLEAN
+                    and not $jqueryChiliClass{$class} );
+
+                push @classes, $class;
+            }
+            next ATTR unless @classes;
+
+            $v = join(' ', @classes);
         }
         my $q = $v =~ /"/ ? "'" : '"';
         push( @params, $k . '=' . $q . $v . $q );
@@ -651,12 +668,12 @@ sub _defaultTag {
 sub _isProtectedByAttrs {
     my $this = shift;
 
-    require Foswiki::Plugins::WysiwygPlugin;
+    require Foswiki::Plugins::WysiwygPlugin::Handlers;
     foreach my $attr ( keys %{ $this->{attrs} } ) {
         next unless length( $this->{attrs}->{$attr} );    # ignore nulls
         return $attr
-          if Foswiki::Plugins::WysiwygPlugin::protectedByAttr( $this->{tag},
-            $attr );
+          if Foswiki::Plugins::WysiwygPlugin::Handlers::protectedByAttr(
+            $this->{tag}, $attr );
     }
     return 0;
 }
@@ -822,7 +839,7 @@ sub _isConvertableListItem {
     return 1;
 }
 
-# probe down into a list type to determine if it
+# probe down into a table to determine if it
 # can be converted to TML.
 sub _isConvertableTable {
     my ( $this, $options, $table ) = @_;
@@ -830,6 +847,9 @@ sub _isConvertableTable {
     if ( $this->_isProtectedByAttrs() ) {
         return 0;
     }
+
+    my $rowspan = undef;
+    $rowspan = [] if Foswiki::Func::getContext()->{'TablePluginEnabled'};
 
     my $kid = $this->{head};
     while ($kid) {
@@ -842,13 +862,20 @@ sub _isConvertableTable {
             unless ( $kid->{tag} eq 'tr' ) {
                 return 0;
             }
-            my $row = $kid->_isConvertableTableRow($options);
+            my $row = $kid->_isConvertableTableRow( $options, $rowspan );
             unless ($row) {
                 return 0;
             }
             push( @$table, $row );
         }
         $kid = $kid->{next};
+    }
+
+    if ( $rowspan and grep { $_ } @$rowspan ) {
+
+        # One or more cells span rows past the last row in the table.
+        # This is a defect in the HTML table which TML cannot represent.
+        return 0;
     }
     return 1;
 }
@@ -864,10 +891,10 @@ s/(<br \/>|<br>|$WC::NBSP|$WC::NBBR|$WC::CHECKn|$WC::CHECKs|$WC::CHECKw|$WC::CHE
     return $td;
 }
 
-# probe down into a list item to determine if the
+# probe down into a table row to determine if the
 # containing table can be converted to TML.
 sub _isConvertableTableRow {
-    my ( $this, $options ) = @_;
+    my ( $this, $options, $rowspan ) = @_;
 
     return 0 if ( $this->_isProtectedByAttrs() );
 
@@ -875,8 +902,15 @@ sub _isConvertableTableRow {
     my @row;
     my $ignoreCols = 0;
     my $kid        = $this->{head};
+    my $colIdx     = 0;
+    while ( $rowspan and $rowspan->[$colIdx] ) {
+        push @row, $WC::NBSP . '^' . $WC::NBSP;
+        $rowspan->[$colIdx]--;
+        $colIdx++;
+    }
     while ($kid) {
         if ( $kid->{tag} eq 'th' ) {
+            $kid->_removePWrapper();
             $kid->_moveClassToSpan('WYSIWYG_TT');
             $kid->_moveClassToSpan('WYSIWYG_COLOR');
             ( $flags, $text ) = $kid->_flatten($options);
@@ -884,6 +918,7 @@ sub _isConvertableTableRow {
             $text = "*$text*" if length($text);
         }
         elsif ( $kid->{tag} eq 'td' ) {
+            $kid->_removePWrapper();
             $kid->_moveClassToSpan('WYSIWYG_TT');
             $kid->_moveClassToSpan('WYSIWYG_COLOR');
             ( $flags, $text ) = $kid->_flatten($options);
@@ -912,7 +947,8 @@ sub _isConvertableTableRow {
                 $text .= $WC::NBSP;
             }
             if ( $kid->{attrs}->{rowspan} && $kid->{attrs}->{rowspan} > 1 ) {
-                return 0;
+                return 0 unless $rowspan;
+                $rowspan->[$colIdx] = $kid->{attrs}->{rowspan} - 1;
             }
         }
         $text =~ s/&nbsp;/$WC::NBSP/g;
@@ -936,13 +972,101 @@ sub _isConvertableTableRow {
 
         # Pad to allow wikiwords to work
         push( @row, $text );
+        $colIdx++;
         while ( $ignoreCols > 1 ) {
+            if ( $rowspan and $rowspan->[$colIdx] ) {
+
+                # rowspan and colspan into the same cell
+                return 0;
+            }
             push( @row, '' );
             $ignoreCols--;
+            $colIdx++;
+        }
+        while ( $rowspan and $rowspan->[$colIdx] ) {
+            push @row, $WC::NBSP . '^' . $WC::NBSP;
+            $rowspan->[$colIdx]--;
+            $colIdx++;
         }
         $kid = $kid->{next};
     }
     return \@row;
+}
+
+# Remove the P tag from a table cell when it surrounds the whole content
+# These "wrapper P tags" come from TMCE, when you press Enter
+# in a table cell. They are impossible to remove in TMCE itself
+# and they mess up the vertical alignment of table text.
+sub _removePWrapper {
+    my $this = shift;
+
+    # Find the first kid that is a tag,
+    # keeping track of any content before it
+    my $kid            = $this->{head};
+    my $leadingContent = '';
+    while ( $kid->{next} and not $kid->{tag} ) {
+        $leadingContent .= $kid->{text};
+        $kid = $kid->{next};
+    }
+
+    # If there are no enclosed tags, then there is nothing further to do
+    return unless $kid;
+    return unless $kid->{tag};
+
+    # If there is something (non-whitespace) before the first tag,
+    # then there is nothing further to do
+    return if $leadingContent =~ /\S/;
+
+    # This is the first node (tag)
+    my $firstNodeKid = $kid;
+
+    # Find the last kid that is a tag,
+    # keeping track of any content after it
+    $kid = $this->{tail};
+    my $trailingContent = '';
+    while ( $kid->{prev} and not $kid->{tag} ) {
+        $trailingContent .= $kid->{text};
+        $kid = $kid->{prev};
+    }
+
+    # Note that there is at least one kid that is a node (tag)
+    # so the checks here are for safety's sake
+    ASSERT($kid) if DEBUG;
+    ASSERT( $kid->{tag} ) if DEBUG;
+    return unless $kid;
+    return unless $kid->{tag};
+
+    # If there is something (non-whitespace) after the last tag,
+    # then there is nothing further to do
+    return if $trailingContent =~ /\S/;
+
+    # This is the last node (tag)
+    my $lastNodeKid = $kid;
+
+    # If there are multiple kids that are nodes (tags)
+    # then there is no "wrapper" tag to be removed
+    return unless $firstNodeKid eq $lastNodeKid;
+
+    # There is only a problem if the surrounding tag is a <p> tag
+    return unless uc( $firstNodeKid->{tag} ) eq 'P';
+
+    $firstNodeKid->_remove();
+
+    # Check if the tag has attributes
+    if ( keys %{ $firstNodeKid->{attrs} } ) {
+
+        # Replace the wrapper P tag with a span
+        my $newspan =
+          new Foswiki::Plugins::WysiwygPlugin::HTML2TML::Node( $this->{context},
+            'span', $firstNodeKid->{attrs} );
+        $newspan->_eat($firstNodeKid);
+        $this->addChild($newspan);
+    }
+    else {
+
+        # Remove the wrapper P tag
+        $this->_eat($firstNodeKid);
+    }
 }
 
 # Work out the alignment of a table cell from the style and/or class
@@ -1026,7 +1150,7 @@ sub _emphasis {
     return ( 0, undef ) unless $ae && $be;
 
     return ( $flags,
-        $pre . $WC::CHECKw . $ch . $contents . $ch . $WC::CHECK2 . $post );
+        $pre . $WC::CHECK1 . $ch . $contents . $ch . $WC::CHECK2 . $post );
 }
 
 sub isBlockNode {
@@ -1170,13 +1294,15 @@ sub cleanNode {
         }
     }
 
-    # Sometimes (rarely!) there's a <span id='__caret'> </span>, an artifact of 
-    # one of the strategies TinyMCE uses to recover lost cursor positioning, see 
-    # Item2618 where this can break TML tables. #SMELL: TMCE specific
-    if ( ( $this->{tag} eq 'span' ) && ( defined $this->{attrs}->{id} ) && 
-        ( $this->{attrs}->{id} eq '__caret' ) ) {
-        $this->{tag} = q{};
-        $this->{attrs} = {};
+    # Sometimes (rarely!) there's a <span id='__caret'> </span>, an artifact of
+    # one of the strategies TinyMCE uses to recover lost cursor positioning,
+    # see Item2618 where this can break TML tables. #SMELL: TMCE specific
+    if (   ( $this->{tag} eq 'span' )
+        && ( defined $this->{attrs}->{id} )
+        && ( $this->{attrs}->{id} eq '__caret' ) )
+    {
+        $this->{tag}      = q{};
+        $this->{attrs}    = {};
         $this->{nodeType} = 0;
     }
 }
@@ -1266,7 +1392,7 @@ sub _handleB { return _emphasis( @_, '*' ); }
 sub _handleBASE     { return ( 0, '' ); }
 sub _handleBASEFONT { return ( 0, '' ); }
 
-sub _handleBIG { return ( 0, '' ); }
+sub _handleBIG { return _flatten(@_); }
 
 # BLOCKQUOTE
 sub _handleBODY { return _flatten(@_); }
@@ -1449,6 +1575,10 @@ sub _handleOL       { return _LIST(@_); }
 sub _handleP {
     my ( $this, $options ) = @_;
 
+    if ( $this->hasClass('WYSIWYG_WARNING') ) {
+        return ( 0, '' );
+    }
+
     if ( $this->hasClass('TMLverbatim') ) {
         return $this->_verbatim( 'verbatim', $options );
     }
@@ -1458,11 +1588,27 @@ sub _handleP {
 
     my ( $f, $kids ) = $this->_flatten($options);
     return ( $f, '<p>' . $kids . '</p>' ) if ( $options & $WC::NO_BLOCK_TML );
-    my $pre = '';
-    if ( $this->prevIsInline() ) {
+    my $prevNode = $this->{prev};
+    if ( $prevNode and not $prevNode->{tag} ) {
+        $prevNode = $prevNode->{prev};
+    }
+    my $afterTable = ( $prevNode and uc( $prevNode->{tag} ) eq 'TABLE' );
+    my $nextNode = $this->{next};
+    if ( $nextNode and not $nextNode->{tag} ) {
+        $nextNode = $nextNode->{next};
+    }
+    my $beforeTable = ( $nextNode and uc( $nextNode->{tag} ) eq 'TABLE' );
+    my $pre;
+    if ( $afterTable and not $beforeTable ) {
+        $pre = '';
+    }
+    elsif ( $this->prevIsInline() ) {
+        $pre = $WC::NBBR . $WC::NBBR;
+    }
+    else {
         $pre = $WC::NBBR;
     }
-    return ( $f | $WC::BLOCK_TML, $pre . $WC::NBBR . $kids . $WC::NBBR );
+    return ( $f | $WC::BLOCK_TML, $pre . $kids . $WC::NBBR );
 }
 
 # PARAM
@@ -1574,19 +1720,8 @@ sub _handleTABLE {
       unless $this->_isConvertableTable( $options | $WC::NO_BLOCK_TML,
         \@table );
 
-    my $maxrow = 0;
-    my $row;
-    foreach $row (@table) {
-        my $rw = scalar(@$row);
-        $maxrow = $rw if ( $rw > $maxrow );
-    }
-    foreach $row (@table) {
-        while ( scalar(@$row) < $maxrow ) {
-            push( @$row, '' );
-        }
-    }
     my $text = $WC::CHECKn;
-    foreach $row (@table) {
+    foreach my $row (@table) {
 
         # isConvertableTableRow has already formatted the cell
         $text .= $WC::CHECKn . '|' . join( '|', @$row ) . '|' . $WC::CHECKn;
@@ -1609,6 +1744,30 @@ sub _handleTT { return _handleCODE(@_); }
 
 # U
 sub _handleUL { return _LIST(@_); }
-sub _handleVAR { return ( 0, '' ); }
+
+sub _handleVAR { return _flatten(@_); }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005 ILOG http://www.ilog.fr
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

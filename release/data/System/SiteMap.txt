@@ -1,53 +1,50 @@
 %META:TOPICINFO{author="ProjectContributor" date="1252721330" format="1.1" version="1"}%
 %META:TOPICPARENT{name="SiteTools"}%
----+ <nop>%WIKITOOLNAME% Site Map
+---+ <nop>%WIKITOOLNAME% Sitemap
+This table is updated automatically based on <nop>WebPreferences settings of the individual webs.
 
-%STARTINCLUDE%
-%ADDTOHEAD{
-<style type='text/css'>
-#sitemap .foswikiFormSteps {background:#fff;}
-#sitemap .foswikiFormStep {padding:0;}
-#sitemap .foswikiFormSteps ul {list-style:none; margin-bottom:0;}
-#sitemap .siteMapWebColor {margin:4px;}
-#sitemap .sitemapWebInfo {margin:0 0 0 15px; padding:.5em 1em .5em 25px; background:#fff;}
-</style>
-}%
-
-<noautolink>
-<div id="sitemap">
-<div class="foswikiFormSteps">
-%SEARCH{
-"\* Set SITEMAPLIST \= on"
-type="regex"
-web="%USERSWEB%,%SYSTEMWEB%,all"
-topic="%WEBPREFSTOPIC%"
-nototal="on"
-nosearch="on"
-format="\
-<div class=\"foswikiFormStep\">\
-<div class=\"siteMapWebColor\" style=\"background-color:$pattern(.*?\* Set WEBBGCOLOR\s*=\s*([^\s]*).*)\">\
-<div class=\"sitemapWebInfo\">\
-<strong>[[$web.%HOMETOPIC%][$web]]</strong>\
-<ul>\
-<li>$pattern(.*?\* Set SITEMAPWHAT\s*=([^\n\r]*).*) </li>\
-<li>Used to: $pattern(.*?\* Set SITEMAPUSETO\s*=([^\n\r]*).*)</li>\
-<li>[[$web.%HOMETOPIC%][<img src=\"%ICONURL{home}%\" alt=\"Home of $web web\" width=\"16\" height=\"16\" border=\"0\" />]] [[$web.WebSearch][<img src=\"%ICONURL{searchtopic}%\" alt=\"Search $web web\" width=\"16\" height=\"16\" border=\"0\" />]] [[$web.WebChanges][<img src=\"%ICONURL{recentchanges}%\" alt=\"Recent changes in the $web web\" width=\"16\" height=\"16\" border=\"0\" />]] [[$web.%NOTIFYTOPIC%][<img src=\"%ICONURL{notify}%\" alt=\"Get notified of changes to the $web web\" width=\"16\" height=\"16\" border=\"0\" />]]</li>\
-</ul>\
-</div>\
-</div><!--//siteMapWebColor-->\
-</div><!--//foswikiFormStep-->\
-"}%</div><!--//foswikiFormSteps-->
-</div><!--//#sitemap-->
+%STARTINCLUDE%<noautolink><div class="siteToolsSitemap"><table class="foswikiTable" width="100%" border="0" cellspacing="2" bgcolor="#ffffff" cellpadding="3">
+<tr>
+<th>Web</th>
+<th>Go to</th>
+<th>Description</th>
+</tr>
+%SEARCH{ "name='%WEBPREFSTOPIC%'" web="all" scope="topic" type="query" nototal="on" nosearch="on" format="<tr><td><img src=\"%ICONURL{web-bg}%\" alt=\"\" style=\"background-color:$pattern(.*?\* Set WEBBGCOLOR\s*=\s*([^\s]*).*)\" /><b>[[$web.%HOMETOPIC%][$web]]</b></td><td>[[$web.%HOMETOPIC%][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/home.gif\" alt=\"Home of $web web\" />]][[$web.WebSearch][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/searchtopic.gif\" alt=\"Search $web web\" />]][[$web.WebChanges][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/recentchanges.gif\" alt=\"Recent changes in the $web web\" />]][[$web.%NOTIFYTOPIC%][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/notify.gif\" alt=\"Get notified of changes to the $web web\" />]][[$web.%WEBPREFSTOPIC%][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/wrench.gif\" alt=\"Preferences of $web web\" />]][[$web.%STATISTICSTOPIC%][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/statistics.gif\" alt=\"Statistics of $web web\" />]][[$web.WebTopicList][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/indexlist.gif\" alt=\"Bullet list of all topics\" />]][[$web.WebIndex][<img src=\"%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/index.gif\" alt=\"Index of all topics\" />]]</td><td>$percentEXPAND{\"$dollarpercentWEBSUMMARY$dollarpercent\" scope=\"$web.$topic\"}$percent $pattern(.*?\* Set SITEMAPUSETO\s*=([^\n\r]*).*)</td></tr>" }%
+</table>
+   * Legend:
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/home.gif" alt="Home of web"/> WebHome 
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/searchtopic.gif" alt="Search web" />WebSearch
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/recentchanges.gif" alt="Recent changes in the web" />WebChanges
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/notify.gif" alt="Get notified of changes to the web" />WebNotify 
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/wrench.gif" alt="Preferences of web" />WebPreferences 
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/statistics.gif" alt="Statistics of web" />WebStatistics 
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/indexlist.gif" alt="Bullet list of all topics" />WebTopicList
+   * <img src="%PUBURLPATH%/%SYSTEMWEB%/DocumentGraphics/index.gif" alt="Index of all topics" />WebIndex
+</div>
 </noautolink>
-
-This table is updated automatically based on <nop>WebPreferences settings of the individual webs. Topic home: [[%SYSTEMWEB%.SiteMap]].
-
-Legend: %BR%
-%ICON{home}% Go to the home of the web %BR%
-%ICON{recentchanges}% See recent changes in the web %BR%
-%ICON{searchtopic}% Search the web %BR%
-%ICON{notify}% Subscribe to get notified of changes by e-mail
+%ADDTOZONE{"head" text="<style type='text/css'>
+.siteToolsSitemap img {
+	width:16px;
+	height:16px;
+	border:none;
+	margin:0 .5em 0 0;
+}
+.siteToolsSitemap ul
+{
+	list-style-image:none;
+	list-style-position:outside;
+	list-style-type:none;
+	margin:1em 0;
+	padding:0;
+}
+.siteToolsSitemap li
+{
+	display:inline;
+	margin:0 .5em 0 0;
+	padding:0;
+}
+</style>"
+}%
 %STOPINCLUDE%
 
----
 Related admin pages: %SYSTEMWEB%.AdminToolsCategory

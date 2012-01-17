@@ -4,23 +4,35 @@
 
 ---+ package Foswiki::Configure::Load
 
----++ Purpose
-
-This module consists of just a single subroutine =readConfig=.  It allows to
-safely modify configuration variables _for one single run_ without affecting
-normal Foswiki operation.
+Handling for loading configuration information (Foswiki.spec, Config.spec and
+LocalSite.cfg) as efficiently and flexibly as possible.
 
 =cut
 
 package Foswiki::Configure::Load;
 
-our $TRUE = 1;
+use strict;
+use warnings;
+
+our $TRUE  = 1;
+our $FALSE = 0;
+
+# Configuration items that have been deprecated and must be mapped to
+# new configuration items. The value is mapped unchanged.
+our %remap = (
+    '{StoreImpl}'          => '{Store}{Implementation}',
+    '{AutoAttachPubFiles}' => '{RCS}{AutoAttachPubFiles}',
+    '{QueryAlgorithm}'     => '{Store}{QueryAlgorithm}',
+    '{SearchAlgorithm}'    => '{Store}{SearchAlgorithm}',
+    '{RCS}{FgrepCmd}'      => '{Store}{FgrepCmd}',
+    '{RCS}{EgrepCmd}'      => '{Store}{EgrepCmd}',
+);
 
 =begin TML
 
----++ StaticMethod readConfig()
+---++ StaticMethod readConfig([$noexpand])
 
-In normal Foswiki operations as a web server this routine is called by the
+In normal Foswiki operations as a web server this method is called by the
 =BEGIN= block of =Foswiki.pm=.  However, when benchmarking/debugging it can be
 replaced by custom code which sets the configuration hash.  To prevent us from
 overriding the custom code again, we use an "unconfigurable" key
@@ -35,11 +47,16 @@ and that will add the config values to LocalSite.cfg, so no defaults are
 needed. Foswiki.spec is still read because so much of the core code doesn't
 provide defaults, and it would be silly to have them in two places anyway.
 
+$noexpand can be set to suppress expansion of $Foswiki vars embedded in
+values.
+
 =cut
 
 sub readConfig {
+    my $noexpand = shift;
+
     return if $Foswiki::cfg{ConfigurationFinished};
-    my $validLSC = 1;   #Assume LocalSite.cfg is valid
+    my $validLSC = 1;   # Assume it's valid - will be set false if errors detected.
 
     # Read Foswiki.spec and LocalSite.cfg
     for my $file (qw( Foswiki.spec LocalSite.cfg)) {
@@ -50,17 +67,17 @@ sub readConfig {
                 print STDERR "$errorMessage \n";
             }
             elsif ( not defined $return ) {
-                print STDERR "Could not 'do' $file: $! \n - This might be okay if file LocalSite.cfg does not exist in a new installation.\n"; 
+                print STDERR "Could not 'do' $file: $! \n - This might be okay if file LocalSite.cfg does not exist in a new installation.\n";
                 unless ( $! == 2 && $file eq 'LocalSite.cfg' ) {
 
-                    # Non-existent LocalSite.cfg is not an error
-                    $errorMessage = "Could not do $file: $errno $!";
+                    # LocalSite.cfg doesn't exist, which is OK
+                    $errorMessage = "Could not do $file: $!";
                 }
                 $validLSC = 0;
             }
-            elsif ( not $return eq '1' ) {
-                $errorMessage = "Could not run $file" unless $return;
+            elsif ( not $return eq '1') {
                 print STDERR "Running file $file returned  unexpected results: $return \n";
+                $errorMessage = "Could not run $file" unless $return;
             }
             if ($errorMessage) {
                 die <<GOLLYGOSH;
@@ -68,10 +85,6 @@ Content-type: text/plain
 
 $errorMessage
 Please inform the site admin.
-
-If you are the site admin, you should check the configure page.
-
-
 GOLLYGOSH
                 exit 1;
             }
@@ -92,50 +105,88 @@ GOLLYGOSH
         unless (defined $Foswiki::cfg{$var}) {
             $Foswiki::cfg{$var} = 'NOT SET';
             $validLSC = 0;
+            }
+      }
+
+      # Patch deprecated config settings
+      if ( exists $Foswiki::cfg{StoreImpl} ) {
+        $Foswiki::cfg{Store}{Implementation} =
+          'Foswiki::Store::' . $Foswiki::cfg{StoreImpl};
+        delete $Foswiki::cfg{StoreImpl};
+    }
+    foreach my $el ( keys %remap ) {
+        if ( eval 'exists $Foswiki::cfg' . $el ) {
+            eval <<CODE;
+\$Foswiki::cfg$remap{$el}=\$Foswiki::cfg$el;
+delete \$Foswiki::cfg$el;
+CODE
         }
     }
 
     # Expand references to $Foswiki::cfg vars embedded in the values of
     # other $Foswiki::cfg vars.
-    expand( \%Foswiki::cfg );
+    expandValue( \%Foswiki::cfg ) unless $noexpand;
 
     $Foswiki::cfg{ConfigurationFinished} = 1;
 
-    # Alias TWiki cfg to Foswiki cfg for plugins and contribs
-    *{'TWiki::cfg'} = *{'Foswiki::cfg'};
+#on Windows, File::Spec returns a really useless empty string for tempdir under apache
+#(in its unix code, it assumes /tmp - but at least thats standard..)
+#so defaulting $ENV{TMP} can get us limping along (and can over-ride using TMPDIR or TEMP env
+    if ( $^O eq 'MSWin32' ) {
 
-    return $validLSC;
-}
+        #force paths to use '/'
+        $Foswiki::cfg{PubDir}      =~ s|\\|/|g;
+        $Foswiki::cfg{DataDir}     =~ s|\\|/|g;
+        $Foswiki::cfg{ToolsDir}    =~ s|\\|/|g;
+        $Foswiki::cfg{ScriptDir}   =~ s|\\|/|g;
+        $Foswiki::cfg{TemplateDir} =~ s|\\|/|g;
+        $Foswiki::cfg{LocalesDir}  =~ s|\\|/|g;
+        $Foswiki::cfg{WorkingDir}  =~ s|\\|/|g;
 
-sub expand {
-    my $hash = shift;
-
-    foreach ( values %$hash ) {
-        next unless $_;
-        if ( ref($_) eq 'HASH' ) {
-            expand( \%$_ );
-        }
-        else {
-            s/(\$Foswiki::cfg{[[A-Za-z0-9{}]+})/eval $1||'undef'/ge;
-        }
+        #$ENV{TMPDIR}
+        #$ENV{TEMP}
+        #$ENV{TMP}
+        $ENV{TMP} = $Foswiki::cfg{WorkingDir};
     }
+
+    # Alias TWiki cfg to Foswiki cfg for plugins and contribs
+    *TWiki::cfg = \%Foswiki::cfg;
+
+    # Explicit return true if we've completed the load
+    return $validLSC;
 }
 
 =begin TML
 
----++ StaticMethod expandValue($string) -> $boolean
+---++ StaticMethod expandValue($datum)
 
 Expands references to Foswiki configuration items which occur in the
-value of other configuration items.  Use expand($hashref) if the item
-is not a plain scalar.
-
-Happens to return true if something has been expanded, though I don't
-know whether you would want that.  The replacement is done in-place,
+values configuration items contained within the datum, which may be a
+hash reference or a scalar value. The replacement is done in-place.
 
 =cut
 
 sub expandValue {
-    $_[0] =~ s/(\$Foswiki::cfg{[[A-Za-z0-9{}]+})/eval $1||'undef'/ge;
+    if (ref($_[0]) eq 'HASH') {
+        map { expandValue($_) } values %{$_[0]};
+    } elsif (ref($_[0]) eq 'ARRAY') {
+        map { expandValue($_) } @{$_[0]};
+# Can't do this, because Windows uses an object (Regexp) for regular
+# expressions.
+#    } elsif (ref($_[0])) {
+#        Carp::confess("Can't handle a ".ref($_[0]));
+    } elsif (defined($_[0])) {
+        $_[0] =~ s/(\$Foswiki::cfg{[[A-Za-z0-9{}]+})/_handleExpand($1)/ge;
+    }
+}
+
+# Used to expand the $Foswiki::cfg variable in the expand* routines.
+# Resolves issue with defined but null variables expanding as "undef"
+# Tasks:Item5608
+sub _handleExpand {
+    my $val = eval $_[0];
+    $val = ( defined $val ) ? $val : 'undef';
+    return $val;
 }
 
 =begin TML
@@ -165,17 +216,23 @@ sub readDefaults {
     };
     push( @errors, $@ ) if ($@);
     foreach my $dir (@INC) {
+        my $root;    # SMELL: Not used
         _loadDefaultsFrom( "$dir/Foswiki/Plugins", $root, \%read, \@errors );
         _loadDefaultsFrom( "$dir/Foswiki/Contrib", $root, \%read, \@errors );
         _loadDefaultsFrom( "$dir/TWiki/Plugins",   $root, \%read, \@errors );
         _loadDefaultsFrom( "$dir/TWiki/Contrib",   $root, \%read, \@errors );
     }
-    if ( %TWiki::cfg ) {
+
+    # SMELL: This will create the %TWiki::cfg
+    # But as it ought to be aliased to %Foswiki::cfg, it's not a big deal
+    # XXX: Do we still need this code?
+    if ( %TWiki::cfg && \%TWiki::cfg != \%Foswiki::cfg ) {
 
         # We had some TWiki plugins, need to map their config to Foswiki
         sub mergeHash {
 
-          # Merges the keys in the right hashref to the ones in the left hashref
+            # Merges the keys in the right hashref to the ones in the
+            # left hashref
             my ( $left, $right, $errors ) = @_;
             while ( my ( $key, $value ) = each %$right ) {
                 if ( exists $left->{$key} ) {
@@ -200,7 +257,8 @@ sub readDefaults {
                         foreach my $item (@$value) {
                             unless ( grep /^$item$/, @{ $left->{$key} } ) {
 
-                         # The item isn't in the current list, add it at the end
+                                # The item isn't in the current list,
+                                # add it at the end
                                 unshift @{ $left->{$key} }, $item;
                             }
                         }
@@ -225,7 +283,7 @@ sub readDefaults {
             return $left;
         }
         mergeHash \%Foswiki::cfg, \%TWiki::cfg, \@errors;
-    }    # define %TWiki::cfg
+    }
 
     return \@errors;
 }
@@ -248,28 +306,28 @@ sub _loadDefaultsFrom {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root of
-# this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2006 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root of
+this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

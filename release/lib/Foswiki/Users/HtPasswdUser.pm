@@ -12,9 +12,12 @@ See documentation of that class for descriptions of the methods of this class.
 =cut
 
 package Foswiki::Users::HtPasswdUser;
-use base 'Foswiki::Users::Password';
-
 use strict;
+use warnings;
+
+use Foswiki::Users::Password ();
+our @ISA = ('Foswiki::Users::Password');
+
 use Assert;
 use Error qw( :try );
 use Fcntl qw( :DEFAULT :flock );
@@ -38,6 +41,10 @@ sub new {
     $this->{error} = undef;
     if ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'md5' ) {
         require Digest::MD5;
+        if ($Foswiki::cfg{AuthRealm} =~ /\:/) {
+            print STDERR "ERROR: the AuthRealm cannot contain a ':' (colon) as it corrumpts the password file\n";
+            throw Error::Simple("ERROR: the AuthRealm cannot contain a ':' (colon) as it corrumpts the password file");
+        }
     }
     elsif ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'crypt' ) {
     }
@@ -61,6 +68,7 @@ sub new {
             print STDERR "ERROR: unknown {Htpasswd}{Encoding} setting : ".$Foswiki::cfg{Htpasswd}{Encoding}."\n";
             throw Error::Simple("ERROR: unknown {Htpasswd}{Encoding} setting : ".$Foswiki::cfg{Htpasswd}{Encoding}."\n");
     }
+
     return $this;
 }
 
@@ -184,30 +192,28 @@ sub _readPasswd {
     return $data;
 }
 
+# Dumps the memory password database to a newline separated string
 sub _dumpPasswd {
     my $db = shift;
-    my $s  = '';
-    foreach ( sort keys %$db ) {
-        if ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'md5' ) {    # htdigest format
-            $s .=
-                $_ . ':'
-              . $Foswiki::cfg{AuthRealm} . ':'
-              . $db->{$_}->{pass} . ':'
-              . $db->{$_}->{emails} . "\n";
+    my @entries;
+    foreach my $login ( sort( keys(%$db) ) ) {
+        my $entry = "$login:";
+        if ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'md5' ) {
+
+            # htdigest format
+            $entry .= "$Foswiki::cfg{AuthRealm}:";
         }
-        else {                                                 # htpasswd format
-            $s .=
-              $_ . ':' . $db->{$_}->{pass} . ':' . $db->{$_}->{emails} . "\n";
-        }
+        $entry .= $db->{$login}->{pass} . ':' . $db->{$login}->{emails};
+        push( @entries, $entry );
     }
-    return $s;
+    return join( "\n", @entries ) . "\n";
 }
 
 sub _savePasswd {
     my $db = shift;
 
     my $content = _dumpPasswd($db);
-
+    
     umask(077);
     my $fh;
 
@@ -263,8 +269,9 @@ sub encrypt {
             my @saltchars = ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' );
             foreach my $i ( 0 .. 7 ) {
 
-# generate a salt not only from rand() but also mixing in the users login name: unecessary
-#SMELL - see PasswordTests.pm for failure on OSX
+                # generate a salt not only from rand() but also mixing
+                # in the users login name: unecessary
+                # SMELL - see PasswordTests.pm for failure on OSX
                 $salt .= $saltchars[
                   (
                       int( rand( $#saltchars + 1 ) ) +
@@ -329,7 +336,7 @@ sub setPassword {
     try {
         $lockHandle = _lockPasswdFile( LOCK_EX );
         # Read password without shared lock as we have already exclusive lock
-        my $db         = $this->_readPasswd( 0 );
+        my $db = $this->_readPasswd( 0 );
         $db->{$login}->{pass} = $this->encrypt( $login, $newUserPassword, 1 );
         $db->{$login}->{emails} ||= '';
         _savePasswd( $db );
@@ -359,7 +366,7 @@ sub removeUser {
     try {
         $lockHandle = _lockPasswdFile( LOCK_EX );
         # Read password without shared lock as we have already exclusive lock
-        my $db         = $this->_readPasswd( 0 );
+        my $db = $this->_readPasswd( 0 );
         unless ( $db->{$login} ) {
             $this->{error} = 'No such user ' . $login;
         }
@@ -419,27 +426,30 @@ sub getEmails {
 }
 
 sub setEmails {
-    my $this  = shift;
-    my $login = shift;
+    my $this   = shift;
+    my $login  = shift;
+    my $emails = join( ';', @_ );
     ASSERT($login) if DEBUG;
+    my $lockHandle;
 
-    my $lockHandle = _lockPasswdFile( LOCK_EX );
-    # Read password without shared lock as we have already exclusive lock
-    my $db         = $this->_readPasswd( 0 );
-    unless ( $db->{$login} ) {
-        $db->{$login}->{pass} = '';
-    }
+    try {
+        $lockHandle = _lockPasswdFile( LOCK_EX );
+        # Read password without shared lock as we have already exclusive lock
+        my $db = $this->_readPasswd( 0 );
+        unless ( $db->{$login} ) {
 
-#SMELL: this makes no sense. - the if above suggests that we can get to this point without $db->{$login}
-#  what use is going on if the user is not in the auth system?
-    if ( defined( $_[0] ) ) {
-        $db->{$login}->{emails} = join( ';', @_ );
+            # Make sure the user is in the auth system, by adding them with
+            # a null password if not.
+            $db->{$login}->{pass} = '';
+        }
+
+        $db->{$login}->{emails} = $emails;
+
+        _savePasswd( $db );
     }
-    else {
-        $db->{$login}->{emails} = '';
-    }
-    _savePasswd( $db );
-    _unlockPasswdFile($lockHandle);
+    finally {
+        _unlockPasswdFile($lockHandle) if $lockHandle;
+    };
     return 1;
 }
 
@@ -447,7 +457,7 @@ sub setEmails {
 sub findUserByEmail {
     my ( $this, $email ) = @_;
     my $logins = [];
-    # read password with shared lock
+    # read passwords with shared lock
     my $db     = $this->_readPasswd( 1 );
     while ( my ( $k, $v ) = each %$db ) {
         my %ems = map { $_ => 1 } split( ';', $v->{emails} );
@@ -459,29 +469,28 @@ sub findUserByEmail {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

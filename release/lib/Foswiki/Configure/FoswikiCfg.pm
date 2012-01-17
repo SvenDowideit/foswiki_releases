@@ -1,79 +1,121 @@
 # See bottom of file for license and copyright information
 
-# This is a both parser for configuration declaration files, such as
-# FoswikiCfg.spec, and a serialisation visitor for writing out changes
-# to LocalSite.cfg
-#
-# The supported syntax in declaration files is as follows:
-#
-# cfg ::= ( setting | section | extension )* ;
-# setting ::= BOL typespec EOL comment* BOL def ;
-# typespec ::= "# **" id options "**" ;
-# def ::= "$" ["Foswiki::"] "cfg" keys "=" value ";" ;
-# keys ::= ( "{" id "}" )+ ;
-# value is any perl value not including ";"
-# comment ::= BOL "#" string EOL ;
-# section ::= BOL "#--++" string EOL comment* ;
-# extension ::= BOL " *" id "*"
-# EOL ::= end of line
-# BOL ::= beginning of line
-# id ::= a \w+ word (legal Perl bareword)
-#
-# * A *section* is simply a divider used to create foldable blocks. It can
-#   have varying depth depending on the number of + signs
-# * A *setting* is the sugar required for the setting of a single
-#   configuration value.
-# * An *extension* is a pluggable UI extension that supports some extra UI
-#   functionality, such as the menu of languages or the menu of plugins.
-#
-# Each *setting* has a *typespec* and a *def*.
-#
-# The typespec consists of a type id and some options. Types are loaded by
-# type id from the Foswiki::Configure::Types hierachy - for example, type
-# BOOLEAN is defined by Foswiki::Configure::Types::BOOLEAN. Each type is a
-# subclass of Foswiki::Configure::Type - see that class for more details of
-# what is supported.
-#
-# A *def* is a specification of a field in the $Foswiki::cfg hash, together with
-# a perl value for that hash. Each field can have an associated *Checker*
-# which is loaded from the Foswiki::Configure::Checkers hierarchy. Checkers
-# are responsible for specific checks on the value of that variable. For
-# example, the checker for $Foswiki::cfg{Banana}{Republic} will be expected
-# to be found in Foswiki::Configure::Checkers::Banana::Republic.
-# Checkers are subclasses of Foswiki::Configure::Checker. See that class for
-# more details.
-#
-# An *extension* is a placeholder for a pluggable UI module.
-#
+=begin TML
+
+---+ package Foswiki::Configure::FoswikiCfg
+
+This is both a parser for configuration declaration files, such as
+FoswikiCfg.spec, and a serialisation visitor for writing out changes
+to LocalSite.cfg
+
+The supported syntax in declaration files is as follows:
+<verbatim>
+cfg ::= ( setting | section | extension )* ;
+setting ::= BOL typespec EOL comment* BOL def ;
+typespec ::= "**" typeid options "**" ;
+def ::= "$" ["Foswiki::"] "cfg" keys "=" value ";" ;
+keys ::= ( "{" id "}" )+ ;
+value is any perl value not including ";"
+comment ::= BOL "#" string EOL ;
+section ::= BOL "#--+" string ( "--" options )? EOL comment* ;
+extension ::= BOL " *" id "*"
+EOL ::= end of line
+BOL ::= beginning of line
+typeid ::= id ;
+id ::= a \w+ word (legal Perl bareword)
+</verbatim>
+
+A *section* is simply a divider used to create blocks. It can
+  have varying depth depending on the number of + signs and may have
+  options after -- e.g. #---+ Section -- TABS EXPERT
+
+A *setting* is the sugar required for the setting of a single
+  configuration value.
+
+An *extension* is a pluggable UI extension that supports some extra UI
+  functionality, such as the menu of languages or the menu of plugins.
+
+Each *setting* has a *typespec* and a *def*.
+
+The typespec consists of a type id and some options. Types are loaded by
+type id from the Foswiki::Configure::Types hierachy - for example, type
+BOOLEAN is defined by Foswiki::Configure::Types::BOOLEAN. Each type is a
+subclass of Foswiki::Configure::Type - see that class for more details of
+what is supported.
+
+A *def* is a specification of a field in the $Foswiki::cfg hash,
+together with a perl value for that hash. Each field can have an
+associated *Checker* which is loaded from the Foswiki::Configure::Checkers
+hierarchy. Checkers are responsible for specific checks on the value of
+that variable. For example, the checker for $Foswiki::cfg{Banana}{Republic}
+will be expected to be found in
+Foswiki::Configure::Checkers::Banana::Republic.
+Checkers are subclasses of Foswiki::Configure::Checker. See that class for
+more details.
+
+An *extension* is a placeholder for a pluggable UI module (a class in
+Foswiki::Configure::Checkers::UIs)
+
+=cut
+
 package Foswiki::Configure::FoswikiCfg;
 
 use strict;
-use Data::Dumper;
+use warnings;
+use Data::Dumper ();
 
-use Foswiki::Configure::Section;
-use Foswiki::Configure::Value;
-use Foswiki::Configure::Pluggable;
-use Foswiki::Configure::Item;
+use Foswiki::Configure::Visitor ();
+our @ISA = ('Foswiki::Configure::Visitor');
 
-# Used in saving, when we need a callback. Otherwise the methods here are
-# all static.
+use Foswiki::Configure::Util      ();
+use Foswiki::Configure::Section   ();
+use Foswiki::Configure::Value     ();
+use Foswiki::Configure::Pluggable ();
+use Foswiki::Configure::Item      ();
+
+my %dupItem;
+
+=begin TML
+
+---++ ClassMethod new()
+
+Used in saving, when we need a callback. Otherwise the methods here are
+all static.
+
+=cut
+
 sub new {
     my $class = shift;
 
     return bless( {}, $class );
 }
 
-# Load the configuration declarations. The core set is defined in
-# Foswiki.spec, which must be found on the @INC path and is always loaded
-# first. Then find all settings for extensions in their .spec files.
-#
-# This *only* reads type specifications, it *does not* read values.
-#
-# SEE ALSO Foswiki::Configure::Load::readDefaults
+=begin TML
+
+---++ StaticMethod load($root, $haveLSC)
+
+Load the configuration declarations. The core set is defined in
+Foswiki.spec, which must be found on the @INC path and is always loaded
+first. Then find all settings for extensions in their .spec files.
+
+This *only* reads type specifications, it *does not* read values.
+
+SEE ALSO Foswiki::Configure::Load::readDefaults
+
+   * $root Foswiki::Configure::Root of the model
+   * $haveLSC if we have a LocalSite.cfg
+
+If we don't have a LocalSite.cfg, only Foswiki.spec will be loaded
+(Config.spec files from extensions will be skipped) and only the
+first section of Config.spec will be loaded. This means that checkers
+will only be built and run for that first section.
+
+=cut
+
 sub load {
     my ( $root, $haveLSC ) = @_;
 
-    my $file = Foswiki::findFileOnPath('Foswiki.spec');
+    my $file = Foswiki::Configure::Util::findFileOnPath('Foswiki.spec');
     if ($file) {
         _parse( $file, $root, $haveLSC );
     }
@@ -112,8 +154,7 @@ sub _loadSpecsFrom {
     # Inner class that represents section headings temporarily during the
     # parse. They are expanded to section blocks at the end.
     package SectionMarker;
-
-    use base 'Foswiki::Configure::Item';
+    @SectionMarker::ISA = ('Foswiki::Configure::Item');
 
     sub new {
         my ( $class, $depth, $head ) = @_;
@@ -123,7 +164,7 @@ sub _loadSpecsFrom {
         return $this;
     }
 
-    sub getValueObject { return undef; }
+    sub getValueObject { return; }
 }
 
 # Process the config array and add section objects
@@ -135,6 +176,10 @@ sub _extractSections {
 
     foreach my $item (@$settings) {
         if ( $item->isa('SectionMarker') ) {
+            my $opts = '';
+            if ( $item->{head} =~ s/^(.*?)\s*--\s*(.*?)\s*$/$1/ ) {
+                $opts = $2;
+            }
             my $ns =
               $root->getSectionObject( $item->{head}, $item->{depth} + 1 );
             if ($ns) {
@@ -151,7 +196,7 @@ sub _extractSections {
                     $section = $ns;
                     $depth++;
                 }
-                $ns = new Foswiki::Configure::Section( $item->{head} );
+                $ns = new Foswiki::Configure::Section( $item->{head}, $opts );
                 $ns->{desc} = $item->{desc};
                 $section->addChild($ns);
                 $depth++;
@@ -180,7 +225,7 @@ sub _getValueObject {
         my $i = $item->getValueObject($keys);
         return $i if $i;
     }
-    return undef;
+    return;
 }
 
 # Parse the config declaration file and return a root node for the
@@ -188,23 +233,29 @@ sub _getValueObject {
 sub _parse {
     my ( $file, $root, $haveLSC ) = @_;
 
-    open( F, "<$file" ) || return '';
+    open( F, '<', $file ) || return '';
     local $/ = "\n";
     my $open = undef;
     my @settings;
     my $sectionNum = 0;
 
     foreach my $l (<F>) {
+        $l =~ s/\r//g;
+        last if ( $l =~ /^1;|^__\w+__/ );
         if ( $l =~ /^#\s*\*\*\s*([A-Z]+)\s*(.*?)\s*\*\*\s*$/ ) {
-            pusht( \@settings, $open ) if $open;
-            $open = new Foswiki::Configure::Value( typename => $1, opts => $2 );
+
+            # **STRING 30 EXPERT**
+            _pusht( \@settings, $open ) if $open;
+            $open = new Foswiki::Configure::Value( $1, opts => $2 );
         }
 
         elsif ( $l =~ /^#?\s*\$(?:(?:Fosw|TW)iki::)?cfg([^=\s]*)\s*=(.*)$/ ) {
+
+            # $Foswiki::cfg{Rice}{Brown} =
             my $keys         = $1;
             my $tentativeVal = $2;
             if ( $open && $open->isa('SectionMarker') ) {
-                pusht( \@settings, $open );
+                _pusht( \@settings, $open );
                 $open = undef;
             }
 
@@ -216,18 +267,20 @@ sub _parse {
                 next if ( _getValueObject( $keys, \@settings ) );
 
                 # This is an untyped value
-                $open = new Foswiki::Configure::Value();
+                $open = new Foswiki::Configure::Value('UNKNOWN');
             }
             $open->set( keys => $keys );
-            pusht( \@settings, $open );
+            _pusht( \@settings, $open );
             $open = undef;
         }
 
         elsif ( $l =~ /^#\s*\*([A-Z]+)\*/ ) {
+
+            # *FINDEXTENSIONS*
             my $pluggable = $1;
             my $p         = Foswiki::Configure::Pluggable::load($pluggable);
             if ($p) {
-                pusht( \@settings, $open ) if $open;
+                _pusht( \@settings, $open ) if $open;
                 $open = $p;
             }
             elsif ($open) {
@@ -238,10 +291,11 @@ sub _parse {
 
         elsif ( $l =~ /^#\s*---\+(\+*) *(.*?)$/ ) {
 
+            # ---++ Security
             # Only load the first section if we don't have LocalSite.cfg
             last if ( $sectionNum && !$haveLSC );
             $sectionNum++;
-            pusht( \@settings, $open ) if $open;
+            _pusht( \@settings, $open ) if $open;
             $open = new SectionMarker( length($1), $2 );
         }
 
@@ -250,11 +304,11 @@ sub _parse {
         }
     }
     close(F);
-    pusht( \@settings, $open ) if $open;
+    _pusht( \@settings, $open ) if $open;
     _extractSections( \@settings, $root );
 }
 
-sub pusht {
+sub _pusht {
     my ( $a, $n ) = @_;
     foreach my $v (@$a) {
         Carp::confess "$n" if $v eq $n;
@@ -266,9 +320,21 @@ sub pusht {
 ## OUTPUT
 ###########################################################################
 
-# Generate .cfg file format output
+=begin TML
+
+---++ StaticMethod save($root, $valuer, $logger, $insane)
+   * $root is a Foswiki::Configure::Root
+   * $valuer is a Foswiki::Configure::Valuer
+   * $logger an object that implements a logChange($keys,$value) method,
+     called to record the changes.
+   * $insane set to true if existing LocalSite.cfg should be overwritten
+
+Generate .cfg file format output
+
+=cut
+
 sub save {
-    my ( $root, $valuer, $logger ) = @_;
+    my ( $root, $valuer, $logger, $insane ) = @_;
 
     # Object used to act as a visitor to hold the output
     my $this = new Foswiki::Configure::FoswikiCfg();
@@ -277,15 +343,16 @@ sub save {
     $this->{root}    = $root;
     $this->{content} = '';
 
-    my $lsc = Foswiki::findFileOnPath('LocalSite.cfg');
+    my $lsc = Foswiki::Configure::Util::findFileOnPath('LocalSite.cfg');
     unless ($lsc) {
 
         # If not found on the path, park it beside Foswiki.spec
-        $lsc = Foswiki::findFileOnPath('Foswiki.spec') || '';
+        $lsc = Foswiki::Configure::Util::findFileOnPath('Foswiki.spec') || '';
         $lsc =~ s/Foswiki\.spec/LocalSite.cfg/;
     }
 
-    if ( open( F, '<' . $lsc ) ) {
+    if ( !$insane && -f $lsc ) {
+        open( F, '<', $lsc );
         local $/ = undef;
         $this->{content} = <F>;
         close(F);
@@ -294,12 +361,20 @@ sub save {
         $this->{content} = <<'HERE';
 # Local site settings for Foswiki. This file is managed by the 'configure'
 # CGI script, though you can also make (careful!) manual changes with a
-# text editor.
+# text editor.  See the Foswiki.spec file in this directory for documentation
+# Extensions are documented in the Config.spec file in the Plugins/<extension>
+# or Contrib/<extension> directories
 HERE
     }
 
+    # Clean out deprecated settings, so they don't occlude the
+    # replacements
+    foreach my $key ( keys %Foswiki::Configure::Load::remap ) {
+        $this->{content} =~ s/\$Foswiki::cfg$key\s*=.*?;\s*//sg;
+    }
+
     my $out = $this->_save();
-    open( F, '>' . $lsc )
+    open( F, '>', $lsc )
       || die "Could not open $lsc for write: $!";
     print F $this->{content};
     close(F);
@@ -325,21 +400,36 @@ sub startVisit {
         my $warble = $this->{valuer}->currentValue($visitee);
         return 1 unless defined $warble;
 
+        if ( $this->{logger} ) {
+            my $logValue = $visitee->asString( $this->{valuer} );
+            $this->{logger}->logChange( $visitee->getKeys(), $logValue );
+        }
+
         # For some reason Data::Dumper ignores the second parameter sometimes
         # when -T is enabled, so have to do a substitution
         my $txt = Data::Dumper->Dump( [$warble] );
         $txt =~ s/VAR1/Foswiki::cfg$keys/;
-        if ( $this->{logger} ) {
-            $this->{logger}->logChange( $visitee->getKeys(), $txt );
-        }
 
-        # Substitute any existing value, or append if not there
-        unless ( $this->{content} =~ s/^\s*?\$(Foswiki::)?cfg$keys\s*=.*?;\n/$txt/s )
+ # Substitute any existing value, or append if not there
+ #unless ( $this->{content} =~ s/^\s*?\$(Foswiki::)?cfg$keys\s*=.*?;\n/$txt/ms )
+ #
+ # SMELL:  The _updateEntry call is needed to fix up configs broken by Item9699.
+        unless ( $this->{content} =~
+s/^\s*?\$(?:Foswiki::)?cfg($keys)\s*=.*?;\n/&_updateEntry($1,$txt)/msge
+          )
         {
             $this->{content} .= $txt;
         }
     }
     return 1;
+}
+
+sub _updateEntry {
+    my $keys     = shift;
+    my $newentry = shift;
+    return '' if $dupItem{"$keys"};
+    $dupItem{"$keys"} = 1;
+    return $newentry;
 }
 
 sub endVisit {
@@ -349,30 +439,28 @@ sub endVisit {
 }
 
 1;
-__DATA__
-#
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

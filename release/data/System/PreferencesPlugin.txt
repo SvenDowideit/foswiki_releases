@@ -39,7 +39,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 |  Copyright: | Copyright (C) Foswiki:Main.ThomasWeigert and Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 5037 (2009-09-20) |
+|  Version: | 8086 (2010-07-09) |
 |  Release: | 20 Sep 2009 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
 |  20 Sep 2009: | Small documentation update. Code tidied up. No preferences in plugin topic. No other functional changes. |

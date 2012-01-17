@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::UI::Oops
@@ -10,9 +11,10 @@ UI delegate for oops function
 package Foswiki::UI::Oops;
 
 use strict;
+use warnings;
 use Assert;
 
-require Foswiki;
+use Foswiki ();
 
 =begin TML
 
@@ -54,10 +56,10 @@ the =$query= are added as hiddens into the expanded template.
 sub oops {
     my ( $session, $web, $topic, $query, $keep ) = @_;
 
-    # Foswikitask:Item885: web and topic are required to have values for
-    # handleCommonTags.
+    # Foswikitask:Item885: web and topic are required to have values
     $web ||= $session->{webName};
-    $web   ||= "(Missing or illegal web)";  #If web name is completely missing, it probably contained illegal characters 
+    $web ||= "(Missing or illegal web)"
+      ; #If web name is completely missing, it probably contained illegal characters
     $topic ||= $session->{topicName};
 
     my $tmplName;
@@ -96,20 +98,20 @@ sub oops {
     # Do not pass on the template parameter otherwise continuation won't work
     $query->delete('template');
 
-    my $skin = $session->getSkin();
+    my $tmplData = $session->templates->readTemplate( $tmplName, no_oops => 1 );
 
-    my $tmplData = $session->templates->readTemplate( $tmplName, $skin );
+    if ( !defined($tmplData) ) {
 
-    if ( !$tmplData ) {
+        # Can't throw an OopsException here, cos we'd just recurse. Build
+        # an error page from scratch,
         $tmplData =
             CGI::start_html()
-          . CGI::h1('Foswiki Installation Error')
-          . 'Template "'
-          . $tmplName
-          . '" not found.'
-          . CGI::p()
-          . 'Check the configuration settings for {TemplateDir} and {TemplatePath}.'
-          . CGI::end_html();
+          . CGI::h1( {}, 'Foswiki Installation Error' )
+          . <<MESSAGE . CGI::end_html();
+Template "$tmplName" not found.
+<p />
+Check the configuration settings for {TemplateDir} and {TemplatePath}.
+MESSAGE
     }
     else {
         if ( defined $def ) {
@@ -118,8 +120,9 @@ sub oops {
             my $blah = $session->templates->expandTemplate($def);
             $tmplData =~ s/%INSTANTIATE%/$blah/;
         }
-        $tmplData = $session->handleCommonTags( $tmplData, $web, $topic );
-        $n = 1;
+        my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
+        $tmplData = $topicObject->expandMacros($tmplData);
+        $n        = 1;
         foreach my $param (@params) {
 
             # Entity-encode, to block any potential HTML payload
@@ -127,39 +130,39 @@ sub oops {
             $tmplData =~ s/%PARAM$n%/$param/g;
             $n++;
         }
+
         # Suppress missing params
         $tmplData =~ s/%PARAM\d+%//g;
-        $tmplData = $session->handleCommonTags( $tmplData, $web, $topic );
-        $tmplData =
-          $session->renderer->getRenderedVersion( $tmplData, $web, $topic );
+        $tmplData = $topicObject->expandMacros($tmplData);
+        $tmplData = $topicObject->renderTML($tmplData);
     }
 
     $session->writeCompletePage($tmplData);
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

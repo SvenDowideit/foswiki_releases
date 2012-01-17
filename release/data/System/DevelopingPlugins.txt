@@ -4,10 +4,31 @@
 %TOC%
 The usual way Foswiki is extended is by writing a _Plugin_. Plugins extend Foswiki by providing functions that 'listen' to events in the Foswiki core, and handling these events. These functions are called "Plugin Handlers" and they are described in depth in [[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Plugins::EmptyPlugin][EmptyPlugin]] ( =lib/Foswiki/Plugins/EmptyPlugin.pm= ).
 
+---++ The 3048m view of how Foswiki works
+
+Foswiki is a web application that runs inside a web server. When the web server receives a request that it recognises as being for Foswiki, it calls one of the perl scripts in the Foswiki =bin= directory. Each of the scripts has a specific function, as described in [[command and CGI scripts]].
+
+The scripts are responsible for interpreting the parameters passed in the request, and generating a response that is sent back to the browser, usually in the form of an HTML page.
+
+Foswiki contains three _engines_ that are used by the scripts; the _template engine_, the _macro engine_, and the _TML engine_.
+
+   1 The *template engine* reads predefined templates from files on the server. These templates contain directives that are expanded by the engine to create the output HTML skeleton. One of these directives expands to the topic text.
+   1 The *macro engine* then expands the [[macros]] in the skeleton. This is also where macros registered by plugins are expanded.
+      * Macros, including those registered by plugins, are processed in a strict left-right-inside-out processing order. See [[macros]] for more details.
+      * Macros include things like searches, so this is usually the slowest part of generating a page. 
+   1 The *TML (Topic Markup Language) engine* now processes the expanded text, looking for TML constructs such as bulleted lists and tables. It generates HTML for these constructs.
+
+Once all the engines have run, the output is sent to the browser.
+
+There are several ways plugins can interact with this process.
+   1 They can *register macros* that are expanded by the macro engine. This is the simplest kind of plugin.
+   1 The can interact with various points in the rendering pipeline by implementing *handlers* (callbacks).
+   1 They can *register REST handlers* that are invoked via the =rest= script to support some form of transaction outside those supported by the standard scripts.
+
 ---++ APIs available to Extensions
 To be robust, extensions must avoid using any unpublished functionality from the Foswiki core. The following perl packages give access to features for extension authors. These APIs are not just for Plugins, they can be used in any type of extension. Click on the name of the package to see the full documentation.
-   * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Func][Foswiki::Func]]= - bridge to core functions. This is the package you will use most.
-   * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Meta][Foswiki::Meta]]= - topic meta-data
+   * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Func][Foswiki::Func]]= - this is the package you will use most. This package exposes a lot of core functionality in a way that is friendly to extension writers. If you find that there are two ways of doing something - a =Foswiki::Func= way, and another call to one of the packages below, then the =Foswiki::Func= way is almost always the right way.
+   * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Meta][Foswiki::Meta]]= - topic and web meta-data. Certain =Foswiki::Func= methods, and some plugin handlers, are passed (or return) objects of this type. Almost all of the methods of =Foswiki::Meta= have analagous methods in =Foswiki::Func= - in general you should call the =Foswiki::Func= methods in preference to calling =Foswiki::Meta= methods directly.
    * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::OopsException][Foswiki::OopsException]]= - special exception for invoking the 'oops' script
    * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::AccessControlException][Foswiki::AccessControlException]]= - access control exception
    * =[[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Attrs][Foswiki::Attrs]]= - parser and storage object for macro parameters
@@ -22,9 +43,9 @@ In addition the following global variables may be referred to:
    * =$Foswiki::Plugins::SESSION= - reference to =Foswiki= singleton object
    * =$Foswiki::cfg= - reference to configuration hash
    * =$Foswiki::regex= - see [[#StReEx][Standard Regular Expressions]], below
-%I% Foswiki:Development.GettingStarted  is the starting point for more comprehensive documentation on developing for Foswiki.
+<blockquote class="foswikiHelp">%I% Foswiki:Development.GettingStarted  is the starting point for more comprehensive documentation on developing for Foswiki.</blockquote>
 
-*Note* the APIs are available to all extensions, but rely on a
+*Note:* the APIs are available to all extensions, but rely on a
 =Foswiki= singleton object having been created before the APIs can be used.
 This will only be a problem if you are writing an extension that doesn't
 use the standard initialisation sequence.
@@ -39,12 +60,12 @@ is unsupported and they may be removed in future Foswiki versions.
 In the table below, the expression marked type 'String' are intended for
 use within character classes (i.e. for use within square brackets inside
 a regular expression), for example:
-<verbatim>
+<verbatim class="perl">
    my $isCapitalizedWord =
      ( $s =~ /[$Foswiki::regex{upperAlpha}][$Foswiki::regex{mixedAlpha}]+/ );
 </verbatim>
 Those expressions marked type 'RE' are precompiled regular expressions that can be used outside square brackets. For example:
-<verbatim>
+<verbatim class="perl">
    my $isWebName = ( $s =~ m/$Foswiki::regex{webNameRegex}/ );
 </verbatim>
 
@@ -201,14 +222,19 @@ Some extensions have setup requirements that are best integrated into =configure
 =Config.spec= files are read during configuration. Once a =Config.spec= has defined a configuration item, it is available for edit through the standard =configure= interface. =Config.spec= files are stored in the 'plugin directory' e.g. =lib/Foswiki/Plugins/BathPlugin/Config.spec=.
 
 ---+++ Structure of a <code>Config.spec</code> file
-The =Config.spec= file for a plugin starts with the plugin announcing what it is:
-<verbatim>
-# ---+ BathPlugin
+The =Config.spec= file for a plugin starts with a line that declares what section the configuration should appear in. The standard for all extensions is:
+<verbatim class="tml">
+# ---+ Extensions
+</verbatim>
+Next we have a sub-heading for the configuration specific to this extension,
+and the actual configuration options:
+<verbatim class="tml">
+# ----++ BathPlugin
 # This plugin senses the level of water in your bath, and ensures the plug
 # is not removed while the water is still warm.
 </verbatim> 
 This is followed by one or more configuration items. Each configuration item has a _type_, a _description_ and a _default_. For example:
-<verbatim>
+<verbatim class="perl">
 # **SELECT Plastic,Rubber,Metal**
 # Select the plug type
 $Foswiki::cfg{BathPlugin}{PlugType} = 'Plastic';
@@ -222,10 +248,23 @@ $Foswiki::cfg{BathPlugin}{ChainLength} = '30';
 $Foswiki::cfg{BathPlugin}{TempSensorEnabled} = '1';
 </verbatim>
 The type (e.g. =**SELECT**= ) tells =configure= to how to prompt for the value. It also tells configure how to do some basic checking on the value you actually enter. All the comments between the type and the configuration item are taken as part of the description. The configuration item itself defines the default value for the configuration item. The above spec defines the configuration items =$Foswiki::cfg{BathPlugin}{PlugType}=, =$Foswiki::cfg{BathPlugin}{ChainLength}=, and =$Foswiki::cfg{BathPlugin}{TempSensorEnabled}= for use in your plugin. For example,
-<verbatim>
+<verbatim class="perl">
 if( $Foswiki::cfg{BathPlugin}{TempSensorEnabled} && $curTemperature > 50 ) {
     die "The bathwater is too hot for comfort";
 }
+</verbatim>
+You can use other =$Foswiki::cfg= values in other settings,
+but you must be sure they are only evaluated under program control, and
+not when this file is parsed by perl. For example:
+<verbatim class="perl">
+$Foswiki::cfg{BathPlugin}{MyBath} = "$Foswiki::cfg{PubDir}/enamel.gif"; # BAD
+# Perl will interpolate variables in double-quotes, so $Foswiki::cfg{PubDir}
+# will be evaluated at configuration time, which will make reconfiguration
+# difficult.
+
+$Foswiki::cfg{BathPlugin}{MyBath} = '$Foswiki::cfg{PubDir}/enamel.gif; # GOOD
+# The single quotes make sure $Foswiki::cfg{PubDir} will only be evaluated
+# at run-time.
 </verbatim>
 
 The =Config.spec= file is read by configure, and =configure= then writes =LocalSite.cfg= with the values chosen by the local site admin.
@@ -251,6 +290,7 @@ All types can be followed by a comma-separated list of _attributes_.
 | =EXPERT= | means this an expert option |
 | =M= | means the setting is mandatory (may not be empty) |
 | =H= | means the option is not visible in =configure= |
+| =5x80= | means "use a 5 row, 80 column textarea". Can be used with any text entry field type, such as STRING, COMMAND, PERL etc. |
 
 See =lib/Foswiki.spec= for many more examples.
 
@@ -269,10 +309,10 @@ The plugin interface ([[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::Fu
 
 Organizations typically do not upgrade to the latest Foswiki for many months. However, many administrators still would like to install the latest versions of a plugin on their older Foswiki installation. This need is fulfilled if plugins are maintained in a compatible manner. 
 
-*%T% Tip:* Plugins can be written to be compatible with older and newer Foswiki releases. This can be done also for plugins using unofficial Foswiki internal functions of an earlier release that no longer work on the latest Foswiki codebase. 
-Here is an example; the Foswiki:Support.PluginsSupplement has more details.
+<blockquote class="foswikiHelp"> *%T% Tip:* Plugins can be written to be compatible with older and newer Foswiki releases. This can be done also for plugins using unofficial Foswiki internal functions of an earlier release that no longer work on the latest Foswiki codebase. 
+Here is an example; the Foswiki:Support.PluginsSupplement has more details.</blockquote>
 
-<verbatim>
+<verbatim class="perl">
     if( $Foswiki::Plugins::VERSION >= 1.1 ) {
         @webs = Foswiki::Func::getListOfWebs( 'user,public' );
     } else {
@@ -290,7 +330,7 @@ Updated plugins may still need to define deprecated handlers for compatibility w
 
 This is done by defining a map from the handler name to the =Foswiki::Plugins= version _in which the handler was first deprecated_. For example, if we need to define the =endRenderingHandler= for compatibility with =Foswiki::Plugins= versions before 1.1, we would add this to the plugin:
 
-<verbatim>
+<verbatim class="perl">
 package Foswiki::Plugins::SinkPlugin;
 use vars qw( %FoswikiCompatibility );
 $FoswikiCompatibility{endRenderingHandler} = 1.1;
@@ -299,3 +339,4 @@ If the currently-running Foswiki version is 1.1 _or later_, then the _handler wi
 
 ---+++ TWiki<sup>&reg;</sup> Plugins
 Most plugins written for TWiki can also be run in Foswiki, by installing the !TWikiCompatibilityPlugin. See Foswiki:Extensions.TWikiCompatibilityPlugin for more information.
+<!-- %JQREQUIRE{"chili"}% -->

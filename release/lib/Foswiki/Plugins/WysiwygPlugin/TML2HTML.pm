@@ -1,19 +1,4 @@
-# Copyright (C) 2005 ILOG http://www.ilog.fr
-# and Foswiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =pod
 
@@ -41,6 +26,7 @@ use Foswiki;
 use Foswiki::Plugins::WysiwygPlugin::Constants;
 
 use strict;
+use warnings;
 
 my $TT0 = chr(0);
 my $TT1 = chr(1);
@@ -59,6 +45,15 @@ my @PALATABLE_TAGS = qw(
 );
 
 my $PALATABLE_HTML = '(' . join( '|', @PALATABLE_TAGS ) . ')';
+
+# There are several tags that could come before a table tag
+my @tagsBeforeTable = (
+    '<div class="foswikiTableAndMacros">',
+    '<p>\s*<div class="WYSIWYG_LITERAL">',    #SMELL - not valid HTML
+    '<p>',    # from HTML tables not in sticky or literal blocks
+);
+my $tagsBeforeFirstTablePattern =
+  '^\\s*(?:' . join( '|', map { $_ . '\\s*' } @tagsBeforeTable ) . ')?<table';
 
 =pod
 
@@ -104,24 +99,60 @@ sub convert {
 
     return '' unless $content;
 
-    $content =~ s/[$TT0$TT1$TT2]/?/go;
+    my $disabled =
+      Foswiki::Plugins::WysiwygPlugin::wysiwygEditingDisabledForThisContent(
+        $content);
+    if ($disabled) {
 
-    # Render TML constructs to tagged HTML
-    $content = $this->_getRenderedVersion($content);
+      # encode the content verbatim-style, so that the user has uncorrupted HTML
+        $content =~ s/[$TT0$TT1$TT2]/?/go;
+        $content = CGI::div(
+            { class => 'WYSIWYG_WARNING foswikiBroadcastMessage' },
+            Foswiki::Func::renderText(
+                Foswiki::Func::expandCommonVariables( <<"WARNING" ) ) )
+*%MAKETEXT{"Conversion to HTML for WYSIWYG editing is disabled because of the topic content."}%*
 
-    # Substitute back in protected elements
-    $content = $this->_dropBack($content);
+%MAKETEXT{"This is why the conversion is disabled:"}% $disabled
 
-    if ($content =~ /[$TT0$TT1$TT2]/o) {
-        # There should never be any of these in the text at this point.
-        # If there are, then the conversion failed. 
-        die("Invalid characters in HTML after conversion") if $options->{dieOnError};
-        # Encode the original TML as verbatim-style HTML, 
-        # so that the user has uncorrupted TML, at least.
-        my $originalContent = $_[1];
-        $originalContent =~ s/[$TT0$TT1$TT2]/?/go;
-        $originalContent = _protectVerbatimChars($originalContent);
-        $content = CGI::div( { class => 'WYSIWYG_PROTECTED' }, $originalContent );
+%MAKETEXT{"(This message will be removed automatically)"}%
+WARNING
+          . CGI::div( { class => 'WYSIWYG_PROTECTED' },
+            _protectVerbatimChars($content) );
+    }
+    else {
+        my $tagsToProtect = Foswiki::Func::getPreferencesValue('WYSIWYGPLUGIN_PROTECT_EXISTING_TAGS')
+          || 'div,span';
+        for my $tag ( split /[,\s]+/, $tagsToProtect ) {
+            next unless $tag =~ /^\w+$/;
+            $this->{protectExistingTags}->{$tag} = 1;
+        }
+
+        # Convert TML to HTML for wysiwyg editing
+
+        $content =~ s/[$TT0$TT1$TT2]/?/go;
+
+        # Render TML constructs to tagged HTML
+        $content = $this->_getRenderedVersion($content);
+
+        my $fail = '';
+        $fail .= "TT0:[$1|TT0|$2]" if $content =~ /(.{0,10})[$TT0](.{0,10})/o;
+        $fail .= "TT1:[$1|TT1|$2]" if $content =~ /(.{0,10})[$TT1](.{0,10})/o;
+        $fail .= "TT2:[$1|TT2|$2]" if $content =~ /(.{0,10})[$TT2](.{0,10})/o;
+        if ($fail) {
+
+            # There should never be any of these in the text at this point.
+            # If there are, then the conversion failed.
+            die("Invalid characters in HTML after conversion: $fail")
+              if $options->{dieOnError};
+
+            # Encode the original TML as verbatim-style HTML,
+            # so that the user has uncorrupted TML, at least.
+            my $originalContent = $_[1];
+            $originalContent =~ s/[$TT0$TT1$TT2]/?/go;
+            $originalContent = _protectVerbatimChars($originalContent);
+            $content =
+              CGI::div( { class => 'WYSIWYG_PROTECTED' }, $originalContent );
+        }
     }
 
     # DEBUG
@@ -132,17 +163,35 @@ sub convert {
 }
 
 sub _liftOut {
-    my ( $this, $text, $type, $encoding ) = @_;
-    $text = $this->_unLift($text);
+    my ( $this, $text, $type ) = @_;
+    my %options;
+    if ( $type and $type =~ /^(?:PROTECTED|STICKY|VERBATIM)$/ ) {
+        $options{protect} = 1;
+    }
+    $options{class} = 'WYSIWYG_' . $type;
+    return $this->_liftOutGeneral( $text, \%options );
+}
+
+sub _liftOutGeneral {
+    my ( $this, $text, $options ) = @_;
+
+    #$text = $this->_unLift($text);
+
+    $options = {} unless ref($options);
+
     my $n = scalar( @{ $this->{refs} } );
     push(
         @{ $this->{refs} },
         {
-            type     => $type,
-            encoding => $encoding || 'span',
-            text     => $text
+            tag => $options->{tag} || 'span',
+            text    => $text,
+            tmltag  => $options->{tmltag},
+            params  => $options->{params},
+            class   => $options->{class},
+            protect => $options->{protect},
         }
     );
+
     return $TT1 . $n . $TT2;
 }
 
@@ -156,24 +205,47 @@ sub _unLift {
 }
 
 sub _dropBack {
-    my ( $this, $text ) = @_;
+    my ( $this, $text, $protecting ) = @_;
 
     # Restore everything that was lifted out
-    while ( $text =~ s#$TT1([0-9]+)$TT2#$this->_dropIn($1)#ge ) {
+    while ( $text =~ s#$TT1([0-9]+)$TT2#$this->_dropIn($1, $protecting)#ge ) {
     }
     return $text;
 }
 
 sub _dropIn {
-    my ( $this, $n ) = @_;
+    my ( $this, $n, $protecting ) = @_;
     my $thing = $this->{refs}->[$n];
-    return $thing->{text} if $thing->{encoding} eq 'NONE';
-    my $method = 'CGI::' . $thing->{encoding};
-    my $text   = $thing->{text};
+
+    my $text = $thing->{text};
+
+    # Drop back recursively
+    $text = $this->_dropBack( $text, $protecting || $thing->{protect} );
+
+    # Only protect at the outer-most level applicable
     $text = _protectVerbatimChars($text)
-      if $thing->{type} =~ /^(PROTECTED|STICKY|VERBATIM)$/;
+      if $thing->{protect} and not $protecting;
+
+    if ($protecting) {
+        if ( $thing->{tmltag} ) {
+            return
+"<$thing->{tmltag}$thing->{params}>$thing->{text}</$thing->{tmltag}>";
+        }
+        else {
+            return $thing->{text};
+        }
+    }
+    return $thing->{text} if $thing->{tag} eq 'NONE';
+
+    my $method = 'CGI::' . $thing->{tag};
+
+    $thing->{params} ||= {};
+    $thing->{params} = _parseParams( $thing->{params} )
+      if not ref $thing->{params};
+    _addClass( $thing->{params}->{class}, $thing->{class} ) if $thing->{class};
+
     no strict 'refs';
-    return &$method( { class => 'WYSIWYG_' . $thing->{type} }, $text );
+    return &$method( $thing->{params}, $text );
     use strict 'refs';
 }
 
@@ -187,6 +259,17 @@ sub _processTags {
 
     return '' unless defined($text);
 
+    # Macros at the start of a line must *stay* at the start of a line.
+    # The newline preceding the mcro must be preserved.
+    # This is important for macros like %SEARCH that can emit
+    # line-oriented TML.
+    #
+    # This split captures the preceding newline along with the %,
+    # if present, as that is a convenient way to include the newline
+    # in the protected span.
+    #
+    # The result is something like this:
+    # <span class="WYSIWYG_PROTECTED"><br />%TABLESEP%</span>
     my @queue = split( /(\n?%)/s, $text );
     my @stack;
     my $stackTop = '';
@@ -196,13 +279,15 @@ sub _processTags {
         if ( $token =~ /^\n?%$/s ) {
             if ( $token eq '%' && $stackTop =~ /}$/ ) {
                 while ( scalar(@stack)
-                    && $stackTop !~ /^\n?%($Foswiki::regex{tagNameRegex}){.*}$/os )
+                    && $stackTop !~
+                    /^\n?%($Foswiki::regex{tagNameRegex}){.*}$/os )
                 {
                     $stackTop = pop(@stack) . $stackTop;
                 }
             }
             if (   $token eq '%'
-                && $stackTop =~ m/^(\n?)%($Foswiki::regex{tagNameRegex})({.*})?$/os )
+                && $stackTop =~
+                m/^(\n?)%($Foswiki::regex{tagNameRegex})({.*})?$/os )
             {
                 my $nl = $1;
                 my $tag = $2 . ( $3 || '' );
@@ -244,6 +329,7 @@ sub _expandURL {
 }
 
 # Lifted straight out of DevelopBranch Render.pm
+# Then modified to include TablePlugin's approach to table rendering
 sub _getRenderedVersion {
     my ( $this, $text, $refs ) = @_;
 
@@ -260,11 +346,33 @@ sub _getRenderedVersion {
     $this->{removed} = {};     # Map of placeholders to tag parameters and text
 
     # Do sticky first; it can't be ignored
-    $text = $this->_takeOutBlocks( $text, 'sticky' );
+    $text = $this->_liftOutBlocks(
+        $text, 'sticky',
+        {
+            tag     => 'div',
+            protect => 1,
+            class   => 'WYSIWYG_STICKY'
+        }
+    );
 
-    $text = $this->_takeOutBlocks( $text, 'verbatim' );
+    $text = $this->_liftOutBlocks(
+        $text,
+        'verbatim',
+        {
+            tag     => 'pre',
+            protect => 1,
+            class   => 'TMLverbatim'
+        }
+    );
 
-    $text = $this->_takeOutBlocks( $text, 'literal' );
+    $text = $this->_liftOutBlocks(
+        $text,
+        'literal',
+        {
+            tag   => 'div',
+            class => 'WYSIWYG_LITERAL'
+        }
+    );
 
     $text = $this->_takeOutSets($text);
 
@@ -274,7 +382,7 @@ sub _getRenderedVersion {
     $text =~ s/\t/   /g;
 
     # Remove PRE to prevent TML interpretation of text inside it
-    $text = $this->_takeOutBlocks( $text, 'pre' );
+    $text = $this->_liftOutBlocks( $text, 'pre', {} );
 
     # Protect comments
     $text =~ s/(<!--.*?-->)/$this->_liftOut($1, 'PROTECTED')/ges;
@@ -282,6 +390,8 @@ sub _getRenderedVersion {
     # Handle inline IMG tags specially
     $text =~ s/(<img [^>]*>)/$this->_takeOutIMGTag($1)/gei;
     $text =~ s/<\/img>//gi;
+
+    $text =~ s/<([A-Za-z]+[^>]*?)((?:\s+\/)?)>/"<" . $this->_appendClassToTag($1, 'TMLhtml') . $2 . ">"/ge;
 
     # Handle colour tags specially (hack, hack, hackity-HACK!)
     my $colourMatch = join( '|', grep( /^[A-Z]/, @WC::TML_COLOURS ) );
@@ -295,7 +405,8 @@ sub _getRenderedVersion {
     $text =~ s/(<\/?(?!(?i:$PALATABLE_HTML)\b)[A-Z]+(\s[^>]*)?>)/
       $this->_liftOut($1, 'PROTECTED')/gei;
 
-    $text =~ s/\\\n//gs;    # Join lines ending in '\'
+# SMELL: This was just done, about 25 lines above! Commenting out to see what breaks...
+#$text =~ s/\\\n//gs;    # Join lines ending in '\'
 
     # Blockquoted email (indented with '> ')
     # Could be used to provide different colours for different numbers of '>'
@@ -327,6 +438,7 @@ sub _getRenderedVersion {
 s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])/$this->_liftOut($1, 'LINK')/geo;
 
     # other entities
+    # SMELL - international characters are not allowed in entity names
     $text =~ s/&([$Foswiki::regex{mixedAlphaNum}]+;)/$TT0$1/g;    # "&abc;"
     $text =~ s/&(#[0-9]+;)/$TT0$1/g;                              # "&#123;"
          #$text =~ s/&/&amp;/g;             # escape standalone "&"
@@ -337,14 +449,74 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
     my $hr = CGI::hr( { class => 'TMLhr' } );
     $text =~ s/^---+$/$hr/gm;
 
+    # Wrap tables with macros before or after them in a <div>,
+    # together with the macros,
+    # so that TMCE may be used without the force_root_block option
+    my @lines            = split( /\n/, $text );
+    my $divableStartLine = undef;
+    my $hasTable         = 0;
+    my $hasMacro         = 0;
+    my @divIndexes       = ();
+    for my $lineNumber ( 0 .. $#lines ) {
+
+        # Table: | cell | cell |
+        # allow trailing white space after the last |
+        if ( $lines[$lineNumber] =~ m/^\s*\|.*\|\s*$/ ) {
+            $divableStartLine = $lineNumber
+              if not defined $divableStartLine;
+            $hasTable = 1;
+        }
+
+        # Macro, after it was lifted out by _processTags
+        elsif ( $lines[$lineNumber] =~ m/$TT1(\d+)$TT2/
+            and $this->{refs}->[$1]->{text} =~ /^\n?%/ )
+        {
+            $divableStartLine = $lineNumber
+              if not defined $divableStartLine;
+            $hasMacro = 1;
+        }
+
+        # Neither table line nor macro
+        else {
+            if ( defined $divableStartLine ) {
+                if ( $hasMacro and $hasTable ) {
+                    push @divIndexes,
+                      { start => $divableStartLine, end => $lineNumber };
+                }
+                undef $divableStartLine;
+                $hasMacro = 0;
+                $hasTable = 0;
+            }
+        }
+    }
+    if ( defined $divableStartLine ) {
+        if ( $hasMacro and $hasTable ) {
+            push @divIndexes, { start => $divableStartLine, end => $#lines };
+        }
+    }
+    my $tableAndMacrosDivStart = '<div class="foswikiTableAndMacros">';
+    my $tableAndMacrosDivEnd   = '</div><!--foswikiTableAndMacros-->';
+    while (@divIndexes) {
+
+        # Work backwards from the end,
+        # so that the indexes are correct as they are processed
+        my $set = pop @divIndexes;
+        splice @lines, $set->{end} + 1, 0, $tableAndMacrosDivEnd;
+        splice @lines, $set->{start}, 0, $tableAndMacrosDivStart;
+    }
+    $text = join( "\n", @lines );
+
     # Now we really _do_ need a line loop, to process TML
     # line-oriented stuff.
-    my $inList      = 0;         # True when within a list type
-    my $inTable     = 0;         # True when within a table type
-    my $inParagraph = 1;         # True when within a P
-    my @result      = ('<p>');
+    my $inList      = 0;    # True when within a list type
+    my $inTable     = 0;    # True when within a table type
+    my %table       = ();
+    my $inParagraph = 0;    # True when within a P
+    my $inDiv       = 0;    # True when within a foswikiTableAndMacros div
+    my @result      = ();
 
     foreach my $line ( split( /\n/, $text ) ) {
+        my $tableEnded = 0;
 
         # Table: | cell | cell |
         # allow trailing white space after the last |
@@ -353,22 +525,15 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
             $inParagraph = 0;
             $this->_addListItem( \@result, '', '', '' ) if $inList;
             $inList = 0;
-            unless ($inTable) {
-                push(
-                    @result,
-                    CGI::start_table(
-                        { border => 1, cellpadding => 0, cellspacing => 1 }
-                    )
-                );
-            }
-            push( @result, _emitTR($1) );
+            push( @result, _processTableRow( $1, $inTable, \%table ) );
             $inTable = 1;
             next;
         }
 
         if ($inTable) {
-            push( @result, CGI::end_table() );
-            $inTable = 0;
+            push( @result, _emitTable( \%table ) );
+            $inTable    = 0;
+            $tableEnded = 1;
         }
 
         if ( $line =~ /$Foswiki::regex{headerPatternDa}/o ) {
@@ -432,6 +597,10 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
             $this->_addListItem( \@result, 'ul', 'li', $1, '' );
             $inList = 1;
 
+            # TinyMCE won't let the cursor go into an empty element
+            # so make sure that the element isn't empty.
+            $line =~ s/^(<li>)\s*$/$1&nbsp;/;
+
         }
         elsif ( $line =~ m/^((\t|   )+)([1AaIi]\.|\d+\.?) ?/ ) {
 
@@ -450,30 +619,61 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
             $this->_addListItem( \@result, 'ol', 'li', $1, $ot );
             $inList = 1;
 
+            # TinyMCE won't let the cursor go into an empty element
+            # so make sure that the element isn't empty.
+            $line =~ s/^(<li\Q$ot\E>)\s*$/$1&nbsp;/;
+
         }
         elsif ( $inList && $line =~ /^[ \t]/ ) {
 
             # Extend text of previous list item by dropping through
 
         }
+        elsif ( $line eq $hr ) {
+            push( @result, '</p>' ) if $inParagraph;
+            $inParagraph = 0;
+        }
+        elsif ( $line eq $tableAndMacrosDivStart ) {
+            push( @result, '</p>' ) if $inParagraph;
+            $inParagraph = 0;
+            $this->_addListItem( \@result, '', '', '' ) if $inList;
+            $inList = 0;
+            $inDiv  = 1;
+        }
+        elsif ( $line eq $tableAndMacrosDivEnd ) {
+            $this->_addListItem( \@result, '', '', '' ) if $inList;
+            $inList = 0;
+            $inDiv  = 0;
+
+            # The comment was only needed for this test,
+            # and it must be removed to prevent it ending up in TML
+            $line = '</div>';
+        }
         else {
 
             # Other line
             $this->_addListItem( \@result, '', '', '' ) if $inList;
             $inList = 0;
+            unless ( $inParagraph or $inDiv ) {
+                push( @result, '<p>' );
+                $inParagraph = 1;
+            }
         }
 
         push( @result, $line );
     }
 
     if ($inTable) {
-        push( @result, '</table>' );
+        push( @result, _emitTable( \%table ) );
     }
     elsif ($inList) {
         $this->_addListItem( \@result, '', '', '' );
     }
     elsif ($inParagraph) {
         push( @result, '</p>' );
+    }
+    elsif ($inDiv) {
+        push( @result, '</div>' );
     }
 
     $text = join( "\n", @result );
@@ -496,7 +696,7 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
 
     # Handle [[][]] and [[]] links
 
-    # We _not_ support [[http://link text]] syntax
+    # We do _not_ support [[http://link text]] syntax
 
     # [[][]]
     $text =~ s/(\[\[[^\]]*\](\[[^\]]*\])?\])/$this->_liftOut($1, 'LINK')/ge;
@@ -504,30 +704,235 @@ s/((^|(?<=[-*\s(]))$Foswiki::regex{linkProtocolPattern}:[^\s<>"]+[^\s*.,!?;:)<])
     $text =~
 s/$WC::STARTWW(($Foswiki::regex{webNameRegex}\.)?$Foswiki::regex{wikiWordRegex}($Foswiki::regex{anchorRegex})?)/$this->_liftOut($1, 'LINK')/geom;
 
-    while ( my ( $placeholder, $val ) = each %{ $this->{removed} } ) {
-        if ( $placeholder =~ /^verbatim/i ) {
-            _addClass( $val->{params}->{class}, 'TMLverbatim' );
+    $text =~ s/(<nop>)/$this->_liftOut($1, 'PROTECTED')/ge;
+
+    # Substitute back in protected elements
+    $text = $this->_dropBack($text);
+
+    # Item1417: Insert a paragraph at the start of the document if the first tag
+    # is a table (possibly preceded one of several specific tags) so that it is
+    # possible to place the cursor *above* the table.
+    # The paragraph is removed automatically if it is empty, when converting
+    # back to TML.
+    if ( $text =~ /$tagsBeforeFirstTablePattern/o ) {
+        $text = '<p class="foswikiDeleteMe">&nbsp;</p>' . $text;
+    }
+
+    return $text;
+}
+
+sub _appendClassToTag {
+    my $this = shift;
+    my $tagWithAttrs = shift;
+    my $class = shift;
+    if ( $tagWithAttrs =~ /^\s*(\w+)/ 
+        and exists $this->{protectExistingTags}->{$1} ) {
+        $tagWithAttrs =~ s/(\sclass=)(['"])([^'"]*)\2/$1$2$3 $class$2/
+            or $tagWithAttrs .= " class='$class' ";
+    }
+    return $tagWithAttrs;
+}
+
+sub _processTableRow {
+
+    my ( $theRow, $inTable, $state ) = @_;
+    my @result;
+    my $firstRow = 0;
+    if ( !$inTable ) {
+
+        %$state = ( curTable => [], rowspan => [] );
+        $firstRow = 1;
+    }
+
+    $theRow =~ s/\t/   /go;     # change tabs to space
+    $theRow =~ s/\s*$//o;       # remove trailing spaces
+    $theRow =~ s/^(\s*)\|//;    # Remove leading junk
+    my $pre = $1;
+
+    $theRow =~
+      s/(\|\|+)/'colspan'.$Foswiki::TranslationToken.length($1)."\|"/geo
+      ;                         # calc COLSPAN
+    my $colCount = 0;
+    my @row      = ();
+    my $span     = 0;
+    my $value    = '';
+
+    my $rowspanEnabled = Foswiki::Func::getContext()->{'TablePluginEnabled'};
+
+    foreach ( split( /\|/, $theRow ) ) {
+        my $attr = {};
+        $span = 1;
+        if (s/colspan$Foswiki::TranslationToken([0-9]+)//) {
+            $span = $1;
+            $attr->{colspan} = $span;
         }
-        elsif ( $placeholder =~ /^literal/i ) {
-            _addClass( $val->{params}->{class}, 'WYSIWYG_LITERAL' );
+        s/^\s+$/ &nbsp; /o;
+        my ( $left, $right ) = ( 0, 0 );
+        if (/^(\s*)(.*?)(\s*)$/) {
+            $left  = length($1);
+            $_     = $2;
+            $right = length($3);
         }
-        elsif ( $placeholder =~ /^sticky/i ) {
-            _addClass( $val->{params}->{class}, 'WYSIWYG_STICKY' );
+        if ( $left == 1 && $right < 2 ) {
+
+            # Treat left=1 and right=0 like 1 and 1 - Item5220
+        }
+        elsif ( $left > $right ) {
+            $attr->{class} = 'align-right';
+            $attr->{style} = 'text-align: right';
+        }
+        elsif ( $left < $right ) {
+            $attr->{class} = 'align-left';
+            $attr->{style} = 'text-align: left';
+        }
+        elsif ( $left > 1 ) {
+            $attr->{class} = 'align-center';
+            $attr->{style} = 'text-align: center';
+        }
+
+        if (    $rowspanEnabled
+            and !$firstRow
+            and /^(\s|<[^>]*>)*\^(\s|<[^>]*>)*$/ )
+        {    # row span above
+            $state->{rowspan}->[$colCount]++;
+            push @row, { text => $value, type => 'Y' };
+        }
+        else {
+            for ( my $col = $colCount ; $col < ( $colCount + $span ) ; $col++ )
+            {
+                if ( defined( $state->{rowspan}->[$col] )
+                    && $state->{rowspan}->[$col] )
+                {
+                    my $nRows = scalar( @{ $state->{curTable} } );
+                    my $rspan = $state->{rowspan}->[$col] + 1;
+                    if ( $rspan > 1 ) {
+                        $state->{curTable}->[ $nRows - $rspan ][$col]->{attrs}
+                          ->{rowspan} = $rspan;
+                    }
+                    undef( $state->{rowspan}->[$col] );
+                }
+            }
+
+            my $type = '';
+            if (/^\s*\*(.*)\*\s*$/) {
+                $value = $1;
+                $type  = 'th';
+            }
+            else {
+                if (/^\s*(.*?)\s*$/) {    # strip white spaces
+                    $_ = $1;
+                }
+                $value = $_;
+                $type  = 'td';
+            }
+
+            $value = ' ' . $value if $value =~ /^(?:\*|==?|__?)[^\s]/;
+            $value = $value . ' ' if $value =~ /[^\s](?:\*|==?|__?)$/;
+
+            push @row, { text => $value, attrs => $attr, type => $type };
+        }
+
+        while ( $span > 1 ) {
+            push @row, { text => $value, type => 'X' };
+            $colCount++;
+            $span--;
+        }
+        $colCount++;
+    }
+    push @{ $state->{curTable} }, \@row;
+    push @{ $state->{pre} },      $pre;
+    return;
+}
+
+sub _emitTable {
+    my ($state) = @_;
+
+    my @result;
+    push( @result,
+        CGI::start_table( { border => 1, cellpadding => 0, cellspacing => 1 } )
+    );
+
+    #Flush out any remaining rowspans
+    for ( my $i = 0 ; $i < scalar( @{ $state->{rowspan} } ) ; $i++ ) {
+        if ( defined( $state->{rowspan}->[$i] ) && $state->{rowspan}->[$i] ) {
+            my $nRows = scalar( @{ $state->{curTable} } );
+            my $rspan = $state->{rowspan}->[$i] + 1;
+            my $r     = $nRows - $rspan;
+            $state->{curTable}->[$r][$i]->{attrs} ||= {};
+            if ( $rspan > 1 ) {
+                $state->{curTable}->[$r][$i]->{attrs}->{rowspan} = $rspan;
+            }
         }
     }
 
-    $this->_putBackBlocks( $text, 'pre' );
+    my $rowCount     = 0;
+    my $numberOfRows = scalar( @{ $state->{curTable} } );
 
-    $this->_putBackBlocks( $text, 'literal', 'div' );
+    my @headerRowList = ();
+    my @bodyRowList   = ();
 
-    # replace verbatim with pre in the final output, with encoded entities
-    $this->_putBackBlocks( $text, 'verbatim', 'pre', \&_protectVerbatimChars );
+    my $isPastHeaderRows = 0;
 
-    $this->_putBackBlocks( $text, 'sticky', 'div', \&_protectVerbatimChars );
+    foreach my $row ( @{ $state->{curTable} } ) {
+        my $rowtext  = '';
+        my $colCount = 0;
 
-    $text =~ s/(<nop>)/$this->_liftOut($1, 'PROTECTED')/ge;
+        # keep track of header cells: if all cells are header cells,
+        # put the row in the thead section
+        my $headerCellCount = 0;
+        my $numberOfCols    = scalar(@$row);
 
-    return $text;
+        foreach my $fcell (@$row) {
+
+            # check if cell exists
+            next if ( !$fcell || !$fcell->{type} );
+
+            my $tableAnchor = '';
+            next
+              if ( $fcell->{type} eq 'X' )
+              ;    # data was there so sort could work with col spanning
+            my $type = $fcell->{type};
+            my $cell = $fcell->{text};
+            my $attr = $fcell->{attrs} || {};
+
+            if ( $type eq 'th' ) {
+                $headerCellCount++;
+            }
+            else {
+                $type = 'td' unless $type eq 'Y';
+            }      ###if( $type eq 'th' )
+
+            $colCount++;
+            next if ( $type eq 'Y' );
+            my $fn = 'CGI::' . $type;
+            no strict 'refs';
+            $rowtext .= &$fn( $attr, " $cell " );
+            use strict 'refs';
+        }    # foreach my $fcell ( @$row )
+
+        my $rowHTML = $state->{pre}->[$rowCount] . CGI::Tr($rowtext);
+
+        my $isHeaderRow = ( $headerCellCount == $colCount );
+        if ( !$isHeaderRow ) {
+
+        # don't include non-adjacent header rows to the top block of header rows
+            $isPastHeaderRows = 1;
+        }
+
+        if ( $isHeaderRow && !$isPastHeaderRows ) {
+            push( @headerRowList, $rowHTML );
+        }
+        else {
+            push @bodyRowList, $rowHTML;
+        }
+
+        $rowCount++;
+    }    # foreach my $row ( @curTable )
+
+    push @result, @headerRowList, @bodyRowList;
+
+    push @result, CGI::end_table();
+    return @result;
 }
 
 sub _getNamedColour {
@@ -560,7 +965,8 @@ sub _addClass {
 # Encode special chars in verbatim as entities to prevent misinterpretation
 sub _protectVerbatimChars {
     my $text = shift;
-    # $TT0, $TT1 and $TT2 are chr(0), chr(1) and chr(2), respectively. 
+
+    # $TT0, $TT1 and $TT2 are chr(0), chr(1) and chr(2), respectively.
     # They are handled specially, elsewhere
     $text =~ s/([\003-\011\013-\037<&>'"])/'&#'.ord($1).';'/ges;
     $text =~ s/ /&nbsp;/g;
@@ -580,7 +986,7 @@ sub _takeOutIMGTag {
     $text =~ s/(<img [^>]*)\bmce_src=(["'])(.*?)\2/$1/gie;
     $text =~ s:([^/])>$:$1 />:;    # close the tag XHTML style
 
-    return $this->_liftOut( $text, '', 'NONE' );
+    return $this->_liftOutGeneral( $text, { tag => 'NONE' } );
 }
 
 # Pull out Foswiki Set statements, to prevent unwanted munging
@@ -649,21 +1055,30 @@ sub _takeOutCustomTags {
     return $text;
 }
 
-sub _takeOutBlocks {
+sub _liftOutBlocks {
 
-    # my ( $this, $intext, $tag ) = @_;
+    my ( $this, $intext, $tag, $commonOptions ) = @_;
 
-    sub _takeOutBlocksProcess {
-        my ( $this, $state, $scoop ) = @_;
-        my $placeholder = $state->{tag} . $state->{n};
-        $this->{removed}->{$placeholder} = {
-            params => _parseParams( $state->{tagParams} ),
-            text   => $scoop,
-        };
-        return $TT0 . $placeholder . $TT0;
+    $commonOptions = {} unless ref($commonOptions);
+    $commonOptions->{tag} ||= $tag;
+
+    my %allBlocksOptions = ( tmltag => $tag );
+    for my $option (qw/ tag class protect /) {
+        $allBlocksOptions{$option} = $commonOptions->{$option}
+          if $commonOptions->{$option};
     }
 
-    return _takeOutXml( @_, \&_takeOutBlocksProcess );
+    my $liftOutBlocksProcess = sub {
+        my ( $this, $state, $scoop ) = @_;
+
+        my %oneBlockOptions = %allBlocksOptions;
+        $oneBlockOptions{params} = $state->{tagParams};
+
+        my $params = $state->{tagParams};
+        return $this->_liftOutGeneral( $scoop, \%oneBlockOptions );
+    };
+
+    return _takeOutXml( $this, $intext, $tag, $liftOutBlocksProcess );
 }
 
 sub _takeOutXml {
@@ -722,32 +1137,6 @@ sub _takeOutXml {
     $out =~ s/<($tag\s+\/)>/&lt;$1&gt;/g;
 
     return $out;
-}
-
-sub _putBackBlocks {
-    my ( $this, $text, $tag, $newtag, $callback ) = @_;
-    $newtag ||= $tag;
-    my $fn;
-    while ( my ( $placeholder, $val ) = each %{ $this->{removed} } ) {
-        if ( $placeholder =~ /^$tag\d+$/ ) {
-            my $params = $val->{params};
-            my $val    = $val->{text};
-            $val = &$callback($val) if ( defined($callback) );
-
-            # Use div instead of span if the block contains block HTML
-            if ( $newtag eq 'span' && $val =~ m#</?($WC::ALWAYS_BLOCK_S)\b#io )
-            {
-                $fn = 'CGI::div';
-            }
-            else {
-                $fn = 'CGI::' . $newtag;
-            }
-            no strict 'refs';
-            $_[1] =~ s/$TT0$placeholder$TT0/&$fn($params, $val)/e;
-            use strict 'refs';
-            delete( $this->{removed}->{$placeholder} );
-        }
-    }
 }
 
 sub _parseParams {
@@ -881,3 +1270,26 @@ sub _emitTR {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005 ILOG http://www.ilog.fr
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

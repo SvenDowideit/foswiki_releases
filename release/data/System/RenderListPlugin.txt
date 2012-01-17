@@ -58,7 +58,7 @@
 *You get: (if installed)*
 </th></tr>
 <tr><td valign="top" bgcolor="#EEEEEE">
-<pre>
+<pre class="tml">
 %<nop>RENDERLIST{"thread"}%
    * one
       * one.a
@@ -76,41 +76,41 @@
 
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one.a </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one.a </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one.a.x </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one.a.x </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one.b </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one.b </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one.b.x </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one.b.x </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> continue </nobr></td>
+<td valign="top" class="foswikiNoBreak" > continue </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> one.b.y </nobr></td>
+<td valign="top" class="foswikiNoBreak" > one.b.y </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
@@ -118,7 +118,7 @@
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> Tim </nobr></td>
+<td valign="top" class="foswikiNoBreak" > Tim </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
@@ -126,15 +126,15 @@
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> Mico </nobr></td>
+<td valign="top" class="foswikiNoBreak" > Mico </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> two </nobr></td>
+<td valign="top"> two </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr> three </nobr></td>
+<td valign="top" class="foswikiNoBreak" > three </td>
 </tr></table>
 
 </td><td valign="top" bgcolor="#EEEEEE">
@@ -154,7 +154,7 @@
 
 </td></tr>
 <tr><td valign="top" bgcolor="#EEEEEE">
-<pre>
+<pre class="tml">
 %<nop>RENDERLIST{"org"}%
    * one
       * one.a
@@ -172,63 +172,63 @@
 
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.a </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.a </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.a.x </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.a.x </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.b </nobr></td>
+<td valign="top class="foswikiNoBreak" ">&nbsp; one.b </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.b.x </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.b.x </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; continue </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; continue </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.b.y </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.b.y </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; Tim </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; Tim </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; Mico </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; Mico </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; two </nobr></td>
+<td valign="top">&nbsp; two </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; three </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; three </td>
 </tr></table>
 
 </td><td valign="top" bgcolor="#EEEEEE">
@@ -248,7 +248,7 @@
 
 </td></tr>
 <tr><td valign="top" bgcolor="#EEEEEE">
-<pre>
+<pre class="tml">
 %<nop>RENDERLIST{ "org" focus="one.b" }%
    * one
       * one.a
@@ -266,44 +266,44 @@
 
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; <b> one.b </b> </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; <b> one.b </b> </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.b.x </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.b.x </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ud.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; continue </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; continue </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/home.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; one.b.y </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; one.b.y </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_udr.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; Tim </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; Tim </td>
 </tr></table>
 <table border="0" cellspacing="0" cellpadding="0"><tr>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/empty.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/dot_ur.gif" width="16" height="16" alt="" border="0" /></td>
 <td valign="top"><img src="%ATTACHURL%/person.gif" width="16" height="16" alt="" border="0" /></td>
-<td valign="top"><nobr>&nbsp; Mico </nobr></td>
+<td valign="top" class="foswikiNoBreak" >&nbsp; Mico </td>
 </tr></table>
 
 </td><td valign="top" bgcolor="#EEEEEE">
@@ -347,9 +347,11 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 |  Copyright: | Copyright (C) 2006-2007 Peter Thoeny, peter@thoeny.org and TWiki Contributors; 2008-2009 Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 5042 (2009-09-20) |
-|  Release: | 2.2 |
-|  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  Version: | 9273 (2010-09-20) |
+|  Release: | 2.2.2 |
+|  <span class="foswikiNoBreak" >Change History:</span> | <!-- versions below in reverse order -->&nbsp; |
+|  20 Sep 2010: | 2.2.2: Will Norris. =&lt;nobr>= modernization - Foswikitask:Item9415 |
+|  01 Aug 2010: | 2.2.1: Paul Harvey. Documentation updates - Foswikitask:Item9415 |
 |  20 Sep 2009: | 2.2: Crawford Currie. Moved default themes out of plugin topic for efficiency. |
 |  16 Dec 2008: | 2.1: Kenneth Lavrsen. Foswiki version |
 |  15 Jan 2008: | 2.0: Kenneth Lavrsen. No more reporting warnings in the error log when a render list starts at deeper level than 1 | 
@@ -370,6 +372,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 ---
 *Related Topics:* [[%SYSTEMWEB%.Plugins][Plugins]], %SYSTEMWEB%.DeveloperDocumentationCategory, %SYSTEMWEB%.AdminDocumentationCategory, %SYSTEMWEB%.DefaultPreferences, %USERSWEB%.SitePreferences, Foswiki:Extensions/TreePlugin
+<!-- %JQREQUIRE{"chili"}% -->
 
 
 %META:FILEATTACHMENT{name="empty.gif" attr="h" comment="Empty 16x16 spacer" date="1070383918" path="empty.gif" size="100" user="PeterThoeny" version="1.1"}%

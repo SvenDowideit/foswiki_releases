@@ -1,4 +1,4 @@
-# See bottom of file for license and copyright details
+# See bottom of file for license and copyright information
 # base class for all form field types
 
 =begin TML
@@ -16,6 +16,7 @@ a specific type cannot be loaded.
 package Foswiki::Form::FieldDefinition;
 
 use strict;
+use warnings;
 use Assert;
 
 =begin TML
@@ -107,9 +108,8 @@ sub isMandatory { return shift->{attributes} =~ /M/ }
 
 =begin TML
 
----++ renderForEdit( $web, $topic, $value ) -> ($col0html, $col1html)
-   =$web= - the web containing the topic being edited
-   =$topic= - the topic being edited
+---++ renderForEdit( $topicObject, $value ) -> ($col0html, $col1html)
+   =$topicObject= - the topic being edited
 Render the field for editing. Returns two chunks of HTML; the
 =$col0html= is appended to the HTML for the first column in the
 form table, and the =$col1html= is used as the content of the second column.
@@ -117,7 +117,7 @@ form table, and the =$col1html= is used as the content of the second column.
 =cut
 
 sub renderForEdit {
-    my ( $this, $web, $topic, $value ) = @_;
+    my ( $this, $topicObject, $value ) = @_;
 
     # Treat like text, make it reasonably long, add a warning
     return (
@@ -125,7 +125,7 @@ sub renderForEdit {
           . $this->{type}
           . '</span>',
         CGI::textfield(
-            -class => $this->cssClasses('foswikiAlert'),
+            -class => $this->cssClasses('foswikiAlert foswikiInputField'),
             -name  => $this->{name},
             -size  => 80,
             -value => $value
@@ -230,16 +230,21 @@ sub populateMetaFromQueryData {
 
     return unless $this->{name};
 
-    if ( defined( $query->param( $this->{name} ) ) ) {
+    my %names = map { $_ => 1 } $query->param;
+
+    if ( $names{ $this->{name} } ) {
+
+        # Field is present in the request
         $bPresent = 1;
         if ( $this->isMultiValued() ) {
             my @values = $query->param( $this->{name} );
 
-            if ( scalar(@values) == 1 ) {
+            if ( scalar(@values) == 1 && defined $values[0] ) {
                 @values = split( /,|%2C/, $values[0] );
             }
             my %vset = ();
             foreach my $val (@values) {
+                $val ||= '';
                 $val =~ s/^\s*//o;
                 $val =~ s/\s*$//o;
 
@@ -260,8 +265,11 @@ sub populateMetaFromQueryData {
             }
         }
         else {
-            $value = $query->param( $this->{name} );
-            if ( defined($value) && $this->{session}->inContext('edit') ) {
+
+            # Default the value to the empty string (undef would result
+            # in the old value being restored)
+            $value = $query->param( $this->{name} ) || '';
+            if ( $this->{session}->inContext('edit') ) {
                 $value = Foswiki::expandStandardEscapes($value);
             }
         }
@@ -348,22 +356,32 @@ sub renderForDisplay {
     return $format;
 }
 
+# Debug
+sub stringify {
+    my $this = shift;
+    my $s    = '| '
+      . $this->{name} . ' | '
+      . $this->{type} . ' | '
+      . $this->{size} . ' | '
+      . $this->{attributes} . " |\n";
+    return $s;
+}
+
 1;
-__DATA__
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2001-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2001-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
@@ -375,4 +393,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-

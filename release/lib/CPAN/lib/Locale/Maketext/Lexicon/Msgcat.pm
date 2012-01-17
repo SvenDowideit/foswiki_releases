@@ -1,7 +1,7 @@
 package Locale::Maketext::Lexicon::Msgcat;
-$Locale::Maketext::Lexicon::Msgcat::VERSION = '0.02';
-
 use strict;
+
+$Locale::Maketext::Lexicon::Msgcat::VERSION = '0.02';
 
 =head1 NAME
 
@@ -10,7 +10,8 @@ Locale::Maketext::Lexicon::Msgcat - Msgcat catalog parser Maketext
 =head1 SYNOPSIS
 
     package Hello::I18N;
-    use base 'Locale::Maketext';
+    use Locale::Maketext;
+    our @ISA = qw( Locale::Maketext );
     use Locale::Maketext::Lexicon {
         en => ['Msgcat', 'en_US/hello.pl.m'],
     };

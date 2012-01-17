@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::UI::Search
@@ -10,19 +11,22 @@ UI functions for searching.
 package Foswiki::UI::Search;
 
 use strict;
+use warnings;
 
-require Foswiki;
+use Foswiki ();
 
 =begin TML
 
 ---++ StaticMethod search( $session )
+
+Deprecated - now redirects to WebSearch topic.
 
 Perform a search as dictated by CGI parameters:
 
 | *Parameter:* | *Description:* | *Default:* |
 | ="text"= | Search term. Is a keyword search, literal search or regular expression search, depending on the =type= parameter. SearchHelp has more | required |
 | =search="text"= | (Alternative to above) | N/A |
-| =web="Name"= <br /> =web="%USERSWEB%, Know"= <br /> =web="all"= | Comma-separated list of webs to search. The special word =all= means all webs that doe *not* have the =NOSEARCHALL= variable set to =on= in their %WEBPREFSTOPIC%. You can specifically *exclude* webs from an =all= search using a minus sign - for example, =web="all,-Secretweb"=. | Current web |
+| =web="Name"= <br /> =web="%USERSWEB%, Know"= <br /> =web="all"= | Comma-separated list of webs to search. The special word =all= means all webs that do *not* have the =NOSEARCHALL= variable set to =on= in their %WEBPREFSTOPIC%. You can specifically *exclude* webs from an =all= search using a minus sign - for example, =web="all,-Secretweb"=. | Current web |
 | =topic="%WEBPREFSTOPIC%"= <br /> =topic="*Bug"= | Limit search to topics: A topic, a topic with asterisk wildcards, or a list of topics separated by comma. | All topics in a web |
 | =excludetopic="Web*"= <br /> =excludetopic="%HOMETOPIC%, <nop>WebChanges"= | Exclude topics from search: A topic, a topic with asterisk wildcards, or a list of topics separated by comma. | None |
 | =type="keyword"= <br /> =type="literal"= <br /> =type="regex"= | Do a keyword search like =soap "web service" -shampoo=; a literal search like =web service=; or RegularExpression search like =soap;web service;!shampoo= | =%<nop>SEARCHVAR- DEFAULTTYPE%= [[DefaultPreferences][preferences]] setting (%SEARCHVARDEFAULTTYPE%) |
@@ -53,122 +57,35 @@ sub search {
 
     my $query   = $session->{request};
     my $webName = $session->{webName};
-    my $topic   = $session->{topicName};
 
-    unless ( $session->{store}->webExists($webName) ) {
-        require Foswiki::OopsException;
-        throw Foswiki::OopsException(
-            'accessdenied', status => 403,
-            def    => 'no_such_web',
-            web    => $webName,
-            topic  => $topic,
-            params => ['search']
-        );
-    }
-
-    # The CGI.pm docs claim that it returns all of the values in a
-    # multiple select if called in a list context, but that may not
-    # work (didn't on the dev box -- perl 5.004_4 and CGI.pm 2.36 on
-    # Linux (Slackware 2.0.33) with Apache 1.2.  That being the case,
-    # we need to parse them out here.
-
-  #    my @webs          = $query->param( 'web' ) || ( $webName ); #doesn't work
-
-# Note for those unused to Perlishness:
-# -------------------------------------
-# The pipeline at the end of this assignment splits the full query
-# string on '&' or ';' and selects out the params that begin with 'web=',
-# replacing them with whatever is after that.  In the case of a
-# single list of webs passed as a string (say, from a text entry
-# field) it does more processing than it needs to to get the
-# correct string, but so what?  The pipline is the second
-# parameter to the join, and consists of the last two lines.  The
-# join takes the results of the pipeline and strings them back
-# together, space delimited, which is exactly what &searchWeb
-# needs.
-# Note that mod_perl/cgi appears to use ';' as separator, whereas plain cgi uses '&'
-
-    my $attrWeb = join ' ', grep { s/^web=(.*)$/$1/ }
-      split( /[&;]/, $query->query_string );
-
-    # need to unescape URL-encoded data since we use the raw query_string
-    # suggested by JeromeBouvattier
-    $attrWeb =~ tr/+/ /;                                  # pluses become spaces
-    $attrWeb =~ s/%([0-9a-fA-F]{2})/pack('c',hex($1))/ge; # %20 becomes space
-
-    # 'scalar' is used below to get the scalar value of the parameter
-    # because it returns the empty string for undef.
-
-    my $text = $session->search->searchWeb(
-
-#        _callback       => \&_contentCallback,	#FIXME - can't process format=| $topic | line by line...
-        _callback      => undef,
-        _cbdata        => undef,
-        'inline'       => 0,
-        'search'       => scalar $query->param('search'),
-        'web'          => $attrWeb,
-        'topic'        => scalar $query->param('topic'),
-        'excludetopic' => scalar $query->param('excludetopic'),
-        'scope'        => scalar $query->param('scope'),
-        'order'        => scalar $query->param('order'),
-        'type'         => scalar $query->param('type')
-          || $session->{prefs}->getPreferencesValue('SEARCHDEFAULTTTYPE'),
-        'regex'           => scalar $query->param('regex'),
-        'limit'           => scalar $query->param('limit'),
-        'reverse'         => scalar $query->param('reverse'),
-        'casesensitive'   => scalar $query->param('casesensitive'),
-        'nosummary'       => scalar $query->param('nosummary'),
-        'nosearch'        => scalar $query->param('nosearch'),
-        'noheader'        => scalar $query->param('noheader'),
-        'nototal'         => scalar $query->param('nototal'),
-        'bookview'        => scalar $query->param('bookview'),
-        'showlock'        => scalar $query->param('showlock'),
-        'expandvariables' => scalar $query->param('expandvariables'),
-        'noempty'         => scalar $query->param('noempty'),
-        'template'        => scalar $query->param('template'),
-        'header'          => scalar $query->param('header'),
-        'format'          => scalar $query->param('format'),
-        'multiple'        => scalar $query->param('multiple'),
-        'separator'       => scalar $query->param('separator'),
-        'subweb'          => scalar $query->param('subweb')
-    );
-
-    $session->writeCompletePage($text);
-
-}
-
-# TSA SMELL: Review this in case of defining _callback above
-sub _contentCallback {
-    Foswiki::spamProof( $_[1] );
-
-  #FIXME: if you're going to define a callback, you have to convert from TML too
-    print $_[1];
+    #TODO: is WebSearch a constant?
+    my $searchUrl = $session->getScriptUrl( 1, 'view', $webName, 'WebSearch' );
+    $session->redirect( $searchUrl, 1 );    # with passthrough
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

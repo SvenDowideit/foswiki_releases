@@ -1,5 +1,6 @@
 /*
   Copyright (C) 2007-2009 Crawford Currie http://c-dot.co.uk
+  Copyright (C) 2010 Foswiki Contributors http://foswiki.org
   All Rights Reserved.
 
   This program is free software; you can redistribute it and/or
@@ -14,61 +15,190 @@
 
   As per the GPL, removal of this notice is prohibited.
 */
-(function() {
+'use strict';
+(function () {
     tinymce.PluginManager.requireLangPack('foswikibuttons');
 
     tinymce.create('tinymce.plugins.FoswikiButtons', {
-        formats_lb: null, // formats listbox
+        /* Foswiki formats listbox */
+        formats_listbox: null,
+        /* Remembers which node was last calculated for button state */
+        _lastButtonUpdateNode: null,
+        /* Flag to indicate there's a setTimeout waiting to fire a
+        ** _tryNodeChangeEvent() */
+        _nodeChangeEventScheduled: null,
+        /* Flag to indicate that the pending setTimeout waiting to fire a
+        ** _tryNodeChangeEvent(), should be deferred */
+        _deferNodeChangeEvent: null,
+        /* setTimeout interval governing cursor idle time required to
+        ** fire a button state update. Zero means always update. Set with
+        ** foswikibuttons_cursoridletime param */
+        nodeChangeEventFrequency: null,
 
-        init : function(ed, url) {
+        init: function (ed, url) {
+            this.formats = ed.getParam('foswikibuttons_formats');
+            this.nodeChangeEventFrequency =
+                ed.getParam('foswikibuttons_cursoridletime');
+            this.format_names = [];
+            this.recipe_names = [];
 
-            ed.fw_formats = ed.getParam("foswikibuttons_formats");
-            ed.fw_lb = null;
+            jQuery.each(this.formats, function (key, value) {
+                ed.plugins.foswikibuttons.format_names.push(key);
+            });
+            /* Register Foswiki formats with TinyMCE's formatter, which isn't
+               available during plugin init */
+            ed.onInit.add(function (editor) {
+                this.plugins.foswikibuttons._registerFormats(editor, 
+                this.plugins.foswikibuttons.formats);
 
+                this.plugins.foswikibuttons._contextMenuVerbatimClasses(editor);
+            });
+
+            this._setupTTButton(ed, url);
+            this._setupColourButton(ed, url);
+            this._setupAttachButton(ed, url);
+            this._setupHideButton(ed, url);
+            this._setupFormatCommand(ed, this.formats);
+
+            return;
+        },
+
+        getInfo: function () {
+            return {
+                longname: 'Foswiki Buttons Plugin',
+                author: 'Crawford Currie',
+                authorurl: 'http://c-dot.co.uk',
+                infourl: 'http://c-dot.co.uk',
+                version: 3
+            };
+        },
+
+        createControl: function (name, controlManager) {
+            if (name === 'foswikiformat') {
+                return this._createFoswikiFormatControl(name,
+                    controlManager, this);
+            }
+
+            return null;
+        },
+
+        _setupTTButton: function (ed, url) {
             // Register commands
-            ed.addCommand('foswikibuttonsTT', function() {
-                if (!ed.selection.isCollapsed())
-                    ed.execCommand('mceSetCSSClass', false, "WYSIWYG_TT");
+            ed.addCommand('foswikibuttonsTT', function () {
+                ed.formatter.toggle('WYSIWYG_TT');
             });
 
             // Register buttons
             ed.addButton('tt', {
-                title : 'foswikibuttons.tt_desc',
-                cmd : 'foswikibuttonsTT',
+                title: 'foswikibuttons.tt_desc',
+                cmd: 'foswikibuttonsTT',
                 image: url + '/img/tt.gif'
             });
 
-            ed.addCommand('foswikibuttonsColour', function() {
-                if (ed.selection.isCollapsed())
+            return;
+        },
+
+        _registerFormats: function (ed, formats) {
+            ed.formatter.register('WYSIWYG_TT', {
+                inline: 'span',
+                classes: 'WYSIWYG_TT'
+            });
+            ed.formatter.register('WYSIWYG_COLOR', [{
+                inline: 'span',
+                classes: 'WYSIWYG_COLOR',
+                styles: {
+                    color: '%value'
+                }
+            },
+            /* This entry allows WYSIWYG_COLOR to match without
+                    a specific color attribute, used for button state */
+            {
+                inline: 'span',
+                classes: 'WYSIWYG_COLOR'
+            }]);
+            ed.formatter.register('IS_WYSIWYG_COLOR', {
+                inline: 'span',
+                classes: 'WYSIWYG_COLOR'
+            });
+            ed.formatter.register(formats);
+
+            return;
+        },
+
+        _createFoswikiFormatControl: function (name, controlManager, plugin) {
+            var ed = controlManager.editor;
+            plugin.formats_listbox = controlManager.createListBox(name, {
+                title: 'Format',
+                onselect: function (format) {
+                    ed.execCommand('foswikibuttonsFormat', false, format);
+                }
+            });
+            // Build format select
+            jQuery.each(plugin.formats, function (formatname, format) {
+                plugin.formats_listbox.add(formatname, formatname);
+
+                return;
+            });
+            plugin.formats_listbox.selectByIndex(0);
+
+            return plugin.formats_listbox;
+        },
+
+        _setupFormatCommand: function (ed, formats) {
+            ed.addCommand('foswikibuttonsFormat', function (ui, formatname) {
+                // First, remove all existing formats.
+                jQuery.each(formats, function (name, format) {
+                    ed.formatter.remove(name);
+                });
+                // Now apply the format.
+                ed.formatter.apply(formatname);
+                //ed.nodeChanged(); - done in formatter.apply() already
+            });
+
+            ed.onNodeChange.add(this._nodeChange, this);
+
+            return;
+        },
+
+        _setupColourButton: function (ed, url) {
+            ed.addCommand('foswikibuttonsColour', function () {
+                if (ed.selection.isCollapsed()) {
                     return;
+                }
                 ed.windowManager.open({
                     location: false,
                     menubar: false,
                     toolbar: false,
                     status: false,
-                    url : url + '/colours.htm',
-                    width : 240,
-                    height : 140,
-                    movable : true,
-                    popup_css: false, // not required
-                    inline : true
-                }, {
+                    url: url + '/colours.htm',
+                    width: 220,
+                    height: 280,
+                    movable: true,
+                    popup_css: false,
+                    // not required
+                    inline: true
+                },
+                {
                     plugin_url: url
                 });
             });
-
             ed.addButton('colour', {
-                title : 'foswikibuttons.colour_desc',
-                cmd : 'foswikibuttonsColour',
+                title: 'foswikibuttons.colour_desc',
+                cmd: 'foswikibuttonsColour',
                 image: url + '/img/colour.gif'
             });
 
-            ed.addCommand('foswikibuttonsAttach', function() {
-                var htmpath = '/attach.htm',
-                    htmheight = 250;
+            return;
+        },
 
-                if (null !== FoswikiTiny.foswikiVars.TOPIC.match(/(X{10}|AUTOINC[0-9]+)/)) {
-                    htmpath = '/attach_error_autoinc.htm',
+        _setupAttachButton: function (ed, url) {
+            ed.addCommand('foswikibuttonsAttach', function () {
+                var htmpath = '/attach.htm',
+                htmheight = 300;
+
+                if (null !== FoswikiTiny.foswikiVars.TOPIC.match(
+                    /(X{10}|AUTOINC[0-9]+)/)) {
+                    htmpath = '/attach_error_autoinc.htm';
                     htmheight = 125;
                 }
                 ed.windowManager.open({
@@ -76,43 +206,50 @@
                     menubar: false,
                     toolbar: false,
                     status: false,
-                    url : url + htmpath,
-                    width : 350,
-                    height : htmheight,
-                    movable : true,
-                    inline : true
-                }, {
+                    url: url + htmpath,
+                    width: 450,
+                    height: htmheight,
+                    movable: true,
+                    inline: true
+                },
+                {
                     plugin_url: url
                 });
             });
 
             ed.addButton('attach', {
-                title : 'foswikibuttons.attach_desc',
-                cmd : 'foswikibuttonsAttach',
+                title: 'foswikibuttons.attach_desc',
+                cmd: 'foswikibuttonsAttach',
                 image: url + '/img/attach.gif'
             });
 
-            ed.addCommand('foswikibuttonsHide', function() {
+            return;
+        },
+
+        _setupHideButton: function (ed, url) {
+            ed.addCommand('foswikibuttonsHide', function () {
                 if (FoswikiTiny.saveEnabled) {
                     if (ed.getParam('fullscreen_is_enabled')) {
                         // The fullscreen plugin does its work asynchronously, 
-                        // and it does not provide explicit hooks.
-                        // However, it does a getContent prior to closing the editor
-                        // which fires an onGetContent event.
-                        // Hook into that, and fire off further asynchronous handling
-                        // tht will be processed after the fullscreen editor is destroyed.
-                        ed.onGetContent.add(function(){
-                            tinymce.DOM.win.setTimeout(function() {
-                                // The fullscreen editor will have been destroyed
-                                // by the time this function executes,
+                        // and it does not provide explicit hooks. However, it
+                        // does a getContent prior to closing the editor which
+                        // fires an onGetContent event. Hook into that, and
+                        // fire off further asynchronous handling that will be
+                        // processed after the fullscreen editor is destroyed.
+                        ed.onGetContent.add(function () {
+                            tinymce.DOM.win.setTimeout(function () {
+                                // The fullscreen editor will have been
+                                // destroyed by the time this function executes,
                                 // so the active editor is the regular one.
                                 var e = tinyMCE.activeEditor;
-                                tinyMCE.execCommand("mceToggleEditor", true, e.id);
+                                tinyMCE.execCommand('mceToggleEditor', 
+                                    true, e.id);
                                 FoswikiTiny.switchToRaw(e);
-                            }, 10);
+                            },
+                            10);
                         });
 
-                        // Call the full-screen toggle function to hide the fullscreen editor
+                        // Call full-screen toggle to hide fullscreen editor
                         ed.execCommand('mceFullScreen');
                     }
                     else {
@@ -124,335 +261,201 @@
             });
 
             ed.addButton('hide', {
-                title : 'foswikibuttons.hide_desc',
-                cmd : 'foswikibuttonsHide',
+                title: 'foswikibuttons.hide_desc',
+                cmd: 'foswikibuttonsHide',
                 image: url + '/img/hide.gif'
             });
 
-            ed.addCommand('foswikibuttonsFormat', function(ui, fn) {
-                var format = null;
-                for (var i = 0; i < ed.fw_formats.length; i++) {
-                    if (ed.fw_formats[i].name === fn) {
-                        format = ed.fw_formats[i];
-                        break;
-                    }
-                }
-                if (format.el !== null) {
-                    ed.execCommand('FormatBlock', false, format.el);
-                    /* Item2447: We apply a <div> instead of null element
-                    if (format.el === '') {
-                        var elm = ed.selection.getNode();
-                        // SMELL: MIDAS command
-                        ed.execCommand('removeformat', false, elm);
-                    }*/
-                }
-                if (format.style !== null) {
-                    // element is additionally styled
-                    ed.execCommand('mceSetCSSClass', false,
-                                   format.style);
-                }
-                ed.nodeChanged();
-            });
-
-            ed.onNodeChange.add(this._nodeChange, this);
+            return;
         },
 
-        getInfo : function() {
-            return {
-                    longname : 'Foswiki Buttons Plugin',
-                    author : 'Crawford Currie',
-                    authorurl : 'http://c-dot.co.uk',
-                    infourl : 'http://c-dot.co.uk',
-                    version : 2
-            };
-        },
-
-        createControl : function(n, cm) {
-            if (n == 'foswikiformat') {
-                var ed = tinyMCE.activeEditor;
-                var m = cm.createListBox(ed.id + '_' + n, {
-                   title : 'Format',
-                   onselect : function(format) {
-                       ed.execCommand('foswikibuttonsFormat', false, format);
-                   }
-                });
-                var formats = ed.getParam("foswikibuttons_formats");
-                // Build format select
-                for (var i = 0; i < formats.length; i++) {
-                    m.add(formats[i].name, formats[i].name);
-                }
-                m.selectByIndex(0);
-                ed.fw_lb = m;
-                return m;
-            }
-            return null;
-        },
-
-        _nodeChange : function(ed, cm, n, co) {
-            if (n == null)
+        /*
+         * *IF YOU MAKE CHANGES HERE*, consider netbook/mobile users who need
+         * every spare CPU cycle.
+         * 
+         * _nodeChange() is fired *very* frequently, on every cursor movement
+         * for example. So expensive operations are deferred until the cursor
+         * has settled for some time period this.nodeChangeEventFrequency (500ms)
+         */
+        _nodeChange: function (ed, cm, node, collapsed) {
+            var selectedFormats, listbox;
+            
+            if (typeof(node) !== 'object') {
                 return;
-
-            if (co) {
-                // Disable the buttons
-                cm.setDisabled('tt', true);
-                cm.setDisabled('colour', true);
+            }
+            /* Set cursoridletime param to zero to do reliable performance
+             * analysis of _updateButtonState(). See Item9427
+             */
+            if (this.nodeChangeEventFrequency) {
+                this._scheduleNodeChangeEvent(ed, cm, node, collapsed);
             } else {
-                // A selection means the buttons should be active.
-                cm.setDisabled('tt', false);
-                cm.setDisabled('colour', false);
+                this._doUpdateButtonState(ed, cm, node, collapsed);
             }
-            var elm = ed.dom.getParent(n, '.WYSIWYG_TT');
-            if (elm != null)
-                cm.setActive('tt', true);
-            else
-                cm.setActive('tt', false);
-            elm = ed.dom.getParent(n, '.WYSIWYG_COLOR');
-            if (elm != null)
-                cm.setActive('colour', true);
-            else
-                cm.setActive('colour', false);
 
-            if (ed.fw_lb) {
-                var puck = -1;
-                var nn = n.nodeName.toLowerCase();
-                do {
-                    for (var i = 0; i < ed.fw_formats.length; i++) {
-                        if ((!ed.fw_formats[i].el
-                             || ed.fw_formats[i].el == nn)
-                            && (!ed.fw_formats[i].style ||
-                                ed.dom.hasClass(ed.fw_formats[i].style))) {
-                            // Matched el+style or just el
-                            puck = i;
-                            // Only break if the format is not Normal
-                            // (which always matches, and is at pos 0)
-                            if (puck > 0)
-                                break;
-                        }
-                    }
-                } while (puck < 0 && (n = n.parentNode) != null);
-                if (puck >= 0) {
-                    ed.fw_lb.selectByIndex(puck);
-                } else {
-                    // A region has been selected that doesn't match any known
-                    // foswiki formats, so select the first format in our list 
-                    // ('Normal').
-                    ed.fw_lb.selectByIndex(0);
-                }
-            }
             return true;
 
+        },
+
+        /* Schedule a _tryNodeChangeEvent() call, unless one is already
+         * scheduled. In that case, defer that next call, because this means
+         * the cursor hasn't settled for long enough. _tryNodeChangeEvent()
+         * will re-schedule itself instead of calling _doUpdateButtonState()
+         * when it does eventually fire.
+         */
+        _scheduleNodeChangeEvent: function (ed, cm, node, collapsed) {
+            var that = this;
+
+            if (this._nodeChangeEventScheduled) {
+                // defer the next update and keep blocking; cursor is still moving
+                this._deferNodeChangeEvent = true;
+            } else {
+                this._deferNodeChangeEvent = false;
+                this._nodeChangeEventScheduled = true;
+                setTimeout(function () {
+                    that._tryNodeChangeEvent(that, ed, cm, node, collapsed);
+
+                    return;
+                }, this.nodeChangeEventFrequency);
+            }
+
+            return;
+        },
+
+        /* If this event is to be deferred, "re-set the clock and wait
+        ** another 500ms" - otherwise, finally, just do it
+         */
+        _tryNodeChangeEvent: function (that, ed, cm, node, collapsed) {
+            if (that._deferNodeChangeEvent) {
+                that._deferNodeChangeEvent = false;
+                that._nodeChangeEventScheduled = false;
+                that._scheduleNodeChangeEvent(ed, cm, node, collapsed);
+            } else {
+                /* Call expensive nodeChange stuff from here
+                 * If we got to here, the cursor has been idle for > 500ms
+                 *
+                 * Additionally, the node and collapsed args are no longer
+                 * relevant since the setTimeout was set. Use
+                 * ed.selection.getNode() and ed.selection.isCollapsed() instead
+                 */
+                that._doUpdateButtonState(ed, cm);
+                that._nodeChangeEventScheduled = false;
+            }
+
+            return;
+        },
+
+        /* This is a wrapper to _updateButtonState(). It tries to avoid
+        ** updating the button state if the cursor has only moved within the
+        ** textNode of a given node; ie. if the cursor is still inside the same
+        ** node as the last time the button state was calculated, then there is
+        ** no need to update it yet again.
+         */
+        _doUpdateButtonState: function (ed, cm) {
+            var selectedFormats, listbox, node = ed.selection.getNode(),
+                collapsed = ed.selection.isCollapsed();
+            if (!collapsed) {
+                // !collapsed means a selection; always update button state if
+                // there is a selection. 
+                this._updateButtonState(ed, cm)
+            } else if (node !== this._lastButtonUpdateNode) {
+                // Only update button state if it wasn't already calculated for
+                // this node already on a previous call.
+                this._updateButtonState(ed, cm, node, collapsed);
+
+                // Remember the node
+                this._lastButtonUpdateNode = node;
+            }
+        },
+
+        /* Item9427: Slow cursor movement in IEs on large, >250KiB documents
+         *           Please read perf results and test method on that task
+         *           if you make changes here, to compare before/after. A fast
+         *           PC with a decent browser performs nothing like IE7 on a
+         *           netbook
+         *
+         * _updateButtonState() is only called when the cursor has not moved
+         * for 500ms or more.
+         */
+        _updateButtonState: function (ed, cm, node, collapsed) {
+            var selectedFormats, listbox;
+
+            selectedFormats = ed.formatter.matchAll(
+                ed.plugins.foswikibuttons.format_names),
+            listbox = cm.get(ed.id + '_foswikiformat');
+
+            if (collapsed) { // Disable the buttons
+                cm.setDisabled('colour', true);
+                cm.setDisabled('tt', true);
+            } else { // A selection means the buttons should be active.
+                cm.setDisabled('colour', false);
+                cm.setDisabled('tt', false);
+            }
+
+            if (ed.formatter.match('WYSIWYG_TT')) {
+                cm.setActive('tt', true);
+            } else {
+                cm.setActive('tt', false);
+            }
+            if (ed.formatter.match('WYSIWYG_COLOR')) {
+                cm.setActive('colour', true);
+            } else {
+                cm.setActive('colour', false);
+            }
+            if (selectedFormats.length > 0) {
+                listbox.select(selectedFormats[0]);
+            } else {
+                listbox.select('Normal');
+            }
+
+            return true;
+        },
+
+        _contextMenuVerbatimClasses: function (ed) {
+            ed.plugins.foswikibuttons.recipe_names = new Array('tml', 'html', 'js');
+            var recipes = {};
+            for (var i = 0; i < ed.plugins.foswikibuttons.recipe_names.length; i++) {
+                var key = ed.plugins.foswikibuttons.recipe_names[i];
+                recipes[key] = { "block" : "pre", "remove" : "all", classes : 'TMLverbatim ' + key };
+            }
+            ed.formatter.register(recipes);
+            jQuery.each(recipes, function (key, value) {
+                ed.plugins.foswikibuttons.recipe_names.push(key);
+            });
+            if (ed && ed.plugins.contextmenu) {
+                ed.plugins.contextmenu.onContextMenu.add(function(th, m, e) {
+                    var sm, se = ed.selection, el = se.getNode() || ed.getBody();
+
+                    if (el.nodeName == 'PRE' && el.className.indexOf('TMLverbatim') != -1) {
+                        var selectedFormats = ed.formatter.matchAll(ed.plugins.foswikibuttons.recipe_names);
+                        var current = '';
+                        if (selectedFormats.length > 0) {
+                            current = '(' + selectedFormats[0] + ')';
+                        }
+                        sm = m.addMenu({title : 'jQuery chili' + current });
+                        
+                        jQuery.each(recipes, function (name, format) {
+                            sm.add({title : '&lt;verbatim class="' + name + '"&gt;', cmd : 'foswikiVerbatimClass', value : name });
+                        });
+                        sm.add({title : '&lt;verbatim&gt;', cmd : 'foswikiVerbatimClass', value : '' });
+                    }
+                });
+            }
+
+            ed.addCommand('foswikiVerbatimClass', function(ui, val) {
+                // First, remove all existing formats.
+                jQuery.each(recipes, function (name, format) {
+                    ed.formatter.remove(name);
+                });
+                if (val) {
+                    // Now apply the format.
+                    ed.formatter.apply(val);
+                }
+            });
+            return;
         }
+
     });
 
     // Register plugin
-    tinymce.PluginManager.add('foswikibuttons',
-                              tinymce.plugins.FoswikiButtons);
+    tinymce.PluginManager.add('foswikibuttons', tinymce.plugins.FoswikiButtons);
 })();
-
-/* Tiny MCE 2 version
-
-tinyMCE.importPluginLanguagePack('foswikibuttons');
-
-var FoswikiButtonsPlugin = {
-    getInfo : function() {
-        return {
-            longname : 'Foswiki Buttons Plugin',
-            author : 'Crawford Currie',
-            authorurl : 'http://c-dot.co.uk',
-            infourl : 'http://c-dot.co.uk',
-            version : 1
-        };
-    },
-
-    initInstance : function(inst) {
-        //tinyMCE.importCSS(inst.getDoc(),
-        //tinyMCE.baseURL + "/plugins/foswikibuttons/css/foswikibuttons.css");
-    },
-
-    getControlHTML : function(cn) {
-        var html, formats;
-        switch (cn) {
-        case "tt":
-            return tinyMCE.getButtonHTML(cn, 'lang_foswikibuttons_tt_desc',
-                                         '{$pluginurl}/images/tt.gif',
-                                         'foswikiTT', true);
-        case "colour":
-            return tinyMCE.getButtonHTML(cn, 'lang_foswikibuttons_colour_desc',
-                                         '{$pluginurl}/images/colour.gif',
-                                         'foswikiCOLOUR', true);
-        case "attach":
-            return tinyMCE.getButtonHTML(cn, 'lang_foswikibuttons_attach_desc',
-                                         '{$pluginurl}/images/attach.gif',
-                                         'foswikiATTACH', true);
-        case "hide":
-            return tinyMCE.getButtonHTML(cn, 'lang_foswikibuttons_hide_desc',
-                                         '{$pluginurl}/images/hide.gif',
-                                         'foswikiHIDE', true);
-        case "foswikiformat":
-            html = '<select id="{$editor_id}_foswikiFormatSelect" name="{$editor
-_id}_foswikiFormatSelect" onfocus="tinyMCE.addSelectAccessibility(event, this, w
-indow);" onchange="tinyMCE.execInstanceCommand(\'{$editor_id}\',\'foswikiFORMAT\
-',false,this.options[this.selectedIndex].value);" class="mceSelectList">';
-            formats = tinyMCE.getParam("foswikibuttons_formats");
-            // Build format select
-            for (var i = 0; i < formats.length; i++) {
-                html += '<option value="'+ formats[i].name + '">'
-                    + formats[i].name + '</option>';
-            }
-            html += '</select>';
-            
-            return html;
-        }
-
-        return "";
-    },
-
-    execCommand : function(editor_id, element, command,
-                           user_interface, value) {
-        var em;
-        var inst = tinyMCE.getInstanceById(editor_id);
-
-        switch (command) {
-        case "foswikiCOLOUR":
-            var t = inst.selection.getSelectedText();
-            if (!(t && t.length > 0 || pe))
-                return true;
-
-            template = new Array();
-            template['file'] = '../../plugins/foswikibuttons/colours.htm';
-            template['width'] = 240;
-            template['height'] = 140;
-            tinyMCE.openWindow(template, {editor_id : editor_id});
-            return true;
-
-        case "foswikiTT":
-            inst = tinyMCE.getInstanceById(editor_id);
-            elm = inst.getFocusElement();
-            var t = inst.selection.getSelectedText();
-            var pe = tinyMCE.getParentElement(elm, 'TT');
-
-            if (!(t && t.length > 0 || pe))
-                return true;
-            var s = inst.selection.getSelectedHTML();
-            if (s.length > 0) {
-                tinyMCE.execCommand('mceBeginUndoLevel');
-                tinyMCE.execInstanceCommand(
-                    editor_id, 'mceSetCSSClass', user_interface,
-                    "WYSIWYG_TT");
-                tinyMCE.execCommand('mceEndUndoLevel');
-            }
-
-            return true;
-
-        case "foswikiHIDE":
-            tinyMCE.execCommand("mceToggleEditor", user_interface, editor_id);
-            return true;
-
-        case "foswikiATTACH":
-            template = new Array();
-            template['file'] = '../../plugins/foswikibuttons/attach.htm';
-            template['width'] = 350;
-            template['height'] = 250;
-            tinyMCE.openWindow(template, {editor_id : editor_id});
-            return true;
-
-        case "foswikiFORMAT":
-            var formats = tinyMCE.getParam("foswikibuttons_formats");
-            var format = null;
-            for (var i = 0; i < formats.length; i++) {
-                if (formats[i].name == value) {
-                    format = formats[i];
-                    break;
-                }
-            }
-
-            if (format != null) {
-                // if None, then remove all the styles that are in the
-                // formats
-                tinyMCE.execCommand('mceBeginUndoLevel');
-                if (format.el != null) {
-                    var fmt = format.el;
-                    if (fmt.length)
-                        fmt = '<' + fmt + '>';
-                    tinyMCE.execInstanceCommand(
-                        editor_id, 'FormatBlock', user_interface, fmt);
-                    if (format.el == '') {
-                        elm = inst.getFocusElement();
-                        tinyMCE.execCommand(
-                            'removeformat', user_interface, elm);
-                    }
-                }
-                if (format.style != null) {
-                    // element is additionally styled
-                    tinyMCE.execInstanceCommand(
-                        editor_id, 'mceSetCSSClass', user_interface,
-                        format.style);
-                }
-                tinyMCE.triggerNodeChange();
-            }
-            tinyMCE.execCommand('mceEndUndoLevel');
-           return true;
-        }
-
-        return false;
-    },
-
-    handleNodeChange : function(editor_id, node, undo_index,
-                                undo_levels, visual_aid, any_selection) {
-        var elm = tinyMCE.getParentElement(node);
-
-        if (node == null)
-            return;
-
-        if (!any_selection) {
-            // Disable the buttons
-            tinyMCE.switchClass(editor_id + '_tt', 'mceButtonDisable
-d');
-            tinyMCE.switchClass(editor_id + '_colour', 'mceButtonDis
-abled');
-        } else {
-            // A selection means the buttons should be active.
-            tinyMCE.switchClass(editor_id + '_tt', 'mceButtonNormal'
-);
-            tinyMCE.switchClass(editor_id + '_colour', 'mceButtonNor
-mal');
-        }
-
-        switch (node.nodeName) {
-            case "TT":
-            tinyMCE.switchClass(editor_id + '_tt', 'mceButtonSelected');
-            return true;
-        }
-
-        var selectElm = document.getElementById(
-            editor_id + "_foswikiFormatSelect");
-        if (selectElm) {
-            var formats = tinyMCE.getParam("foswikibuttons_formats");
-            var puck = -1;
-            do {
-                for (var i = 0; i < formats.length; i++) {
-                    if (!formats[i].el ||
-                        formats[i].el == node.nodeName.toLowerCase()) {
-                        if (!formats[i].style ||
-                            RegExp('\\b' + formats[i].style + '\\b').test(
-                                tinyMCE.getAttrib(node, "class"))) {
-                            // Matched el+style or just el
-                            puck = i;
-                            // Only break if the format is not Normal (which
-                            // always matches, and is at pos 0)
-                            if (puck > 0)
-                                break;
-                        }
-                    }
-                }
-            } while (puck < 0 && (node = node.parentNode) != null);
-            if (puck >= 0) {
-                selectElm.selectedIndex = puck;
-            }
-        }
-        return true;
-    }
-};
-
-tinyMCE.addPlugin("foswikibuttons", FoswikiButtonsPlugin);
-*/

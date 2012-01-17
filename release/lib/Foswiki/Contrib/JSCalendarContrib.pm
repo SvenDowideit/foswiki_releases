@@ -1,3 +1,5 @@
+# See bottom of file for license and copyright information
+
 =begin TML
 
 Read [[%ATTACHURL%/doc/html/reference.html][the Mishoo documentation]] or
@@ -12,44 +14,44 @@ easier from Foswiki plugins. This module includes the functions:
 package Foswiki::Contrib::JSCalendarContrib;
 
 use strict;
+use warnings;
 
-require Foswiki::Func;    # The plugins API
+use Foswiki::Func ();    # The plugins API
 
-use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION );
-
-$VERSION = '$Rev: 7045 (2010-04-01) $';
-$RELEASE = '01 Apr 2010';
-$SHORTDESCRIPTION = "[[http://dynarch.com/mishoo/calendar.epl][Mishoo JSCalendar]], packaged for use by plugins, skins and add-ons";
+our $VERSION = '$Rev: 8912 (2010-09-05) $';
+our $RELEASE = '31 Jul 2010';
+our $SHORTDESCRIPTION =
+"[[http://dynarch.com/mishoo/calendar.epl][Mishoo JSCalendar]], packaged for use by plugins, skins and add-ons";
 
 # Max width of different mishoo format components
 my %w = (
-    a => 3,	# abbreviated weekday name
-    A => 9,	# full weekday name
-    b => 3,	# abbreviated month name
-    B => 9,	# full month name
-    C => 2,	# century number
-    d => 2,	# the day of the month ( 00 .. 31 )
-    e => 2,	# the day of the month ( 0 .. 31 )
-    H => 2,	# hour ( 00 .. 23 )
-    I => 2,	# hour ( 01 .. 12 )
-    j => 3,	# day of the year ( 000 .. 366 )
-    k => 2,	# hour ( 0 .. 23 )
-    l => 2,	# hour ( 1 .. 12 )
-    m => 2,	# month ( 01 .. 12 )
-    M => 2,	# minute ( 00 .. 59 )
-    n => 1,	# a newline character
-    p => 2,	# 'PM' or 'AM'
-    P => 2,	# 'pm' or 'am'
-    S => 2,	# second ( 00 .. 59 )
-    s => 12,# number of seconds since Epoch
-    t => 1,	# a tab character
-    U => 2,	# the week number
-    u => 1,	# the day of the week ( 1 .. 7, 1 = MON )
-    W => 2,	# the week number
-    w => 1,	# the day of the week ( 0 .. 6, 0 = SUN )
-    V => 2,	# the week number
-    y => 2,	# year without the century ( 00 .. 99 )
-    Y => 4,	# year including the century ( ex. 1979 )
+    a => 3,              # abbreviated weekday name
+    A => 9,              # full weekday name
+    b => 3,              # abbreviated month name
+    B => 9,              # full month name
+    C => 2,              # century number
+    d => 2,              # the day of the month ( 00 .. 31 )
+    e => 2,              # the day of the month ( 0 .. 31 )
+    H => 2,              # hour ( 00 .. 23 )
+    I => 2,              # hour ( 01 .. 12 )
+    j => 3,              # day of the year ( 000 .. 366 )
+    k => 2,              # hour ( 0 .. 23 )
+    l => 2,              # hour ( 1 .. 12 )
+    m => 2,              # month ( 01 .. 12 )
+    M => 2,              # minute ( 00 .. 59 )
+    n => 1,              # a newline character
+    p => 2,              # 'PM' or 'AM'
+    P => 2,              # 'pm' or 'am'
+    S => 2,              # second ( 00 .. 59 )
+    s => 12,             # number of seconds since Epoch
+    t => 1,              # a tab character
+    U => 2,              # the week number
+    u => 1,              # the day of the week ( 1 .. 7, 1 = MON )
+    W => 2,              # the week number
+    w => 1,              # the day of the week ( 0 .. 6, 0 = SUN )
+    V => 2,              # the week number
+    y => 2,              # year without the century ( 00 .. 99 )
+    Y => 4,              # year including the century ( ex. 1979 )
 );
 
 =begin TML
@@ -67,7 +69,7 @@ This is the simplest way to use calendars from a plugin.
      the textfield.
 Example:
 <verbatim>
-use Foswiki::Contrib::JSCalendarContrib;
+use Foswiki::Contrib::JSCalendarContrib ();
 ...
 my $fromDate = Foswiki::Contrib::JSCalendarContrib::renderDateForEdit(
    'from', '1 April 1999');
@@ -78,33 +80,36 @@ my $toDate = Foswiki::Contrib::JSCalendarContrib::renderDateForEdit(
 =cut
 
 sub renderDateForEdit {
-    my ($name, $value, $format, $options) = @_;
+    my ( $name, $value, $format, $options ) = @_;
 
-    $format ||= $Foswiki::cfg{JSCalendarContrib}{format} || '%e %B %Y';
+    $format ||=
+         Foswiki::Func::getPreferencesValue('JSCALENDARCONTRIB_FORMAT')
+      || $Foswiki::cfg{JSCalendarContrib}{format}
+      || '%e %b %Y';
 
     addHEAD('foswiki');
 
     # Work out how wide it has to be from the format
     # SMELL: add a space because pattern skin default fonts on FF make the
     # box half a character too narrow if the exact size is used
-    my $wide = $format.' ';
+    my $wide = $format . ' ';
     $wide =~ s/(%(.))/$w{$2} ? ('_' x $w{$2}) : $1/ge;
     $options ||= {};
-    $options->{name} = $name;
-    $options->{id} = 'id_'.$name;
+    $options->{name}  = $name;
+    $options->{id}    = 'id_' . $name;
     $options->{value} = $value || '';
     $options->{size} ||= length($wide);
 
     return CGI::textfield($options)
       . CGI::image_button(
-          -name => 'img_'.$name,
-          -onclick =>
-            "javascript: return showCalendar('id_$name','$format')",
-            -src=> Foswiki::Func::getPubUrlPath() . '/' .
-              $Foswiki::cfg{SystemWebName} .
-                  '/JSCalendarContrib/img.gif',
-          -alt => 'Calendar',
-          -align => 'middle');
+        -name    => 'img_' . $name,
+        -onclick => "javascript: return showCalendar('id_$name','$format')",
+        -src     => Foswiki::Func::getPubUrlPath() . '/'
+          . $Foswiki::cfg{SystemWebName}
+          . '/JSCalendarContrib/img.gif',
+        -alt   => 'Calendar',
+        -align => 'middle'
+      );
 }
 
 =begin TML
@@ -123,7 +128,7 @@ text field. For example, say we wanted to display the date with the calendar
 icon _before_ the text field, using the format =%Y %b %e=
 <verbatim>
 # Add styles and javascript for the calendar
-use Foswiki::Contrib::JSCalendarContrib;
+use Foswiki::Contrib::JSCalendarContrib ();
 ...
 
 sub commonTagsHandler {
@@ -190,35 +195,57 @@ An alternative to =commonTagsHandler= is =postRenderingHandler= which is more ef
 sub addHEAD {
     my $setup = shift;
     $setup ||= 'calendar-setup';
-    my $style = $Foswiki::cfg{JSCalendarContrib}{style} || 'blue';
-    my $lang = $Foswiki::cfg{JSCalendarContrib}{lang} || 'en';
+    my $style =
+         Foswiki::Func::getPreferencesValue('JSCALENDARCONTRIB_STYLE')
+      || $Foswiki::cfg{JSCalendarContrib}{style}
+      || 'blue';
+    my $lang =
+         Foswiki::Func::getPreferencesValue('JSCALENDARCONTRIB_LANG')
+      || $Foswiki::cfg{JSCalendarContrib}{lang}
+      || 'en';
     my $base = '%PUBURLPATH%/%SYSTEMWEB%/JSCalendarContrib';
-    eval {
-        require Foswiki::Contrib::BehaviourContrib;
-        if (defined(&Foswiki::Contrib::BehaviourContrib::addHEAD)) {
-            Foswiki::Contrib::BehaviourContrib::addHEAD();
-        } else {
-            Foswiki::Func::addToHEAD(
-                'BEHAVIOURCONTRIB',
-                '<script type="text/javascript" src="%PUBURLPATH%/%SYSTEMWEB%/BehaviourContrib/behaviour.compressed.js"></script>');
-        }
-    };
-    my $head = <<HERE;
+
+    my $css = <<HERE;
 <style type='text/css' media='all'>
-  \@import url('$base/calendar-$style.css');
-  .calendar {z-index:2000;}
+ \@import url('$base/calendar-$style.css');
+ .calendar {z-index:2000;}
 </style>
-<script type='text/javascript' src='$base/calendar.js'></script>
-<script type='text/javascript' src='$base/lang/calendar-$lang.js'></script>
 HERE
-    Foswiki::Func::addToHEAD( 'JSCALENDARCONTRIB', $head );
+    Foswiki::Func::addToZone( 'head', 'JSCalendarContrib/css', $css );
+
+    Foswiki::Func::addToZone(
+        'script', 'JSCalendarContrib/calendar',
+        "<script type='text/javascript' src='$base/calendar.js'></script>");
+
+    Foswiki::Func::addToZone(
+        'script', 'JSCalendarContrib/calendar-lang',
+        "<script type='text/javascript' src='$base/lang/calendar-$lang.js'></script>",
+        'JSCalendarContrib/calendar');
 
     # Add the setup separately; there might be different setups required
     # in a single HTML page.
-    $head = <<HERE;
-<script type='text/javascript' src='$base/$setup.js'></script>
-HERE
-    Foswiki::Func::addToHEAD( 'JSCALENDARCONTRIB_'.$setup, $head );
+    Foswiki::Func::addToZone(
+        'script', "JSCalendarContrib/$setup",
+        "<script type='text/javascript' src='$base/$setup.js'></script>"
+       );
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

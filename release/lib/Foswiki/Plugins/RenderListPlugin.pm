@@ -1,3 +1,4 @@
+# See bottom of file for license and copyright information
 # Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
 # Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
@@ -21,6 +22,7 @@ package Foswiki::Plugins::RenderListPlugin
   ;    # change the package name and $pluginName!!!
 
 use strict;
+use warnings;
 
 # =========================
 use vars qw(
@@ -28,8 +30,8 @@ use vars qw(
   $pubUrl $attachUrl
 );
 
-our $VERSION           = '$Rev: 5042 (2009-09-20) $';
-our $RELEASE           = '2.2';
+our $VERSION           = '$Rev: 9273 (2010-09-20) $';
+our $RELEASE           = '2.2.2';
 our $pluginName        = 'RenderListPlugin';    # Name of this Plugin
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION = 'Render bullet lists in a variety of formats';
@@ -290,7 +292,7 @@ sub renderIconList {
                 $text .= "<td valign=\"top\">$iconImg</td>\n";
             }
             $text .=
-"<td valign=\"top\"><nobr>&nbsp; $tree[$i]->{'text'} </nobr></td>\n";
+"<td valign=\"top\" class=\"foswikiNoBreak\" >&nbsp; $tree[$i]->{'text'} </td>\n";
 
         }
         else {
@@ -308,11 +310,11 @@ sub renderIconList {
                 $icon = fixImageTag( $icon, $width, $height );
                 $text .= "<td valign=\"top\">$icon</td>\n";
                 $text .=
-"<td valign=\"top\"><nobr>&nbsp; $tree[$i]->{'text'} </nobr></td>\n";
+"<td valign=\"top\" class=\"foswikiNoBreak\" >&nbsp; $tree[$i]->{'text'} </td>\n";
             }
             else {
                 $text .=
-"<td valign=\"top\"><nobr> $tree[$i]->{'text'} </nobr></td>\n";
+"<td valign=\"top\" class=\"foswikiNoBreak\" > $tree[$i]->{'text'} </td>\n";
             }
         }
         $text .= '</tr></table>' . "\n";
@@ -337,3 +339,21 @@ sub fixImageTag {
 # =========================
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

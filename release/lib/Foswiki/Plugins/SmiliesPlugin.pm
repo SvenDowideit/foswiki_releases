@@ -1,28 +1,11 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 2002-2006 Peter Thoeny, peter@thoeny.org
-# Copyright (C) 2008-2009 Foswiki Contributors.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details, published at
-# http://www.gnu.org/copyleft/gpl.html
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 #
 # This plugin replaces smilies with small smilies bitmaps
 
 package Foswiki::Plugins::SmiliesPlugin;
 
 use strict;
+use warnings;
 
 use Foswiki::Func ();
 
@@ -30,7 +13,7 @@ use vars qw(
   %smiliesUrls %smiliesEmotions
   $smiliesPubUrl $allPattern $smiliesFormat );
 
-our $VERSION           = '$Rev: 5046 (2009-09-20) $';
+our $VERSION           = '$Rev: 7644 (2010-06-05) $';
 our $RELEASE           = '20 Sep 2009';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION  = 'Render smilies like :-) as icons';
@@ -114,3 +97,27 @@ sub _allSmiliesTable {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
+Copyright (C) 2002-2006 Peter Thoeny, peter@thoeny.org
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

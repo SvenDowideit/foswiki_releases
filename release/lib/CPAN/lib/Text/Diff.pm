@@ -1,5 +1,7 @@
 package Text::Diff;
 
+use strict;
+
 $VERSION = 0.35;
 
 =head1 NAME
@@ -48,7 +50,7 @@ That's a pretty rare occurence, so C<diff()> is exported by default.
 =cut
 
 use Exporter;
-@ISA = qw( Exporter );
+our @ISA = qw( Exporter );
 @EXPORT = qw( diff );
 
 use strict;
@@ -185,7 +187,7 @@ sub diff {
 	        unless defined $options->{"MTIME_$AorB"};
 
             local $/ = "\n";
-            open F, "<$seq" or carp "$!: $seq";
+            open F, '<', $seq or carp "$!: $seq";
             $seqs[$i] = [<F>];
             close F;
 

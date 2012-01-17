@@ -1,7 +1,4 @@
-%TMPL:INCLUDE{"search"}%
+%TMPL:INCLUDE{"searchformat"}%
+%TMPL:DEF{"header:style:backgroundcolor"}%%TMPL:END%
 
-
-
-%TMPL:DEF{"content"}%%SPLIT%Search: <b> %SEARCHSTRING% </b><p />
-%SPLIT%%REPEAT%%REPEAT%%SPLIT%%TMPL:P{"count"}%<p />
-%SPLIT%%TMPL:END%
+%TMPL:DEF{"header:right"}%%TMPL:END% 

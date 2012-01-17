@@ -64,7 +64,7 @@ if you need messages to be automatically translated you either need to handle
 it in the perl code before throwing Foswiki::OopsException or put the %MAKETEXT
 in the template. You cannot pass macros through the parameters.
 
-API version $Date: 2009-12-11 10:25:14 +0100 (Fri, 11 Dec 2009) $ (revision $Rev: 8969 (2010-09-08) $)
+API version $Date: 2010-09-06 15:38:10 +0200 (Mon, 06 Sep 2010) $ (revision $Rev: 9498 (2010-10-04) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -89,10 +89,12 @@ the function or parameter.
 # AND ENSURE ALL POD DOCUMENTATION IS COMPLETE AND ACCURATE.
 
 package Foswiki::OopsException;
-use base 'Error';
-
 use strict;
-use Error;
+use warnings;
+
+use Error ();
+our @ISA = ('Error');
+
 use Assert;
 
 our $VERSION = '$Rev';
@@ -111,7 +113,7 @@ The remaining parameters are interpreted as key-value pairs. The following keys 
 For an example of how to use the =def= parameter, see the =oopsattention=
 template.
 
-NOTE: parameter values are automatically and unconditionally entity-encoded so you cannot pass macros
+NOTE: parameter values are automatically and unconditionally entity-encoded
 
 =cut
 
@@ -119,8 +121,8 @@ sub new {
     my $class    = shift;
     my $template = shift;
     my $this     = $class->SUPER::new();
-    $this->{template} = $template;
-    $this->{status} = 500; # default server error
+    $this->{template} = $template || 'generic';
+    $this->{status} = 500;    # default server error
     ASSERT( scalar(@_) % 2 == 0, join( ";", map { $_ || 'undef' } @_ ) )
       if DEBUG;
     while ( my $key = shift @_ ) {
@@ -156,10 +158,12 @@ sub stringify {
 
         # load the defs
         $session->templates->readTemplate( 'oops' . $this->{template},
-            $session->getSkin() );
-        my $message = $session->templates->expandTemplate( $this->{def} );
-        $message =
-          $session->handleCommonTags( $message, $this->{web}, $this->{topic} );
+                                          no_oops => 1 );
+        my $message = $session->templates->expandTemplate( $this->{def} )
+          || "Failed to find '$this->{def}' in 'oops$this->{template}'";
+        my $topicObject =
+          Foswiki::Meta->new( $session, $this->{web}, $this->{topic} );
+        $message = $topicObject->expandMacros($message);
         my $n = 1;
         foreach my $param ( @{ $this->{params} } ) {
             $message =~ s/%PARAM$n%/$param/g;
@@ -177,7 +181,7 @@ sub stringify {
         if ( defined $this->{params} ) {
             $s .= ' params=>[' . join( ',', @{ $this->{params} } ) . ']';
         }
-        return $s . ')';
+        return $s . ')'.((DEBUG)?$this->stacktrace:'');
     }
 }
 
@@ -191,6 +195,7 @@ sub stringify {
 # not be called in new code.
 sub redirect {
     my ( $this, $session ) = @_;
+
     my @p = $this->_prepareResponse($session);
     my $url =
       $session->getScriptUrl( 1, 'oops', $this->{web}, $this->{topic}, @p );
@@ -208,17 +213,17 @@ can be overridden using the 'status => ' parameter to the constructor.
 =cut
 
 sub generate {
-    my ($this, $session ) = @_;
+    my ( $this, $session ) = @_;
 
-    my @p = $this->_prepareResponse( $session );
+    my @p = $this->_prepareResponse($session);
     $session->{response}->status( $this->{status} );
     require Foswiki::UI::Oops;
-    Foswiki::UI::Oops::oops($session, $this->{web}, $this->{topic},
-                            $session->{request}, 0);
+    Foswiki::UI::Oops::oops( $session, $this->{web}, $this->{topic},
+        $session->{request}, 0 );
 }
 
 sub _prepareResponse {
-    my ($this, $session ) = @_;
+    my ( $this, $session ) = @_;
     my @p = ();
 
     $this->{template} = "oops$this->{template}"
@@ -234,28 +239,28 @@ sub _prepareResponse {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

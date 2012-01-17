@@ -1,11 +1,8 @@
 %META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
 %META:TOPICPARENT{name="WikiGroups"}%
----+!! <nop>%URLPARAM{"topic"}%
 
-   * Member list (comma-separated list):
-      * Set GROUP = %WIKIUSERNAME%
-   * Persons/group who can change the list:
-      * Set ALLOWTOPICCHANGE = %URLPARAM{"topic"}%
+Edit this topic to add a description to the !%URLPARAM{"topic"}%
 
-*%MAKETEXT{"Related topics:"}%* [[%SYSTEMWEB%.AccessControl][AccessControl]]
-
+%META:PREFERENCE{name="GROUP" title="GROUP" value=""}%
+%META:PREFERENCE{name="VIEW_TEMPLATE" title="VIEW_TEMPLATE" value="GroupView"}%
+%META:PREFERENCE{name="ALLOWTOPICCHANGE" title="ALLOWTOPICCHANGE" type="Set" value="%URLPARAM{"topic"}%"}%

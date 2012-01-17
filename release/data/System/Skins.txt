@@ -14,29 +14,25 @@ Foswiki ships with a default set of template files that give a very basic, CSS-t
 
 Topic text is not affected by the choice of skin, though a skin can be defined to use a CSS (Cascading Style Sheet), which can sometimes give a radically different appearance to the text.
 
-*Relevant links*
-   * Foswiki:Support.Extension - Index page for support resources related to skins.
-   * Foswiki:Extensions.SkinPackage - list of all contributed skin packages
-
-*See other types of extensions:* ContributedAddOns, [[Contribs]], [[Plugins]]
-
 ---++ Changing the default skin
 
-%WIKITOOLNAME% by default ships with the skin PatternSkin activated. You can set the skin for the whole site, a single web or topic, or for each user individually, by setting the SKIN setting to the name of a skin. If the skin you select doesn't exist, then %WIKITOOLNAME% will pick up the default templates.
+%WIKITOOLNAME% by default ships with the PatternSkin activated. You can set the skin for the whole site (via Main.SitePreferences), a single web (via its WebPreferences topic) or topic, for each user individually, or even per request - see [[#Activating_Skins][Activating Skins]] below for more details.
 
 ---++ Defining Skins
 
-You may want to define your own skin, for example to comply with corporate web guidelines, or because you have a aesthetic vision that you want to share. There are a couple of places you an start doing this.
+You may want to define your own skin, for example to comply with corporate web guidelines, or because you have a aesthetic vision that you want to share. There are a couple of places you can start doing this.
 
-The [[skin templates]] used for skins are located in the =templates= directory and are named according to the skin: ==&lt;scriptname&gt;.&lt;skin&gt;.tmpl==. Skin files may also be defined in Foswiki topics - see SkinTemplates for details.
+[[Skin templates]] are located by looking at a list of possible locations, including topics and files in the =templates= directory. The lookup process is configurable, and is described in SkinTemplates#FindingTemplates. You can choose to define your skin entirely in topics, entirely in files in =templates=, or in a mixture of both.
 
-To start creating a new skin, copy the default skin templates (like =view.tmpl=), or copy an existing skin to use as a base for your own skin. You should only need to copy the files you intend to customise, as Foswiki can be configured to fall back to another skin if a template is not defined in your skin. A custom skin can be as small as one file! Name your files as described above (for example =view.myskin.tmpl=).
+The easiest way to start creating a new skin is to layer it over an existing skin, only overriding those parts of the existing skin that you want to customise. Foswiki can be configured to fall back to another skin if a template is not defined in your skin. A custom skin can be as small as one file!
+
+Most skins, even those that look radically different to the default, use this layering approach, by basing themselves on the default skin templates (those template files with no skin name e.g =view.tmpl=, =edit.tmpl= etc). These templates provide a minimal interface that is easy to understand and build on. Another advantage of this approach is that if new features are exposed in the default templates, your skin has a chance to pick them up "for free".
 
 If you use PatternSkin as your starting point, and you want to modify the layout, colors or even the templates to suit your own needs, have a look first at the topics PatternSkinCustomization and PatternSkinCssCookbook. These topics also provide practical instructions how to create custom skin template files.
 
-*%X% Note:* Don't call your skin =text= or =rss= as these two skin names have reserved meanings, see below at [[#HardCodedSkins][hard-coded meanings]].
+<blockquote class="foswikiHelp"> *%X% Note:* Don't call your skin =text= or =rss= as these two skin names have reserved meanings, see below at [[#HardCodedSkins][hard-coded meanings]].</blockquote>
 
-The following template files are used for Foswiki screens, and are referenced in the Foswiki core code. If a skin doesn't define its own version of a template file, then Foswiki will fall back to the next skin in the skin path, or finally, to the default version of the template file.
+The following template names are used for Foswiki screens, and are referenced in the Foswiki core code. If a skin doesn't define its own version of a template file, then Foswiki will fall back to the next skin in the skin path, or finally, to the default version of the template file.
 
 (Certain template files are expected to provide certain TMPL:DEFs - these are listed in sub-bullets)
    * =addform= - used to select a new form for a topic
@@ -57,7 +53,6 @@ The following template files are used for Foswiki screens, and are referenced in
       * =no_such_topic=, =no_such_web=, =only_group=, =topic_access=
    * =oopsattention= - used to format Attention messages
       * =already_exists=, =bad_email=, =bad_ver_code=, =bad_wikiname=, =base_web_missing=, =confirm=, =created_web=, =delete_err=, =invalid_web_color=, =invalid_web_name=, =in_a_group=, =mandatory_field=, =merge_notice=, =missing_action=, =missing_fields=, =move_err=, =missing_action=, =no_form_def=, =no_users_to_reset=, =not_a_user=, =oversized_upload=, =password_changed=, =password_mismatch=, =problem_adding=, =remove_user_done=, =rename_err=, =rename_not_wikiword=, =rename_topic_exists=, =rename_web_err=, =rename_web_exists=, =rename_web_prerequisites=, =reset_bad=, =reset_ok=, =save_error=, =send_mail_error=, =thanks=, =topic_exists=, =unrecognized_action=, =upload_name_changed=, =web_creation_error=, =web_exists=, =web_missing=, =wrong_password=, =zero_size_upload=
-   * =oopschangelanguage= - used to prompt for a new language when internationalisation is enabled
    * =oopsgeneric= - a basic dialog for user information; provides "ok" button only
    * =oopslanguagechanged= - used to confirm a new language when internationalisation is enabled
    * =oopsleaseconflict= - used to format lease Conflict messages
@@ -72,22 +67,22 @@ The following template files are used for Foswiki screens, and are referenced in
    * =renameweb= - used when renaming a web
    * =renamewebconfirm= - used when renaming a web
    * =renamewebdelete= - used when renaming a web
-   * =searchbookview= - used to format inline search results in book view
-   * =searchformat= - used to format inline search results
-   * =search= - used by the =search= CGI script
+   * =searchbookview= - used to format search results in book view
+   * =searchformat= - used to format search results
+   * =search= - used to format inline search results if no formatting is specified
    * =settings=
    * =view= - used by the =view= CGI script
    * =viewprint= - used to create the printable view
    
 =foswiki.tmpl= is a master template conventionally used by other templates, but not used directly by code.
 
-*%X% Note:* Make sure templates do not end with a newline. Any newline will expand to an empty =&lt;p /&gt;= in the generated html. It will produce invalid html, and may break the page layout. 
+<blockquote class="foswikiHelp"> *%X% Note:* Make sure templates do not end with a newline. Any newline will expand to an empty =&lt;p /&gt;= in the generated html. It will produce invalid html, and may break the page layout. </blockquote>
 
 ---+++ Partial customisation, or adding in new features to an existing skin
 
 You can use recursion in the TMPL:INCLUDE chain. For example, if =view.tmpl= contains =%<nop>TMPL:INCLUDE{"foswiki"}%=, the templating system will include the next SKIN in the skin path.
 To create a customisation of the Pattern skin, where you _only_ want to remove the edit & WYSIWYG buttons from the =view= screen, you create only a =view.yourlocal.tmpl=:
-<verbatim>
+<verbatim class="tml">
 %TMPL:INCLUDE{"view"}%
 %TMPL:DEF{"edit_topic_link"}%%TMPL:END%
 %TMPL:DEF{"edit_wysiwyg_link"}%%TMPL:END%
@@ -115,9 +110,9 @@ You can use [[SkinTemplates#TemplateMacros][template directives]], ordinary [[ma
 | =%<nop>TOPIC%= | The name of the current topic. |
 | =%<nop>WEBTOPICLIST%= | Common links of current web, defined in the WebPreferences. It includes a [[#GoBox][Go box]] |
 | =%<nop>TEXT%= | The topic text, e.g. the content that can be edited |
-| =%<nop>META{"form"}%= | [[DataForms][DataForm]], if any |
-| =%<nop>META{"attachments"}%= | FileAttachment table |
-| =%<nop>META{"parent"}%= | The topic parent |
+| =%<nop>QUERY{"form.name"}%= | [[DataForms][DataForm]], if any |
+| =%<nop>QUERY{"attachments.name"}%= | FileAttachment list |
+| =%<nop>QUERY{"parent.name"}%= | The topic parent |
 | =%<nop>EDITTOPIC%= | Edit link |
 | =%<nop>REVTITLE%= | The revision title, if any, ex: =(r1.6)= |
 | =%<nop>REVINFO%= | Revision info, ex: =r1.6 - 24 Dec 2002 - 08:12 GMT - %WIKIUSERNAME%= |
@@ -128,12 +123,21 @@ You can use [[SkinTemplates#TemplateMacros][template directives]], ordinary [[ma
 
 CSS files are gererally attachments to the skin topic that are included in the skin templates - in the case of PatternSkin in the template =css.pattern.tmpl=.
 
-   * General documentation of CSS classes: CascadingStyleSheets
+   * General documentation of CSS classes: AppendixCascadingStyleSheets
    * To see how CSS is used in the default Foswiki skin, see: PatternSkin
    * If you write a complete new skin, this is the syntax to use in a template file:
-<verbatim>
-<style type='text/css' media='all'>@import url('%PUBURLPATH%/%SYSTEMWEB%/MySkin/mystyle.css');</style>
+<verbatim class="tml">
+%ADDTOZONE{
+    "head"
+    id="MySkin/mystyle"
+    text="
+        <style type='text/css' media='all'>
+            @import url('%PUBURLPATH%/%SYSTEMWEB%/MySkin/mystyle.css');
+        </style>"
+}%
 </verbatim>
+
+See [[VarADDTOZONE][ADDTOZONE]]
 
 ---++ Skin parts
 
@@ -147,25 +151,10 @@ The box also understands URLs, e.g. you can type =http://www.google.com/= to jum
 Here is an example form that has a select box and the "Go" box for illustration purposes. You need to have <nop>JavaScript enabled for this to work:
 
 <form name="sample" action="%SCRIPTURLPATH{"view"}%/%WEB%/%TOPIC%">
-<table border="0" cellpadding="5" bgcolor="#DDDDDD"><tr><td colspan="2">
-Bare bones header, for demo only
-</td></tr><tr><td>
-Navigate:
-</td><td>
-<select name="sel" onchange="this.form.topic.value=this.options[this.selectedIndex].value; this.form.submit()">
-<option selected="selected" value="">...</option>
-<option value="http://foswiki.org/">Intranet home</option>
-<option value="%USERSWEB%.%WIKIUSERSTOPIC%">Employee index</option>
-<option value="%USERSWEB%.%HOMETOPIC%">%USERSWEB% web</option>
-<option value="%SYSTEMWEB%.%HOMETOPIC%">%SYSTEMWEB% web</option>
-<option value="http://www.google.com/">Google</option>
-<option value="http://www.yahoo.com/">Yahoo!</option>
-</select>
-</td></tr><tr><td>
-Jump:
-</td><td>
-<input type="text" name="topic" size="16" />
-</td></tr></table>
+%TABLE{databg="#ffffff" tableframe="box" tablerules="none"}%
+| Bare bones header, for demo only ||
+| Navigate: | <select class="foswikiSelect" name="sel" onchange="this.form.topic.value=this.options[this.selectedIndex].value; this.form.submit()"><option selected="selected" value="">choose</option><option value="http://foswiki.org/">Intranet home</option><option value="%USERSWEB%.%WIKIUSERSTOPIC%">Employee index</option><option value="%USERSWEB%.%HOMETOPIC%">%USERSWEB% web</option><option value="%SYSTEMWEB%.%HOMETOPIC%">%SYSTEMWEB% web</option><option value="http://www.google.com/">Google</option><option value="http://www.yahoo.com/">Yahoo!</option></select> |
+| Jump: | <input class="foswikiInputField" type="text" name="topic" size="16" /> |
 </form> 
 
 *Note:* Redirect to a URL only works if it is enabled in =configure= (Miscellaneous, ={AllowRedirectUrl}=).
@@ -215,9 +204,17 @@ The =ATTACH:row= macros are expanded for each file in the attachment table, usin
 
 See Foswiki:Extensions/SkinPackagingHowTo and Foswiki:Extensions/SkinDeveloperFAQ
 
-For your own skin you are encouraged to show a small 80x31 pixel <a href="http://foswiki.org/"><img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-poweredby.gif" alt="This site is powered by Foswiki" width="80" height="15" title="This site is powered by Foswiki" border="0" /></a> logo at the bottom of your skin:
+For your own skin you are encouraged to show a small 88x31 pixel logo at the bottom of your skin:
 
-=&lt;a href="http://foswiki.org/"&gt;&lt;img src="%<nop>PUBURL%/%<nop>SYSTEMWEB%/ProjectLogos/foswiki-poweredby.gif" alt="This site is powered by Foswiki" width="80" height="15" title="This site is powered by Forwiki" border="0" /&gt;&lt;/a&gt;=
+<verbatim class="tml"><a href="http://foswiki.org/">
+     <img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-poweredby.gif"\
+          alt="This site is powered by Foswiki" width="80" height="15"\
+          title="This site is powered by Forwiki" border="0" />
+</a></verbatim>
+
+Generating:
+
+<a href="http://foswiki.org/"><img src="%PUBURL%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif" alt="This site is powered by Foswiki" width="88" height="31" title="This site is powered by Foswiki" border="0" /></a>
 
 The standard %WIKITOOLNAME% skins show the logo in the =%<nop>WEBCOPYRIGHT%=.
 
@@ -227,27 +224,41 @@ You can try out all installed skins in the SkinBrowser.
 
 ---++ Activating Skins
 
-Foswiki uses a _skin search path_, which lets you combine skins additively. The skin path is defined using a combination of [[macros]] and URL parameters.
+Foswiki uses a _skin search path_, which lets you combine skins additively. The skin path is defined using a combination of [[preference settings]] and URL parameters.
 
 Foswiki works by asking for a template for a particular function - for example, 'view'. The detail of how templates are searched for is described in SkinTemplates, but in summary, the templates directory is searched for a file called <code>view.</code><i>skin</i><code>.tmpl</code>, where _skin_ is the name of the skin e.g. =pattern=. If no template is found, then the fallback is to use =view.tmpl=. Each skin on the path is searched for in turn. For example, if you have set the skin path to =local,pattern= then =view.local.tmpl= will be searched for first, then =view.pattern.tmpl= and finally =view.tmpl=.
 
-The basic skin is defined by a =SKIN= setting:
+The basic skin is defined by the =SKIN= preference:
+<verbatim class="tml">   * Set SKIN = catskin, bearskin</verbatim>
 
-   * =Set SKIN = catskin, bearskin=
-
-You can also add a parameter to the URL, such as =?skin=catskin,bearskin=:
-
+You can override this using the URL parameter =skin=, such as
+=?skin=catskin,bearskin=:
    * %SCRIPTURL{view}%/%WEB%/%TOPIC%?skin=catskin,bearskin
 
-Setting =SKIN= (or the =?skin= parameter in the URL) replaces the existing skin path setting, for the current page only. You can also _extend_ the existing skin path as well, using _covers_.
+Setting the =?skin= parameter in the URL replaces the existing skin path setting for the current request only.
 
-   * =Set COVER = ruskin=
+You can also _extend_ the existing skin path using _covers_:
+<verbatim class="tml">   * Set COVER = ruskin</verbatim>
 
-This pushes a different skin to the front of the skin search path (so for our example above, that final skin path will be =ruskin, catskin, bearskin=). There is also an equivalent =cover= URL parameter. The difference between setting =SKIN= vs. =COVER= is that if the chosen template is not found (e.g., for included templates), =SKIN= will fall back onto the next skin in line, or the default skin, if only one skin was present, while =COVER= will always fall back onto the current skin.
+This pushes a different skin to the front of the skin search path, so the final skin path will be =ruskin, catskin, bearskin=.
 
-An example would be invoking the printable mode, which is achieved by applying =?cover=print=. The =view.print.tmpl= simply invokes the =viewprint= template for the current skin which then can appropriately include all other used templates for the current skin. If the printable mode were applied by using =SKIN=, all skins would have the same printable appearance.
+There is also a =cover= URL parameter that can be used to push yet more skin names in front of the =COVER= preference.
 
-The full skin path is built up as follows: =SKIN= setting (or =?skin= if it is set), then =COVER= setting is added, then =?cover=.
+So the final value of the skin path is given by:
+   1 value of the =cover= url parameter
+   2 value of the =COVER= preference
+   3 value of the =skin= url parameter, if it is non-null
+   4 value of the =SKIN= preference, if the =skin= url parameter is not given
+
+For example, if we have
+<pre class="tml">   * Set SKIN = muscle,bone
+   * <nop>Set COVER = epidermis</pre>
+and a URL with the parameter =?cover=hair,dermis= then the final skin path will
+be =hair=, =dermis=, =epidermis=, =muscle=, =bone=.
+
+Or we might specify a =skin= url parameter, =?skin=flesh=. With the same preferences this will set the skin path =epidermis=, =flesh=.
+
+Note that you cannot use the =cover= url parameter to _remove_ a skin applied by the =COVER= preference. Once a =COVER= preference is defined, it is always applied.
 
 #HardCodedSkins
 ---++ Hard-Coded Skins
@@ -257,4 +268,5 @@ The =text= skin is reserved for Foswiki internal use.
 Skin names starting with =rss= also have a special meaning; if one or more of the skins in the skin path starts with 'rss' then 8-bit characters will be encoded as XML entities in the output, and the =content-type= header will be forced to =text/xml=.
 
 ---
-*Related Topics:* SkinBrowser, AdminDocumentationCategory, DeveloperDocumentationCategory
+*Related Topics:* SkinTemplates, SkinBrowser, AdminDocumentationCategory, DeveloperDocumentationCategory
+<!-- %JQREQUIRE{"chili"}% -->

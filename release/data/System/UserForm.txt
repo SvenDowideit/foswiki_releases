@@ -1,4 +1,5 @@
-%META:TOPICINFO{author="ProjectContributor" date="1267133207" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1267133207" format="1.1" version="$Rev$"}%
+%META:TOPICPARENT{name="AdminDocumentationCategory"}%
 ---+ User Form
 
 This is a maintenance topic, used by the Wiki administrator.
@@ -12,7 +13,7 @@ This is a maintenance topic, used by the Wiki administrator.
 | <nop>OrganisationName | text | 40 | | | |
 | <nop>OrganisationURL | text | 40 | | | |
 | Profession | text | 40 | | | |
-| Country | text | 40 | | | |
+| [[System.CountryList][Country]] | select | 1 | | | |
 | State | text | 40 | | | |
 | Address | text | 40 | | | |
 | Location | text | 40 | | | |

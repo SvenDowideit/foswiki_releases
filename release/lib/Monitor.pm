@@ -1,3 +1,4 @@
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -29,15 +30,20 @@ is total memory.
 
 NOTE: it uses /proc - so its linux specific...
 
+TODO: replace FOSWIKI_MONITOR with LocalSite.cfg setting that can turn on per module instrumentation.
+
 =cut
 
 package Monitor;
 
 use strict;
+use warnings;
 
-use vars qw(@times @methodStats);
+our @times;
+our @methodStats;
+our $show_percent;
 
-sub get_stat_info {
+sub _get_stat_info {
 
     # open and read the main stat file
     my $_INFO;
@@ -64,9 +70,21 @@ sub get_stat_info {
     };
 }
 
-sub mark {
-    my $stat = get_stat_info($$);
-    push( @times, [ shift, new Benchmark(), $stat ] );
+sub _mark {
+    my $event = shift;
+    push( @times, [ $event, new Benchmark(), _get_stat_info($$) ] );
+}
+
+sub tidytime {
+    my ( $a, $b ) = @_;
+    my $s = timestr( timediff( $a, $b ) );
+    $s =~ /([\d.]+) wallclock secs.*([\d.]+) CPU/;
+    my ( $w, $c ) = ( $1, $2 );
+    if ( defined $show_percent ) {
+        $w = $w * 100.0 / $show_percent;
+        return "$w%";
+    }
+    return "wall $w CPU $c";
 }
 
 BEGIN {
@@ -75,7 +93,7 @@ BEGIN {
         require Benchmark;
         import Benchmark ':hireswallclock';
         die $@ if $@;
-        *MARK          = \&mark;
+        *MARK          = \&_mark;
         *MonitorMethod = \&_monitorMethod;
         MARK('START');
     }
@@ -85,14 +103,6 @@ BEGIN {
     }
 }
 
-sub tidytime {
-    my ( $a, $b ) = @_;
-    my $s = timestr( timediff( $a, $b ) );
-    $s =~ s/\( [\d.]+ usr.*=\s*([\d.]+ CPU)\)/$1/;
-    $s =~ s/wallclock secs/wall/g;
-    return $s;
-}
-
 sub END {
     return unless ( $ENV{FOSWIKI_MONITOR} );
     MARK('END');
@@ -100,16 +110,25 @@ sub END {
     my $firstbm;
     my %mash;
 
-    #    foreach my $bm (@times) {
-    #        $firstbm = $bm unless $firstbm;
-    #        if ($lastbm) {
-    #            my $s = tidytime($bm->[1], $lastbm->[1]);
-    #            my $t = tidytime($bm->[1], $firstbm->[1]);
-    #            $s = "\n| $bm->[0] | $s | $t | $bm->[2]->{vsize} |";
-    #            print STDERR $s;
-    #        }
-    #        $lastbm = $bm;
-    #    }
+    if ( scalar(@times) > 1 ) {
+        my $ibm = timestr( timediff( $times[$#times]->[1], $times[0]->[1] ) );
+        if ( $ibm =~ /([\d.]+) wallclock/ ) {
+            $show_percent = $1;
+        }
+        print STDERR "\n\n| Event  | Delta | Abs | Mem |";
+        foreach my $bm (@times) {
+            $firstbm = $bm unless $firstbm;
+            if ($lastbm) {
+                my $s = tidytime( $bm->[1], $lastbm->[1] );
+                my $t = tidytime( $bm->[1], $firstbm->[1] );
+                $s = "\n| $bm->[0] | $s | $t | $bm->[2]->{vsize} |";
+                print STDERR $s;
+            }
+            $lastbm = $bm;
+        }
+        print STDERR "\nTotal time: $ibm";
+    }
+
     my %methods;
     foreach my $call (@methodStats) {
         $methods{ $call->{method} } = {
@@ -141,7 +160,7 @@ sub END {
           if ( $methods{ $call->{method} }{mem_max} < $memdiff );
     }
     print STDERR
-      "\n| Count  |  Time (Min/Max) | Memory(Min/Max) | Total      | Method |";
+"\n\n| Count  |  Time (Min/Max) | Memory(Min/Max) | Total      | Method |";
     foreach my $method ( sort keys %methods ) {
         print STDERR "\n| " 
           . sprintf( '%6u', $methods{$method}{count} ) . ' | '
@@ -190,14 +209,14 @@ sub _monitorMethod {
             *{"${package}::$method"} = sub {
 
                 #Monitor::MARK("begin $package $method");
-                my $in_stat   = get_stat_info($$);
+                my $in_stat   = _get_stat_info($$);
                 my $in_bench  = new Benchmark();
                 my $self      = shift;
                 my @result    = $self->$old(@_);
                 my $out_bench = new Benchmark();
 
                #Monitor::MARK("end   $package $method  => ".($result||'undef'));
-                my $out_stat = get_stat_info($$);
+                my $out_stat = _get_stat_info($$);
                 push(
                     @methodStats,
                     {
@@ -215,3 +234,21 @@ sub _monitorMethod {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

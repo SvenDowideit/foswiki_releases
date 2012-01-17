@@ -1,12 +1,15 @@
-# See bottom of file for license and copyright details
+# See bottom of file for license and copyright information
 package Foswiki::Form::Checkbox;
-use base 'Foswiki::Form::ListFieldDefinition';
 
 use strict;
+use warnings;
+
+use Foswiki::Form::ListFieldDefinition ();
+our @ISA = ('Foswiki::Form::ListFieldDefinition');
 
 sub new {
-    my $class = shift;
-    my $this  = $class->SUPER::new(@_);
+    my ( $class, @args ) = @_;
+    my $this = $class->SUPER::new(@args);
     $this->{size} ||= 0;
     $this->{size} =~ s/\D//g;
     $this->{size} ||= 0;
@@ -16,13 +19,13 @@ sub new {
 }
 
 # Checkboxes can't provide a default from the form spec
-sub getDefaultValue { undef }
+sub getDefaultValue { return; }
 
 # Checkbox store multiple values
-sub isMultiValued { 1 }
+sub isMultiValued { return 1; }
 
 sub renderForEdit {
-    my ( $this, $web, $topic, $value ) = @_;
+    my ( $this, $topicObject, $value ) = @_;
 
     my $session = $this->{session};
     my $extra   = '';
@@ -44,24 +47,21 @@ sub renderForEdit {
     $value = '' unless defined($value) && length($value);
     my %isSelected = map { $_ => 1 } split( /\s*,\s*/, $value );
     my %attrs;
-    my @defaults;
     foreach my $item ( @{ $this->getOptions() } ) {
 
-        # NOTE: Does not expand $item in label
+        # NOTE: Does not expand $item in title
         $attrs{$item} = {
             class => $this->cssClasses('foswikiCheckbox'),
-            label => $session->handleCommonTags( $item, $web, $topic ),
+            title => $topicObject->expandMacros($item),
         };
 
         if ( $isSelected{$item} ) {
             $attrs{$item}{checked} = 'checked';
-            push( @defaults, $item );
         }
     }
     $value = CGI::checkbox_group(
         -name       => $this->{name},
         -values     => $this->getOptions(),
-        -defaults   => \@defaults,
         -columns    => $this->{size},
         -attributes => \%attrs
     );
@@ -76,21 +76,20 @@ sub renderForEdit {
 }
 
 1;
-__DATA__
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
@@ -102,4 +101,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-

@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::UI::Upload
@@ -10,102 +11,14 @@ UI delegate for attachment management functions
 package Foswiki::UI::Upload;
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
 
-require Foswiki;
-require Foswiki::UI;
-require Foswiki::Sandbox;
-require Foswiki::OopsException;
-
-=begin TML
-
----++ StaticMethod attach( $session )
-
-=attach= command handler.
-This method is designed to be
-invoked via the =UI::run= method.
-
-Generates a prompt page for adding an attachment.
-
-=cut
-
-sub attach {
-    my $session = shift;
-
-    my $query   = $session->{request};
-    my $webName = $session->{webName};
-    my $topic   = $session->{topicName};
-
-    my $fileName = $query->param('filename') || '';
-    my $skin = $session->getSkin();
-
-    Foswiki::UI::checkWebExists( $session, $webName, $topic, 'attach' );
-
-    my $tmpl          = '';
-    my $text          = '';
-    my $meta          = '';
-    my $atext         = '';
-    my $fileUser      = '';
-    my $isHideChecked = '';
-    my $users         = $session->{users};
-
-    Foswiki::UI::checkAccess( $session, $webName, $topic, 'CHANGE',
-        $session->{user} );
-    Foswiki::UI::checkTopicExists( $session, $webName, $topic,
-        'upload files to' );
-
-    ( $meta, $text ) =
-      $session->{store}->readTopic( $session->{user}, $webName, $topic, undef );
-    my $args = $meta->get( 'FILEATTACHMENT', $fileName );
-    $args = {
-        name    => $fileName,
-        attr    => '',
-        path    => '',
-        comment => ''
-      }
-      unless ($args);
-
-    if ( $args->{attr} =~ /h/o ) {
-        $isHideChecked = 'checked';
-    }
-
-    # SMELL: why log attach before post is called?
-    # FIXME: Move down, log only if successful (or with error msg?)
-    # Attach is a read function, only has potential for a change
-    if ( $Foswiki::cfg{Log}{attach} ) {
-
-        # write log entry
-        $session->logEvent('attach', $webName . '.' . $topic, $fileName );
-    }
-
-    my $fileWikiUser = '';
-    if ($fileName) {
-        $tmpl = $session->templates->readTemplate( 'attachagain', $skin );
-        my $u = $args->{user};
-        $fileWikiUser = $users->webDotWikiName($u) if $u;
-    }
-    else {
-        $tmpl = $session->templates->readTemplate( 'attachnew', $skin );
-    }
-    if ($fileName) {
-
-        # must come after templates have been read
-        $atext .= $session->attach->formatVersions( $webName, $topic, %$args );
-    }
-    $tmpl =~ s/%ATTACHTABLE%/$atext/g;
-    $tmpl =~ s/%FILEUSER%/$fileWikiUser/g;
-    $tmpl =~ s/%FILENAME%/$fileName/g;
-    $session->enterContext( 'can_render_meta', $meta );
-    $tmpl = $session->handleCommonTags( $tmpl, $webName, $topic );
-    $tmpl = $session->renderer->getRenderedVersion( $tmpl, $webName, $topic );
-    $tmpl =~ s/%HIDEFILE%/$isHideChecked/g;
-    $tmpl =~ s/%FILEPATH%/$args->{path}/g;
-    $args->{comment} = Foswiki::entityEncode( $args->{comment} );
-    $tmpl =~ s/%FILECOMMENT%/$args->{comment}/g;
-
-    $session->writeCompletePage($tmpl);
-}
+use Foswiki                ();
+use Foswiki::UI            ();
+use Foswiki::Sandbox       ();
+use Foswiki::OopsException ();
 
 =begin TML
 
@@ -140,50 +53,56 @@ Does the work of uploading an attachment to a topic.
 sub upload {
     my $session = shift;
 
-    my $query   = $session->{request};
-    if ($query->param('noredirect')) {
+    my $query = $session->{request};
+    if ( $query->param('noredirect') ) {
         my $message;
         my $status = 200;
         try {
             $message = _upload($session);
-        } catch Foswiki::OopsException with {
+        }
+        catch Foswiki::OopsException with {
             my $e = shift;
             $status = $e->{status};
-            if ($status >= 400) {
-                $message = 'ERROR: '.$e->stringify();
+            if ( $status >= 400 ) {
+                $message = 'ERROR: ' . $e->stringify();
             }
-        } catch Foswiki::AccessControlException with {
+        }
+        catch Foswiki::AccessControlException with {
             my $e = shift;
-            $status = 403;
-            $message = 'ERROR: '.$e->stringify();
+            $status  = 403;
+            $message = 'ERROR: ' . $e->stringify();
         };
-        if ($status < 400) {
-            $message = 'OK '.$message;
-        };
+        if ( $status < 400 ) {
+            $message = 'OK ' . $message;
+        }
         $session->{response}->header(
             -status => $status,
-            -type => 'text/plain');
+            -type   => 'text/plain'
+        );
         $session->{response}->print($message);
-    } else {
+    }
+    else {
+
         # allow exceptions to propagate
         _upload($session);
 
-        my $nurl = $session->getScriptUrl(
-            1, 'view', $session->{webName}, $session->{topicName} );
-        $session->redirect( $session->redirectto( $nurl ));
-    };
+        my $nurl =
+          $session->getScriptUrl( 1, 'view', $session->{webName},
+            $session->{topicName} );
+        $session->redirect( $session->redirectto($nurl) );
+    }
 }
 
 # Real work of upload
 sub _upload {
     my $session = shift;
 
-    my $query   = $session->{request};
-    my $webName = $session->{webName};
-    my $topic   = $session->{topicName};
-    my $user    = $session->{user};
+    my $query = $session->{request};
+    my $web   = $session->{webName};
+    my $topic = $session->{topicName};
+    my $user  = $session->{user};
 
-    Foswiki::UI::checkValidationKey( $session, 'upload', $webName, $topic );
+    Foswiki::UI::checkValidationKey($session);
 
     my $hideFile    = $query->param('hidefile')    || '';
     my $fileComment = $query->param('filecomment') || '';
@@ -202,14 +121,19 @@ sub _upload {
     $fileName    =~ s/\s*$//o;
     $filePath    =~ s/\s*$//o;
 
-    Foswiki::UI::checkWebExists(
-        $session, $webName, $topic, 'attach files to' );
-    Foswiki::UI::checkTopicExists( $session, $webName, $topic,
-                                   'attach files to' );
-    Foswiki::UI::checkAccess(
-        $session, $webName, $topic, 'CHANGE', $user );
+    Foswiki::UI::checkWebExists( $session, $web, $topic, 'attach files to' );
+    Foswiki::UI::checkTopicExists( $session, $web, $topic, 'attach files to' );
+    my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
+    Foswiki::UI::checkAccess( $session, 'CHANGE', $topicObject );
 
     my $origName = $fileName;
+
+    # SMELL: would be much better to throw an exception if an attempt
+    # is made to upload an invalid filename. However, it has always
+    # been this way :-(
+    ( $fileName, $origName ) =
+      Foswiki::Sandbox::sanitizeAttachmentName($fileName);
+
     my $stream;
     my ( $fileSize, $fileDate, $tmpFilePath ) = '';
 
@@ -218,22 +142,21 @@ sub _upload {
 
         try {
             $tmpFilePath = $query->tmpFileName($fh);
-        } catch Error::Simple with {
+        }
+        catch Error::Simple with {
 
             # Item5130, Item5133 - Illegal file name, bad path,
             # something like that
             throw Foswiki::OopsException(
                 'attention',
                 def    => 'zero_size_upload',
-                web    => $webName,
+                web    => $web,
                 topic  => $topic,
                 params => [ ( $filePath || '""' ) ]
-               );
+            );
         };
 
         $stream = $query->upload('filepath');
-        ( $fileName, $origName ) =
-          Foswiki::Sandbox::sanitizeAttachmentName($fileName);
 
         # check if upload has non zero size
         if ($stream) {
@@ -245,14 +168,14 @@ sub _upload {
             throw Foswiki::OopsException(
                 'attention',
                 def    => 'zero_size_upload',
-                web    => $webName,
+                web    => $web,
                 topic  => $topic,
                 params => [ ( $filePath || '""' ) ]
-               );
+            );
         }
 
-        my $maxSize =
-          $session->{prefs}->getPreferencesValue('ATTACHFILESIZELIMIT') || 0;
+        my $maxSize = $session->{prefs}->getPreference('ATTACHFILESIZELIMIT')
+          || 0;
         $maxSize =~ s/\s+$//;
         $maxSize = 0 unless ( $maxSize =~ /([0-9]+)/o );
 
@@ -260,37 +183,33 @@ sub _upload {
             throw Foswiki::OopsException(
                 'attention',
                 def    => 'oversized_upload',
-                web    => $webName,
+                web    => $web,
                 topic  => $topic,
                 params => [ $fileName, $maxSize ]
-               );
+            );
         }
     }
     try {
-        $session->{store}->saveAttachment(
-            $webName, $topic,
-            $fileName,
-            $user,
-            {
-                dontlog     => !$Foswiki::cfg{Log}{upload},
-                comment     => $fileComment,
-                hide        => $hideFile,
-                createlink  => $createLink,
-                stream      => $stream,
-                filepath    => $filePath,
-                filesize    => $fileSize,
-                filedate    => $fileDate,
-                tmpFilename => $tmpFilePath,
-            }
-           );
-    } catch Error::Simple with {
+        $topicObject->attach(
+            name        => $fileName,
+            comment     => $fileComment,
+            hide        => $hideFile,
+            createlink  => $createLink,
+            stream      => $stream,
+            file        => $tmpFilePath,
+            filepath    => $filePath,
+            filesize    => $fileSize,
+            filedate    => $fileDate,
+        );
+    }
+    catch Error::Simple with {
         throw Foswiki::OopsException(
             'attention',
             def    => 'save_error',
-            web    => $webName,
+            web    => $web,
             topic  => $topic,
             params => [ shift->{-text} ]
-           );
+        );
     };
     close($stream) if $stream;
 
@@ -299,41 +218,42 @@ sub _upload {
             'attention',
             status => 200,
             def    => 'upload_name_changed',
-            web    => $webName,
+            web    => $web,
             topic  => $topic,
             params => [ $origName, $fileName ]
-           );
+        );
     }
 
     # generate a message useful for those calling this script
     # from the command line
-    return ($doPropsOnly) ? 'properties changed' :
-      "$fileName uploaded";
+    return ($doPropsOnly)
+      ? 'properties changed'
+      : "$fileName uploaded";
 }
 
 1;
-__DATA__
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

@@ -1,6 +1,6 @@
 # See bottom of file for license and copyright information
 
-=pod
+=begin TML
 
 ---+ package Foswiki::Contrib::MailerContrib
 
@@ -13,6 +13,7 @@ Also supported is a simple API that can be used to change the Web<nop>Notify top
 package Foswiki::Contrib::MailerContrib;
 
 use strict;
+use warnings;
 
 use URI ();
 use CGI qw(-any);
@@ -25,29 +26,28 @@ use Foswiki::Contrib::MailerContrib::WebNotify ();
 use Foswiki::Contrib::MailerContrib::Change    ();
 use Foswiki::Contrib::MailerContrib::UpData    ();
 
-our $VERSION = '$Rev: 5716 (2009-12-04) $';
-our $RELEASE = '4 Dec 2009';
-our $SHORTDESCRIPTION = 'Supports e-mail notification of changes';
+our $VERSION          = '$Rev: 9434 (2010-09-30) $';
+our $RELEASE          = '30 Sep 2010';
+our $SHORTDESCRIPTION = 'Supports email notification of changes';
 
-our $verbose = 0;
-our $nonews = 0;
+our $verbose   = 0;
+our $nonews    = 0;
 our $nochanges = 0;
 
-# PROTECTED STATIC ensure the contrib is initernally initialised
+# PROTECTED STATIC ensure the contrib is internally initialised
 sub initContrib {
     $Foswiki::cfg{MailerContrib}{EmailFilterIn} ||=
       $Foswiki::regex{emailAddrRegex};
 }
 
-=pod
+=begin TML
 
----++ StaticMethod mailNotify($webs, $session, $verbose, $exwebs, $nonewsmode, $nochangesmode)
+---++ StaticMethod mailNotify($webs, $verbose, $exwebs, $nonewsmode, $nochangesmode)
    * =$webs= - filter list of names webs to process. Wildcards (*) may be used.
-   * =$session= - optional session object. If not given, will use a local object.
    * =$verbose= - true to get verbose (debug) output.
-   * =$exwebs = - filter list of webs to exclude.
-   * =$nonewsmode = the notify script was called with the -nonews option so we skip news mode
-   * =$nochangesmode = the notify script was called with the -nochanges option
+   * =$exwebs= - filter list of webs to exclude.
+   * =$nonewsmode= - the notify script was called with the =-nonews= option so we skip news mode
+   * =$nochangesmode= - the notify script was called with the =-nochanges= option
 
 Main entry point.
 
@@ -58,10 +58,10 @@ only be called by =mailnotify= scripts.
 =cut
 
 sub mailNotify {
-    my ( $webs, $twiki, $noisy, $exwebs, $nonewsmode, $nochangesmode ) = @_;
+    my ( $webs, $noisy, $exwebs, $nonewsmode, $nochangesmode ) = @_;
 
-    $verbose = $noisy;
-    $nonews = $nonewsmode || 0;
+    $verbose   = $noisy;
+    $nonews    = $nonewsmode || 0;
     $nochanges = $nochangesmode || 0;
 
     my $webstr;
@@ -77,12 +77,6 @@ sub mailNotify {
     }
     $exwebstr =~ s/\*/\.\*/g;
 
-    if ( !defined $twiki ) {
-        $twiki = new Foswiki();
-    }
-
-    $Foswiki::Plugins::SESSION = $twiki;
-
     my $context = Foswiki::Func::getContext();
 
     $context->{command_line} = 1;
@@ -95,16 +89,22 @@ sub mailNotify {
     my $report = '';
     foreach my $web ( Foswiki::Func::getListOfWebs('user ') ) {
         if ( $web =~ /^($webstr)$/ && $web !~ /^($exwebstr)$/ ) {
-            $report .= _processWeb( $twiki, $web );
+            _processWeb($web);
         }
     }
 
     $context->{absolute_urls} = 0;
-
-    return $report;
 }
 
-=pod
+=begin TML
+
+---++ StaticMethod changeSubscription($web, $who, $topicList, $unsubscribe)
+
+Modify a user's subscription in =WebNotify= for a web.
+   * =$web= - web to edit the WebNotify for
+   * =$who= - the user's wikiname
+   * =$topicList= - list of topics to (un)subscribe to(from)
+   * =$unsubscribe= - false to subscribe, true to unsubscribe
 
 =cut
 
@@ -116,18 +116,21 @@ sub changeSubscription {
       Foswiki::Func::normalizeWebTopicName( $defaultWeb, $topicList );
 
     #TODO: this limits us to subscribing to one web.
-    my $wn = new Foswiki::Contrib::MailerContrib::WebNotify(
-        $Foswiki::Plugins::SESSION, $web, $Foswiki::cfg{NotifyTopicName}, 1 );
+    my $wn =
+      Foswiki::Contrib::MailerContrib::WebNotify->new( $web,
+        $Foswiki::cfg{NotifyTopicName}, 1 );
     $wn->parsePageSubscriptions( $who, $topicList, $unsubscribe );
     $wn->writeWebNotify();
     return;
 }
 
-=pod
----+++ isSubscribedTo ($web, $who, $topicList) -> boolean
-returns true if all topics mentioned in the $topicList are subscribed to by $who.
+=begin TML
 
-is able to ignore all valid special characters that can be used on the WebNotify topic
+---++ isSubscribedTo ($web, $who, $topicList) -> boolean
+
+Returns true if all topics mentioned in the =$topicList= are subscribed to by =$who=.
+
+Can ignore all valid special characters that can be used on the WebNotify topic
 such as NewsTopic! , TopicAndChildren (2)
 
 =cut
@@ -154,13 +157,12 @@ sub _isSubscribedToTopic {
       Foswiki::Func::normalizeWebTopicName( $subscribed->{currentWeb}, $topic );
 
     #TODO: extract this code so we only create $wn objects for each web once..
-    my $wn = new Foswiki::Contrib::MailerContrib::WebNotify(
-        $Foswiki::Plugins::SESSION, $sweb, $Foswiki::cfg{NotifyTopicName} );
+    my $wn =
+      Foswiki::Contrib::MailerContrib::WebNotify->new( $sweb,
+        $Foswiki::cfg{NotifyTopicName} );
     my $subscriber = $wn->getSubscriber($who);
 
-    my $db =
-      new Foswiki::Contrib::MailerContrib::UpData( $Foswiki::Plugins::SESSION,
-        $sweb );
+    my $db = Foswiki::Contrib::MailerContrib::UpData->new($sweb);
 
     #TODO: need to check $childDepth topics too (somehow)
     if ( $subscriber->isSubscribedTo( $stopic, $db )
@@ -173,11 +175,11 @@ sub _isSubscribedToTopic {
     }
 }
 
-=pod
+=begin TML
 
----+++ sub parsePageList ( $object, $who, $spec, $unsubscribe ) => unprocessable remainder of $spec line
-Calls the $object->{topicSub} once per identified topic entry.
-   * $object (a hashref) may be a hashref that has the field, =topicSub=,
+---++ parsePageList ( $object, $who, $spec, $unsubscribe ) -> unprocessable remainder of =$spec= line
+Calls =$object->{topicSub}= once per identified topic entry.
+   * =$object= (a hashref) may be a hashref that has the field =topicSub=,
      which _may_ be a sub ref as follows:
      =&topicSub($object, $who, $unsubscribe, $webTopic, $options, $childDepth)=
    * =$unsubscribe= can be set to '-' to force an unsubscription
@@ -200,12 +202,14 @@ sub parsePageList {
     # $3: options
     # $4: child depth
     while ( $spec =~
-              s/^\s*([+-])?\s*([*\w.]+|'.*?'|".*?")([!?]?)\s*(?:\((\d+)\))?//) {
-        my ( $us, $webTopic, $options, $childDepth ) = (
-            $unsubscribe||$1||'+', $2, $3, $4||0 );
-        $webTopic =~ s/^(['"])(.*)\1$/$2/; # remove quotes
-        &{$object->{topicSub}}(
-            $object, $who, $us, $webTopic, $options, $childDepth);
+        s/^\s*([+-])?\s*([*\w.]+|'.*?'|".*?")([!?]?)\s*(?:\((\d+)\))?// )
+    {
+        my ( $us, $webTopic, $options, $childDepth ) =
+          ( $unsubscribe || $1 || '+', $2, $3, $4 || 0 );
+        $webTopic =~ s/^(['"])(.*)\1$/$2/;    # remove quotes
+        &{ $object->{topicSub} }( $object, $who, $us, $webTopic, $options,
+            $childDepth );
+
         #go
     }
     return $spec;
@@ -213,7 +217,7 @@ sub parsePageList {
 
 # PRIVATE: Read the webnotify, and notify changes
 sub _processWeb {
-    my ( $twiki, $web, $nonews, $nochanges ) = @_;
+    my ( $web, $nonews, $nochanges ) = @_;
 
     if ( !Foswiki::Func::webExists($web) ) {
 
@@ -227,7 +231,7 @@ sub _processWeb {
 
     # Read the webnotify and load subscriptions
     my $wn =
-      new Foswiki::Contrib::MailerContrib::WebNotify( $twiki, $web,
+      Foswiki::Contrib::MailerContrib::WebNotify->new( $web,
         $Foswiki::cfg{NotifyTopicName} );
     if ( $wn->isEmpty() ) {
         print "\t$web has no subscribers\n" if $verbose;
@@ -236,8 +240,8 @@ sub _processWeb {
 
         # create a DB object for parent pointers
         print $wn->stringify(1) if $verbose;
-        my $db = new Foswiki::Contrib::MailerContrib::UpData( $twiki, $web );
-        $report .= _processSubscriptions( $twiki, $web, $wn, $db );
+        my $db = Foswiki::Contrib::MailerContrib::UpData->new($web);
+        $report .= _processSubscriptions( $web, $wn, $db );
     }
 
     return $report;
@@ -245,7 +249,7 @@ sub _processWeb {
 
 # Process subscriptions in $notify
 sub _processSubscriptions {
-    my ( $twiki, $web, $notify, $db ) = @_;
+    my ( $web, $notify, $db ) = @_;
 
     my $metadir = Foswiki::Func::getWorkArea('MailerContrib');
     my $notmeta = $web;
@@ -282,15 +286,11 @@ sub _processSubscriptions {
     # record simple newsletter subscriptions.
     my %allSet;
 
-    if ( !defined(&Foswiki::Func::eachChangeSince) ) {
-        require Foswiki::Contrib::MailerContrib::CompatibilityHacks;
-    }
-
     # + 1 because the 'since' check is >=
     my $it = Foswiki::Func::eachChangeSince( $web, $timeOfLastNotify + 1 );
     while ( $it->hasNext() ) {
         my $change = $it->next();
-        next if $change->{more} && $change->{more} =~ /minor$/;
+        next if $change->{more} && $change->{more} =~ /minor/;
 
         next unless Foswiki::Func::topicExists( $web, $change->{topic} );
 
@@ -304,9 +304,8 @@ sub _processSubscriptions {
         # Formulate a change record, irrespective of
         # whether any subscriber is interested
         $change =
-          new Foswiki::Contrib::MailerContrib::Change( $twiki, $web,
-            $change->{topic}, $change->{user}, $change->{time},
-            $change->{revision} );
+          Foswiki::Contrib::MailerContrib::Change->new( $web, $change->{topic},
+            $change->{user}, $change->{time}, $change->{revision} );
 
         # Now, find subscribers to this change and extend the change set
         $notify->processChange( $change, $db, \%changeset, \%seenset,
@@ -321,16 +320,17 @@ sub _processSubscriptions {
 
     # Now generate emails for each recipient
     my $report = '';
-    
+
     if ( !$nochanges ) {
-        $report .= _sendChangesMails( $twiki, $web, \%changeset,
-          Foswiki::Time::formatTime($timeOfLastNotify) );
+        $report .=
+          _sendChangesMails( $web, \%changeset,
+            Foswiki::Time::formatTime($timeOfLastNotify) );
     }
 
     if ( !$nonews ) {
-        $report .= _sendNewsletterMails( $twiki, $web, \%allSet );
+        $report .= _sendNewsletterMails( $web, \%allSet );
     }
-    
+
     if ( $timeOfLastChange != 0 ) {
         if ( open( F, '>', $notmeta ) ) {
             print F $timeOfLastChange;
@@ -343,7 +343,7 @@ sub _processSubscriptions {
 
 # PRIVATE generate and send an email for each user
 sub _sendChangesMails {
-    my ( $twiki, $web, $changeset, $lastTime ) = @_;
+    my ( $web, $changeset, $lastTime ) = @_;
     my $report = '';
 
     # We read the mailnotify template in the context (skin and web) or the
@@ -425,18 +425,17 @@ sub relativeURL {
 }
 
 sub _sendNewsletterMails {
-    my ( $twiki, $web, $allSet ) = @_;
+    my ( $web, $allSet ) = @_;
 
     my $report = '';
     foreach my $topic ( keys %$allSet ) {
-        $report .=
-          _sendNewsletterMail( $twiki, $web, $topic, $allSet->{$topic} );
+        $report .= _sendNewsletterMail( $web, $topic, $allSet->{$topic} );
     }
     return $report;
 }
 
 sub _sendNewsletterMail {
-    my ( $twiki, $web, $topic, $emails ) = @_;
+    my ( $web, $topic, $emails ) = @_;
     my $wikiName = Foswiki::Func::getWikiName();
 
     # SMELL: this code is almost identical to PublishContrib
@@ -444,32 +443,30 @@ sub _sendNewsletterMail {
     # Read topic data.
     my ( $meta, $text ) = Foswiki::Func::readTopic( $web, $topic );
 
-    if ( !defined(&Foswiki::Func::pushTopicContext) ) {
-        require Foswiki::Contrib::MailerContrib::TopicContext;
-    }
-
     # SMELL: Have to hack into the core to set internal preferences :-(
-    my %old = map { $_ => undef } qw(BASEWEB BASETOPIC INCLUDINGWEB INCLUDINGTOPIC);
-    if (defined $Foswiki::Plugins::SESSION->{SESSION_TAGS}) {
+    my %old =
+      map { $_ => undef } qw(BASEWEB BASETOPIC INCLUDINGWEB INCLUDINGTOPIC);
+    if ( defined $Foswiki::Plugins::SESSION->{SESSION_TAGS} ) {
 
         # In 1.0.6 and earlier, have to handle some session tags ourselves
         # because pushTopicContext doesn't do it. **
-        foreach my $macro (keys %old) {
+        foreach my $macro ( keys %old ) {
             $old{$macro} = Foswiki::Func::getPreferencesValue($macro);
         }
     }
     Foswiki::Func::pushTopicContext( $web, $topic );
 
     # See ** above
-    if (defined $Foswiki::Plugins::SESSION->{SESSION_TAGS}) {
+    if ( defined $Foswiki::Plugins::SESSION->{SESSION_TAGS} ) {
         my $stags = $Foswiki::Plugins::SESSION->{SESSION_TAGS};
-        $stags->{BASEWEB} = $web;
-        $stags->{BASETOPIC} = $topic;
-        $stags->{INCLUDINGWEB} = $web;
+        $stags->{BASEWEB}        = $web;
+        $stags->{BASETOPIC}      = $topic;
+        $stags->{INCLUDINGWEB}   = $web;
         $stags->{INCLUDINGTOPIC} = $topic;
     }
 
-    $twiki->enterContext( 'can_render_meta', $meta );
+    # Only required pre-1.1
+    Foswiki::Func::getContext()->{can_render_meta} = $meta;
 
     # Get the skin for this topic
     my $skin = Foswiki::Func::getSkin();
@@ -562,13 +559,12 @@ sub _sendNewsletterMail {
     Foswiki::Func::popTopicContext();
 
     # SMELL: See ** above
-    if (defined $Foswiki::Plugins::SESSION->{SESSION_TAGS}) {
+    if ( defined $Foswiki::Plugins::SESSION->{SESSION_TAGS} ) {
 
-	    # In 1.0.6 and earlier, have to handle some session tags ourselves
-	    # because pushTopicContext doesn't do it. **
-        foreach my $macro (keys %old) {
-            $Foswiki::Plugins::SESSION->{SESSION_TAGS}{$macro} =
-            $old{$macro};
+        # In 1.0.6 and earlier, have to handle some session tags ourselves
+        # because pushTopicContext doesn't do it. **
+        foreach my $macro ( keys %old ) {
+            $Foswiki::Plugins::SESSION->{SESSION_TAGS}{$macro} = $old{$macro};
         }
     }
 
@@ -577,28 +573,26 @@ sub _sendNewsletterMail {
 
 1;
 __DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-# Copyright (C) 2004 Wind River Systems Inc.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
+Foswiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2006 TWiki Contributors.
+Copyright (C) 2004 Wind River Systems Inc.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

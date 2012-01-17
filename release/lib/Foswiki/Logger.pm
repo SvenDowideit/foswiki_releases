@@ -2,6 +2,7 @@
 package Foswiki::Logger;
 
 use strict;
+use warnings;
 
 use Assert;
 
@@ -11,14 +12,17 @@ use Assert;
 
 Object that interfaces to whatever records Foswiki log files.
 
-This is a pure virtual base class which must be implemented by a
-subclass in the Logger subdirectory and selected by $Foswiki::cfg{Log}{Implementation}
+This is a base class which will be subclassed by a class in the
+Logger subdirectory and selected by $Foswiki::cfg{Log}{Implementation}
 
 Note that the implementation has to provide a way for the log to be replayed.
-Unfortunately this means that the simpler CPAN loggers are not suitable,
-nor is 
+Unfortunately this means that the simpler CPAN loggers are not suitable.
 
 =cut
+
+sub new {
+    return bless( {}, shift );
+}
 
 =begin TML
 
@@ -36,8 +40,8 @@ The levels are chosen to be compatible with Log::Dispatch.
 
 =cut
 
+# Default behaviour is a NOP
 sub log {
-    ASSERT('Pure virtual method called') if DEBUG;
 }
 
 =begin TML
@@ -61,26 +65,27 @@ requested level will be returned if any of the collapsed levels is selected.
 
 =cut
 
+# Default behaviour is an empty iteration
 sub eachEventSince {
-    ASSERT('Pure virtual method called') if DEBUG;
+    return new Foswiki::ListIterator( [] );
 }
 
 1;
 __END__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

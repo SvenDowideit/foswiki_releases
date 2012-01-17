@@ -1,20 +1,4 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
-# Copyright (C) 2009-2010 Foswiki Contributors
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -37,15 +21,16 @@ in a [[link]] or [[link][text]] expression.
 package Foswiki::Plugins::InterwikiPlugin;
 
 use strict;
+use warnings;
 
 use Foswiki::Func    ();    # The plugins API
 use Foswiki::Plugins ();    # For the API version
 
-our $VERSION           = '$Rev: 8158 (2010-07-13) $';
+our $VERSION           = '$Rev: 9483 (2010-10-03) $';
 our $RELEASE           = '12 Jul 2010';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION =
-'Link ExternalSite:Page text to external sites based on aliases defined in a rules topic';
+'Link !ExternalSite:Page text to external sites based on aliases defined in a rules topic';
 
 my $interLinkFormat;
 my $sitePattern;
@@ -166,3 +151,26 @@ sub _link {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
+Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.com
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

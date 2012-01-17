@@ -1,28 +1,4 @@
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 # PRIVATE CLASS Foswiki::Plugin
 #
@@ -30,27 +6,31 @@
 package Foswiki::Plugin;
 
 use strict;
+use warnings;
 use Assert;
+use Error qw(:try);
 
-require Foswiki::Plugins;
+use Foswiki::Plugins                ();
+use Foswiki::AccessControlException ();
+use Foswiki::OopsException          ();
+use Foswiki::ValidationException    ();
 
-use vars qw( @registrableHandlers %deprecated );
-
-@registrableHandlers = (    # Foswiki::Plugins::VERSION:
-    'afterAttachmentSaveHandler',       # 1.022
+our @registrableHandlers = (    # Foswiki::Plugins::VERSION:
+    'afterUploadHandler',               # 2.1
     'afterCommonTagsHandler',           # 1.024
     'afterEditHandler',                 # 1.010
     'afterRenameHandler',               # 1.110
     'afterSaveHandler',                 # 1.020
-    'beforeAttachmentSaveHandler',      # 1.022
     'beforeCommonTagsHandler',          # 1.024
     'beforeEditHandler',                # 1.010
     'beforeMergeHandler',               # 1.200
     'beforeSaveHandler',                # 1.010
+    'beforeUploadHandler',              # 2.1
     'commonTagsHandler',                # 1.000
     'completePageHandler',              # 1.100
     'earlyInitPlugin',                  # 1.020
     'endRenderingHandler',              # 1.000 DEPRECATED
+    'finishPlugin',                     # 2.100
     'initPlugin',                       # 1.000
     'initializeUserHandler',            # 1.010
     'insidePREHandler',                 # 1.000 DEPRECATED
@@ -59,7 +39,7 @@ use vars qw( @registrableHandlers %deprecated );
     'outsidePREHandler',                # 1.000 DEPRECATED
     'postRenderingHandler',             # 1.026
     'preRenderingHandler',              # 1.026
-    'redirectCgiQueryHandler',          # 1.010
+    'redirectCgiQueryHandler',          # 1.010 DEPRECATED
     'registrationHandler',              # 1.010
     'renderFormFieldForEditHandler',    # ?
     'renderWikiWordHandler',            # 1.023
@@ -68,12 +48,15 @@ use vars qw( @registrableHandlers %deprecated );
 );
 
 # deprecated handlers
-%deprecated = (
-    startRenderingHandler => 1,
-    outsidePREHandler     => 1,
-    insidePREHandler      => 1,
-    endRenderingHandler   => 1,
-    writeHeaderHandler    => 1,
+our %deprecated = (
+    afterAttachmentSaveHandler  => 1,
+    beforeAttachmentSaveHandler => 1,
+    endRenderingHandler         => 1,
+    insidePREHandler            => 1,
+    outsidePREHandler           => 1,
+    redirectCgiQueryHandler     => 1,
+    startRenderingHandler       => 1,
+    writeHeaderHandler          => 1,
 );
 
 =begin TML
@@ -89,13 +72,15 @@ use vars qw( @registrableHandlers %deprecated );
 
 sub new {
     my ( $class, $session, $name, $module ) = @_;
-    ASSERT(UNTAINTED($name)) if DEBUG;
+    ASSERT( UNTAINTED($name), "Name $name is tainted!" ) if DEBUG;
     my $this = bless(
         {
             session => $session,
-            name    => $name   || '',
-            module  => $module, # if undef, use discovery
-        }, $class );
+            name    => $name || '',
+            module  => $module,       # if undef, use discovery
+        },
+        $class
+    );
 
     return $this;
 }
@@ -127,31 +112,38 @@ sub finish {
 # handlers. Return the user resulting from the user handler call.
 sub load {
     my ($this) = @_;
-    my $p = $Foswiki::cfg{Plugins}{$this->{name}}{Module};
+    my $p = $Foswiki::cfg{Plugins}{ $this->{name} }{Module};
 
-    if (defined $p) {
+    if ( defined $p ) {
         eval "use $p";
         if ($@) {
-            push(@{ $this->{errors} },
-                 "$p could not be loaded.  Errors were:\n$@\n----");
+            push(
+                @{ $this->{errors} },
+                "$p could not be loaded.  Errors were:\n$@\n----"
+            );
             $this->{disabled} = 1;
-            return undef;
-        } else {
+            return;
+        }
+        else {
             $this->{module} = $p;
         }
-    } else {
-        push(@{ $this->{errors} },
-             "$this->{name} could not be loaded. No \$Foswiki::cfg{Plugins}{$this->{name}}{Module} is not defined - re-run configure\n---");
+    }
+    else {
+        push(
+            @{ $this->{errors} },
+"$this->{name} could not be loaded. No \$Foswiki::cfg{Plugins}{$this->{name}}{Module} defined - re-run configure\n---"
+        );
         $this->{disabled} = 1;
-        return undef;
+        return;
     }
 
     my $noTopic = eval '$' . $p . '::NO_PREFS_IN_TOPIC';
     $this->{no_topic} = $noTopic;
-    $this->{topicWeb} = undef; # not known yet
+    $this->{topicWeb} = undef;      # not known yet
 
     unless ($noTopic) {
-        if (!$this->topicWeb()) {
+        if ( !$this->topicWeb() ) {
+
             # not found
             push(
                 @{ $this->{errors} },
@@ -170,16 +162,23 @@ sub load {
     # Set the session for this call stack
     local $Foswiki::Plugins::SESSION = $this->{session};
 
-    my $sub = $p . '::earlyInitPlugin';
+    my $sub = $p . "::initPlugin";
+    if ( !defined(&$sub) ) {
+        push( @{ $this->{errors} }, $sub . ' is not defined' );
+        $this->{disabled} = 1;
+        return;
+    }
+
+    $sub = $p . '::earlyInitPlugin';
     if ( defined(&$sub) ) {
         no strict 'refs';
         my $error = &$sub();
+        use strict 'refs';
         if ($error) {
             push( @{ $this->{errors} }, $sub . ' failed: ' . $error );
             $this->{disabled} = 1;
-            return undef;
+            return;
         }
-        use strict 'refs';
     }
 
     my $user;
@@ -205,16 +204,9 @@ sub registerSettings {
 
     return if $this->{disabled};
 
-    my $sub = $this->{module} . "::initPlugin";
-    if ( !defined(&$sub) ) {
-        push( @{ $this->{errors} }, $sub . ' is not defined' );
-        $this->{disabled} = 1;
-        return;
-    }
     my $prefs = $this->{session}->{prefs};
     if ( !$this->{no_topic} ) {
-        $prefs->pushPreferences( $this->{topicWeb}, $this->{name}, 'PLUGIN',
-            uc( $this->{name} ) . '_' );
+        $prefs->setPluginPreferences( $this->topicWeb(), $this->{name} );
     }
 }
 
@@ -224,23 +216,43 @@ sub registerHandlers {
 
     return if $this->{disabled};
 
-    my $p     = $this->{module};
-    my $sub   = $p . "::initPlugin";
-    my $users = $Foswiki::Plugins::SESSION->{users};
-    no strict 'refs';
-    my $status = &$sub(
-        $Foswiki::Plugins::SESSION->{topicName},
-        $Foswiki::Plugins::SESSION->{webName},
-        $users->getLoginName( $Foswiki::Plugins::SESSION->{user} ),
-        $this->topicWeb()
-    );
-    use strict 'refs';
+    my $p         = $this->{module};
+    my $sub       = $p . "::initPlugin";
+    my $users     = $Foswiki::Plugins::SESSION->{users};
+    my $status    = 0;
+    my $exception = '';
+    try {
+        no strict 'refs';
+        $status = &$sub(
+            $Foswiki::Plugins::SESSION->{topicName},
+            $Foswiki::Plugins::SESSION->{webName},
+            $users->getLoginName( $Foswiki::Plugins::SESSION->{user} ),
+            $this->topicWeb()
+        );
+        use strict 'refs';
+    }
+    catch Foswiki::AccessControlException with {
+        shift->throw();    # propagate
+    }
+    catch Foswiki::OopsException with {
+        shift->throw();    # propagate
+    }
+    catch Foswiki::ValidationException with {
+        shift->throw();    # propagate
+    }
+    otherwise {
+        my $e = shift;
+        $exception = $e->text() . ' ' . $e->stacktrace();
+    };
 
     unless ($status) {
-        push(
-            @{ $this->{errors} },
-            $sub . ' did not return true (' . $status . ')'
-        );
+        if ( !$exception ) {
+            $exception = <<MESSAGE;
+$sub did not return true.
+Check your Foswiki warning and error logs for more information.
+MESSAGE
+        }
+        push( @{ $this->{errors} }, $exception );
         $this->{disabled} = 1;
         return;
     }
@@ -301,7 +313,7 @@ sub getDescription {
     unless ( defined $this->{description} ) {
         my $pref  = uc( $this->{name} ) . '_SHORTDESCRIPTION';
         my $prefs = $this->{session}->{prefs};
-        $this->{description} = $prefs->getPreferencesValue($pref) || '';
+        $this->{description} = $prefs->getPreference($pref) || '';
     }
     if ( $this->{disabled} ) {
         return ' !' . $this->{name} . ': (disabled)';
@@ -313,9 +325,8 @@ sub getDescription {
     $version = $release . ', ' . $version if $release;
 
     my $web = $this->topicWeb();
-    my $result = ' ' . ($web ? "$web." : '!') . $this->{name} . ' ';
-    $result .=
-      CGI::span( { class => 'foswikiGrayText foswikiSmall' },
+    my $result = ' ' . ( $web ? "$web." : '!' ) . $this->{name} . ' ';
+    $result .= CGI::span( { class => 'foswikiGrayText foswikiSmall' },
         '(' . $version . ')' );
     $result .= ': ' . $this->{description};
     return $result;
@@ -326,27 +337,58 @@ sub getDescription {
 ---++ ObjectMethod topicWeb() -> $webname
 
 Find the web that has the topic for this plugin by searching the
-{Plugins}{WebSearchPath}
+{Plugins}{WebSearchPath}. Returns undef if $NO_PREFS_IN_TOPIC=1
 
 =cut
 
 sub topicWeb {
     my $this = shift;
 
-    unless ( $this->{topicWeb}) {
-        # Find the plugin topic, if required
-        my $store = $this->{session}->{store};
+    unless ( defined( $this->{topicWeb} ) || $this->{no_topic} ) {
 
-        foreach my $web (split(/[, ]+/,
-                               $Foswiki::cfg{Plugins}{WebSearchPath}),
-                         $this->{session}->{webName}) {
-            if ( $store->topicExists( $web, $this->{name} ) ) {
+        # Find the plugin topic, if required
+        my $session = $this->{session};
+
+        foreach
+          my $web ( split( /[, ]+/, $Foswiki::cfg{Plugins}{WebSearchPath} ),
+            $session->{webName} )
+        {
+            if ( $session->topicExists( $web, $this->{name} ) ) {
                 $this->{topicWeb} = $web;
                 last;
             }
         }
     }
-    return $this->{topicWeb};
+
+    # If there is no web (probably because NO_PREFS_IN_TOPIC is set)
+    # then default to the system web name.
+    return $this->{topicWeb} || $Foswiki::cfg{SystemWebName};
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
+Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

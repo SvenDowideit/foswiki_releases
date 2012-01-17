@@ -15,9 +15,12 @@ Fields:
 =cut
 
 package Foswiki::Response;
+
 use strict;
+use warnings;
 use Assert;
-use CGI::Util qw(rearrange expires);
+
+use CGI::Util ();
 
 =begin TML
 
@@ -27,25 +30,20 @@ Constructs a Foswiki::Response object.
 
 =cut
 
-# NOTE: CHECK_ORDER is used to indicate when the body assembly has started.
-# By associating an assert with this action we can ensure that headers are
-# fully assembled before the body print starts - an essential precondition
-# for early flushing of output.
-sub CHECK_ORDER {
-    ASSERT( !$_[0]->{startedPrinting} ) if DEBUG;
-}
-
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;
     my $this  = {
-        status          => undef,
-        headers         => {},
-        body            => undef,
-        charset         => 'ISO-8859-1',
-        cookies         => [],
-        startedPrinting => 0,
+
+#status needs to default to 'unset' to the web server can set the status to whatever it needs (think basic auth, or other magics)
+        status           => undef,
+        headers          => {},
+        body             => undef,
+        charset          => 'ISO-8859-1',
+        cookies          => [],
+        outputHasStarted => 0,
     };
+
     return bless $this, $class;
 }
 
@@ -61,7 +59,8 @@ Gets/Sets response status.
 sub status {
     my ( $this, $status ) = @_;
     if ($status) {
-        CHECK_ORDER() if DEBUG;
+        ASSERT( !$this->{outputHasStarted}, 'Too late to change status' )
+          if DEBUG;
         $this->{status} = $status =~ /^\d{3}/ ? $status : undef;
     }
     return $this->{status};
@@ -99,12 +98,12 @@ sub header {
     my ( $this, @p ) = @_;
     my (@header);
 
-    CHECK_ORDER;
+    ASSERT( !$this->{outputHasStarted}, 'Too late to change headers' ) if DEBUG;
 
     # Ugly hack to avoid html escape in CGI::Util::rearrange
     local $CGI::Q = { escape => 0 };
     my ( $type, $status, $cookie, $charset, $expires, $attachment, @other ) =
-      rearrange(
+      CGI::Util::rearrange(
         [
             [ 'TYPE',   'CONTENT_TYPE', 'CONTENT-TYPE' ], 'STATUS',
             [ 'COOKIE', 'COOKIES' ],    'CHARSET',
@@ -157,9 +156,9 @@ sub header {
         my @cookies = ref($cookie) eq 'ARRAY' ? @$cookie : ($cookie);
         $this->cookies( \@cookies );
     }
-    $this->{headers}->{Expires} = expires( $expires, 'http' )
+    $this->{headers}->{Expires} = CGI::Util::expires( $expires, 'http' )
       if ( defined $expires );
-    $this->{headers}->{Date} = expires( 0, 'http' )
+    $this->{headers}->{Date} = CGI::Util::expires( 0, 'http' )
       if defined $expires || $cookie;
     $this->{headers}->{'Content-Disposition'} =
       "attachment; filename=\"$attachment\""
@@ -180,15 +179,16 @@ are scalars for single-valued headers or arrayref for multivalued ones.
 sub headers {
     my ( $this, $hdr ) = @_;
     if ($hdr) {
-        CHECK_ORDER;
+        ASSERT( !$this->{outputHasStarted}, 'Too late to change headers' )
+          if DEBUG;
         my %headers = ();
         while ( my ( $key, $value ) = each %$hdr ) {
             $key =~ s/(?:^|(?<=-))(.)([^-]*)/\u$1\L$2\E/g;
             $headers{$key} = $value;
         }
-        $headers{Expires} = expires( $headers{Expires}, 'http' )
+        $headers{Expires} = CGI::Util::expires( $headers{Expires}, 'http' )
           if defined $headers{Expires};
-        $headers{Date} = expires( 0, 'http' )
+        $headers{Date} = CGI::Util::expires( 0, 'http' )
           if defined $headers{'Set-Cookie'} || defined $headers{Expires};
         if ( defined $headers{'Set-Cookie'} ) {
             my @cookies =
@@ -222,7 +222,7 @@ sub getHeader {
         return ref $value ? @$value : ($value);
     }
     else {
-        return undef;
+        return;
     }
 }
 
@@ -247,7 +247,7 @@ sub setDefaultHeaders {
                 $this->status($hdr);
             }
             elsif ( $hdr eq 'Expires' ) {
-                $value = expires( $value, 'http' );
+                $value = CGI::Util::expires( $value, 'http' );
             }
             elsif ( $hdr eq 'Set-Cookie' ) {
                 my @cookies = ref($value) eq 'ARRAY' ? @$value : ($value);
@@ -256,7 +256,7 @@ sub setDefaultHeaders {
             $this->{headers}->{$hdr} = $value;
         }
     }
-    $this->{headers}{Date} = expires( 0, 'http' )
+    $this->{headers}{Date} = CGI::Util::expires( 0, 'http' )
       if !exists $this->{headers}{Date}
           && (   defined $this->{headers}{Expires}
               || defined $this->{headers}{'Set-Cookie'} );
@@ -296,7 +296,7 @@ Deletes headers whose names are passed.
 sub deleteHeader {
     my $this = shift;
 
-    CHECK_ORDER;
+    ASSERT( !$this->{outputHasStarted}, 'Too late to change headers' ) if DEBUG;
 
     foreach (@_) {
         ( my $hdr = $_ ) =~ s/(?:^|(?<=-))(.)([^-]*)/\u$1\L$2\E/g;
@@ -315,7 +315,7 @@ Adds $value to list of values associated with header $name.
 sub pushHeader {
     my ( $this, $hdr, $value ) = @_;
 
-    CHECK_ORDER;
+    ASSERT( !$this->{outputHasStarted}, 'Too late to change headers' ) if DEBUG;
 
     $hdr =~ s/(?:^|(?<=-))(.)([^-]*)/\u$1\L$2\E/g;
     my $cur = $this->{headers}->{$hdr};
@@ -340,6 +340,8 @@ Gets/Sets response cookies. Parameter, if passed, *must* be an arrayref.
 
 Elements may be CGI::Cookie objects or raw cookie strings.
 
+WARNING: cookies set this way are *not* passed in redirects.
+
 =cut
 
 sub cookies {
@@ -358,11 +360,18 @@ Gets/Sets response body. Note: do not use this method for output, use
 sub body {
     my ( $this, $body ) = @_;
     if ( defined $body ) {
-        $this->{body} = $body;
-        {
-            use bytes;
-            $this->{headers}->{'Content-Length'} = length $body;
+
+        # There *is* a risk that a unicode string could reach this far - for
+        # example, if it comes from a plugin. We need to force such strings
+        # into the "Foswiki canonical" representation of a string of bytes.
+        # The output may be crap, but at least it won't trigger a
+        # "Wide character in print" error.
+        if ( utf8::is_utf8($body) ) {
+            require Encode;
+            $body = Encode::encode( 'iso-8859-1', $body, 0 );
         }
+        $this->{headers}->{'Content-Length'} = length($body);
+        $this->{body} = $body;
     }
     return $this->{body};
 }
@@ -384,12 +393,12 @@ CGI Compatibility Note: It doesn't support -target or -nph
 
 sub redirect {
     my ( $this, @p ) = @_;
-    my ( $url, $status, $cookies ) =
-      rearrange( [ [qw(LOCATION URL URI)], 'STATUS', [qw(COOKIE COOKIES)], ],
-        @p );
+    ASSERT( !$this->{outputHasStarted}, 'Too late to redirect' ) if DEBUG;
+    my ( $url, $status, $cookies ) = CGI::Util::rearrange(
+        [ [qw(LOCATION URL URI)], 'STATUS', [qw(COOKIE COOKIES)], ], @p );
 
-    return undef unless $url;
-    return undef if ( $status && $status !~ /^\s*3\d\d.*/ );
+    return unless $url;
+    return if ( $status && $status !~ /^\s*3\d\d.*/ );
 
     my @headers = ( -Location => $url );
     push @headers, '-Status' => ( $status || 302 );
@@ -401,50 +410,62 @@ sub redirect {
 
 ---++ ObjectMethod print(...)
 
-Add content to the end of the body. The print may not be flushed until the
-body is complete.
+Add content to the end of the body.
 
 =cut
 
 sub print {
     my $this = shift;
-    $this->{startedPrinting} = 1;
     $this->body( ( $this->{body} || '' ) . join( '', @_ ) );
 }
 
+=begin TML
+
+---++ ObjectMethod outputHasStarted([$boolean])
+
+Get/set the output-has-started flag. This is used by the Foswiki::Engine
+to separate header and body output. Once output has started, the headers
+cannot be changed (though the body can be modified)
+
+=cut
+
+sub outputHasStarted {
+    my ( $this, $flag ) = @_;
+    $this->{outputHasStarted} = $flag if defined $flag;
+    return $this->{outputHasStarted};
+}
+
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This module is based/inspired on Catalyst framework, and also CGI,
-# CGI::Simple and HTTP::Headers modules. Refer to
-#
-# http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm,
-# http://search.cpan.org/~lds/CGI.pm-3.29/CGI.pm and
-# http://search.cpan.org/author/ANDYA/CGI-Simple-1.103/lib/CGI/Simple.pm
-# http://search.cpan.org/~gaas/libwww-perl-5.808/lib/HTTP/Headers.pm
-#
-# for credits and liscence details.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This module is based/inspired on Catalyst framework, and also CGI,
+CGI::Simple and HTTP::Headers modules. Refer to
+http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm,
+http://search.cpan.org/~lds/CGI.pm-3.29/CGI.pm and
+http://search.cpan.org/author/ANDYA/CGI-Simple-1.103/lib/CGI/Simple.pm
+http://search.cpan.org/~gaas/libwww-perl-5.808/lib/HTTP/Headers.pm
+for credits and liscence details.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

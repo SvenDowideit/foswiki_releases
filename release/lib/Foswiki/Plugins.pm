@@ -15,11 +15,10 @@ handler calls to registered plugins.
 package Foswiki::Plugins;
 
 use strict;
+use warnings;
 use Assert;
 
-require Foswiki::Plugin;
-
-use vars qw ( $VERSION $SESSION $inited );
+use Foswiki::Plugin ();
 
 =begin TML
 
@@ -39,9 +38,9 @@ as kernel methods may change between Foswiki releases.
 
 =cut
 
-$VERSION = '2.0';
+our $VERSION = '2.1';
 
-$inited = 0;
+our $inited = 0;
 
 my %onlyOnceHandlers = (
     registrationHandler           => 1,
@@ -50,6 +49,8 @@ my %onlyOnceHandlers = (
     renderFormFieldForEditHandler => 1,
     renderWikiWordHandler         => 1,
 );
+
+our $SESSION;
 
 =begin TML
 
@@ -89,6 +90,9 @@ Break circular references.
 # documentation" of the live fields in the object.
 sub finish {
     my $this = shift;
+
+    $this->dispatch('finishPlugin');
+
     undef $this->{registeredHandlers};
     foreach ( @{ $this->{plugins} } ) {
         $_->finish();
@@ -124,16 +128,21 @@ sub load {
 
     unless ($allDisabled) {
         if ( $query && defined( $query->param('debugenableplugins') ) ) {
-            foreach my $pn (split(
-                /[,\s]+/, $query->param('debugenableplugins') )) {
-                push (@pluginList, Foswiki::Sandbox::untaint(
-                    $pn,
-                    sub {
-                        throw Error::Simple(
-                            'Bad debugenableplugins') unless
-                              $pn =~ /^\w+$/;
-                        return $pn;
-                    }));
+            foreach
+              my $pn ( split( /[,\s]+/, $query->param('debugenableplugins') ) )
+            {
+                push(
+                    @pluginList,
+                    Foswiki::Sandbox::untaint(
+                        $pn,
+                        sub {
+                            my $pn = shift;
+                            throw Error::Simple('Bad debugenableplugins')
+                              unless $pn =~ /^\w+$/;
+                            return $pn;
+                        }
+                    )
+                );
             }
         }
         else {
@@ -152,7 +161,7 @@ sub load {
                 }
             }
             foreach my $plugin ( sort keys %{ $Foswiki::cfg{Plugins} } ) {
-                next unless ref($Foswiki::cfg{Plugins}{$plugin}) eq 'HASH';
+                next unless ref( $Foswiki::cfg{Plugins}{$plugin} ) eq 'HASH';
                 if ( $Foswiki::cfg{Plugins}{$plugin}{Enabled}
                     && !$already{$plugin} )
                 {
@@ -162,6 +171,9 @@ sub load {
             }
         }
     }
+
+    # Uncomment this to monitor plugin load times
+    #Monitor::MARK('About to initPlugins');
 
     my $user;           # the user login name
     my $userDefiner;    # the plugin that is defining the user
@@ -187,10 +199,13 @@ sub load {
 
         # Report initialisation errors
         if ( $p->{errors} ) {
-            $this->{session}->logger->log(
-                'warning', join( "\n", @{ $p->{errors} } ) );
+            $this->{session}
+              ->logger->log( 'warning', join( "\n", @{ $p->{errors} } ) );
         }
         $lookup{$pn} = $p;
+
+        # Uncomment this to monitor plugin load times
+        #Monitor::MARK($pn);
     }
 
     return $user;
@@ -226,7 +241,7 @@ Initialisation that is done after the user is known.
 sub enable {
     my $this     = shift;
     my $prefs    = $this->{session}->{prefs};
-    my $dissed   = $prefs->getPreferencesValue('DISABLEDPLUGINS') || '';
+    my $dissed   = $prefs->getPreference('DISABLEDPLUGINS') || '';
     my %disabled = map { $_ => 1 } split( /,\s*/, $dissed );
 
     # Set the session for this call stack
@@ -246,8 +261,8 @@ sub enable {
 
         # Report initialisation errors
         if ( $plugin->{errors} ) {
-            $this->{session}->logger->log(
-                'warning', join( "\n", @{ $plugin->{errors} } ) );
+            $this->{session}
+              ->logger->log( 'warning', join( "\n", @{ $plugin->{errors} } ) );
         }
     }
 }
@@ -319,7 +334,7 @@ sub dispatch {
             return $status;
         }
     }
-    return undef;
+    return;
 }
 
 =begin TML
@@ -344,9 +359,13 @@ sub haveHandlerFor {
 sub _handleFAILEDPLUGINS {
     my $this = shift->{plugins};
 
-    my $text =
-        CGI::start_table( { border => 1, class => 'foswikiTable' } )
-      . CGI::Tr( CGI::th('Plugin') . CGI::th('Errors') );
+    my $text = CGI::start_table(
+        {
+            border  => 1,
+            class   => 'foswikiTable',
+            summary => '%MAKETEXT{"Failed plugins"}%'
+        }
+    ) . CGI::Tr( {}, CGI::th( {}, 'Plugin' ) . CGI::th( {}, 'Errors' ) );
 
     foreach my $plugin ( @{ $this->{plugins} } ) {
         my $td;
@@ -359,22 +378,25 @@ sub _handleFAILEDPLUGINS {
             );
         }
         else {
-            $td = CGI::td('none');
+            $td = CGI::td( {}, 'none' );
         }
         my $web = $plugin->topicWeb();
         $text .= CGI::Tr(
             { valign => 'top' },
-            CGI::td(
-                ' ' . ($web ? "$web." : '!').$plugin->{name}.' '
-              )
+            CGI::td( {},
+                ' ' . ( $web ? "$web." : '!' ) . $plugin->{name} . ' ' )
               . $td
         );
     }
 
-    $text .=
-        CGI::end_table()
-      . CGI::start_table( { border => 1, class => 'foswikiTable' } )
-      . CGI::Tr( CGI::th('Handler') . CGI::th('Plugins') );
+    $text .= CGI::end_table()
+      . CGI::start_table(
+        {
+            border  => 1,
+            class   => 'foswikiTable',
+            summary => '%MAKETEXT{"Plugin handlers"}%'
+        }
+      ) . CGI::Tr( {}, CGI::th( {}, 'Handler' ) . CGI::th( {}, 'Plugins' ) );
 
     foreach my $handler (@Foswiki::Plugin::registrableHandlers) {
         my $h = '';
@@ -392,8 +414,8 @@ sub _handleFAILEDPLUGINS {
 " __This handler is deprecated__ - please check for updated versions of the plugins that use it!"
                   );
             }
-            $text .=
-              CGI::Tr( { valign => 'top' }, CGI::td($handler) . CGI::td($h) );
+            $text .= CGI::Tr( { valign => 'top' },
+                CGI::td( {}, $handler ) . CGI::td( {}, $h ) );
         }
     }
 
@@ -409,10 +431,10 @@ sub _handlePLUGINDESCRIPTIONS {
     my $this = shift->{plugins};
     my $text = '';
     foreach my $plugin ( @{ $this->{plugins} } ) {
-        $text .= CGI::li( $plugin->getDescription() . ' ' );
+        $text .= CGI::li( {}, $plugin->getDescription() . ' ' );
     }
 
-    return CGI::ul($text);
+    return CGI::ul( {}, $text );
 }
 
 # note this is invoked with the session as the first parameter
@@ -422,7 +444,7 @@ sub _handleACTIVATEDPLUGINS {
     foreach my $plugin ( @{ $this->{plugins} } ) {
         unless ( $plugin->{disabled} ) {
             my $web = $plugin->topicWeb();
-            $text .= ($web ? "$web." : '!')."$plugin->{name}, ";
+            $text .= ( $web ? "$web." : '!' ) . "$plugin->{name}, ";
         }
     }
     $text =~ s/\,\s*$//o;
@@ -430,29 +452,29 @@ sub _handleACTIVATEDPLUGINS {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2001 Andrea Sterbini, a.sterbini@flashnet.it
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

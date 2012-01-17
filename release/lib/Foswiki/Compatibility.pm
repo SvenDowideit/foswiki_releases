@@ -1,6 +1,8 @@
 # See bottom of file for license and copyright information
 package Foswiki::Compatibility;
 
+use strict;
+use warnings;
 use Assert;
 
 =begin TML
@@ -117,7 +119,8 @@ May throw Foswiki::OopsException
 sub upgradeCategoryTable {
     my ( $session, $web, $topic, $meta, $text ) = @_;
 
-    my $icat = $session->templates->readTemplate('twikicatitems');
+    my $icat = $session->templates->readTemplate( 'twikicatitems',
+                                                  no_oops => 1 );
 
     if ($icat) {
         my @items = ();
@@ -138,8 +141,9 @@ sub upgradeCategoryTable {
                 push @items, ( [ $catname, $catmod, $catvalue ] );
             }
         }
-        my $prefs = $session->{prefs};
-        my $listForms = $prefs->getWebPreferencesValue( 'WEBFORMS', $web );
+        my $prefs     = $session->{prefs};
+        my $webObject = Foswiki::Meta->new( $session, $web );
+        my $listForms = $webObject->getPreference('WEBFORMS');
         $listForms =~ s/^\s*//go;
         $listForms =~ s/\s*$//go;
         my @formTemplates = split( /\s*,\s*/, $listForms );
@@ -147,9 +151,8 @@ sub upgradeCategoryTable {
         $defaultFormTemplate = $formTemplates[0] if (@formTemplates);
 
         if ( !$defaultFormTemplate ) {
-            $session->logger->log(
-                'warning',
-                "Form: can't get form definition to convert category table "
+            $session->logger->log( 'warning',
+                    "Form: can't get form definition to convert category table "
                   . " for topic $web.$topic" );
             foreach my $oldCat (@items) {
                 my $name  = $oldCat->[0];
@@ -194,6 +197,7 @@ sub upgradeCategoryTable {
 
     }
     else {
+
         # We used to log a warning but it only made noise and trouble
         # People will not need to be warned any longer. Item1440
     }
@@ -221,6 +225,7 @@ sub _getOldAttachAttr {
         ( $before, $filePath, $after ) =
           split( /<(?:\/)*TwkFilePath>/, $atext );
         if ( !$filePath ) { $filePath = ''; }
+
         # SMELL: unchecked implicit untaint
         $filePath =~ s/<TwkData value="(.*)">//go;
         if   ($1) { $filePath = $1; }
@@ -343,30 +348,146 @@ sub upgradeFrom1v0beta {
     }
 }
 
+# Read meta-data encoded using the discredited symmetrical encoding
+# method from pre 1.1
+sub readSymmetricallyEncodedMETA {
+    my ( $meta, $type, $args ) = @_;
+
+    my $keys = {};
+
+    $args =~ s/\s*([^=]+)="([^"]*)"/
+      _symmetricalDataDecode( $1, $2, $keys )/ge;
+
+    if ( defined( $keys->{name} ) ) {
+
+        # don't attempt to save it keyed unless it has a name
+        $meta->putKeyed( $type, $keys );
+    }
+    else {
+        $meta->put( $type, $keys );
+    }
+    return 1;
+}
+
+sub _symmetricalDataDecode {
+    my ( $key, $value, $res ) = @_;
+
+    # Old decoding retained for backward compatibility.
+    # This encoding is badly broken, because the encoded
+    # symbols are symmetrical, and use an encoded symbol (%).
+    $value =~ s/%_N_%/\n/g;
+    $value =~ s/%_Q_%/\"/g;
+    $value =~ s/%_P_%/%/g;
+
+    $res->{$key} = $value;
+
+    return '';
+}
+
+# IF cfg{RequireCompatibleAnchors}
+
+# Return a list of alternative anchor names generated using old generations
+# of anchor name generator
+sub makeCompatibleAnchors {
+    my ($text) = @_;
+    my @anchors;
+
+    # Use the old algorithm to generate the old style, non-unique, anchor
+    # target.
+    my $badAnchor = _makeBadAnchorName( $text, 0 );
+    push( @anchors, $badAnchor ),
+
+      # There's an even older algorithm we have to allow for
+      my $worseAnchor = _makeBadAnchorName( $text, 1 );
+    if ( $worseAnchor ne $badAnchor ) {
+        push( @anchors, $worseAnchor ),;
+    }
+
+    return @anchors;
+}
+
+# Make an anchor name using the seriously flawed (tm)Wiki anchor generation
+# algorithm(s). This code is taken verbatim from Foswiki 1.0.4.
+sub _makeBadAnchorName {
+    my ( $anchorName, $compatibilityMode ) = @_;
+    if (  !$compatibilityMode
+        && $anchorName =~ /^$Foswiki::regex{anchorRegex}$/ )
+    {
+
+        # accept, already valid -- just remove leading #
+        return substr( $anchorName, 1 );
+    }
+
+    # strip out potential links so they don't get rendered.
+    # remove double bracket link
+    $anchorName =~ s/\[(?:\[.*?\])?\[(.*?)\]\s*\]/$1/g;
+
+    # add an _ before bare WikiWords
+    $anchorName =~ s/($Foswiki::regex{wikiWordRegex})/_$1/go;
+
+    if ($compatibilityMode) {
+
+        # remove leading/trailing underscores first, allowing them to be
+        # reintroduced
+        $anchorName =~ s/^[\s#_]*//;
+        $anchorName =~ s/[\s_]*$//;
+    }
+    $anchorName =~ s/<\/?[a-zA-Z][^>]*>//gi;    # remove HTML tags
+    $anchorName =~ s/&#?[a-zA-Z0-9]+;//g;       # remove HTML entities
+    $anchorName =~ s/&//g;                      # remove &
+         # filter TOC excludes if not at beginning
+    $anchorName =~ s/^(.+?)\s*$Foswiki::regex{headerPatternNoTOC}.*/$1/o;
+
+    # filter '!!', '%NOTOC%'
+    $anchorName =~ s/$Foswiki::regex{headerPatternNoTOC}//o;
+
+    # No matter what character set we use, the HTML standard does not allow
+    # anything else than English alphanum characters in anchors
+    # So we convert anything non A-Za-z0-9_ to underscores
+    # and limit the number consecutive of underscores to 1
+    # This means that pure non-English anchors will become A, A_AN1, A_AN2, ...
+    # We accept anchors starting with 0-9. It is non RFC but it works and it
+    # is very important for compatibility
+    $anchorName =~ s/[^A-Za-z0-9]+/_/g;
+    $anchorName =~ s/__+/_/g;             # remove excessive '_' chars
+
+    if ( !$compatibilityMode ) {
+        $anchorName =~ s/^[\s#_]+//;      # no leading space nor '#', '_'
+    }
+
+    $anchorName =~ s/^$/A/;               # prevent empty anchor
+
+    # limit to 32 chars
+    $anchorName =~ s/^(.{32})(.*)$/$1/;
+    if ( !$compatibilityMode ) {
+        $anchorName =~ s/[\s_]+$//;       # no trailing space, nor '_'
+    }
+    return $anchorName;
+}
+
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

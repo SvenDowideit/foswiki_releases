@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2010-02-11 22:01:07 +0100 (Thu, 11 Feb 2010) $ (revision $Rev: 8969 (2010-09-08) $)
+API version $Date: 2010-06-13 14:26:03 +0200 (Sun, 13 Jun 2010) $ (revision $Rev: 9498 (2010-10-04) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -33,10 +33,11 @@ the function or parameter.
 package Foswiki::Time;
 
 use strict;
+use warnings;
 
-require Foswiki;
+use Foswiki ();
 
-our $VERSION = '$Rev: 8969 (2010-09-08) $'; # Subversion rev number
+our $VERSION = '$Rev: 9498 (2010-10-04) $';    # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -63,7 +64,7 @@ our %MON2NUM = (
     dec => 11
 );
 
-our $TZSTRING; # timezone string for servertime; "Z" or "+01:00" etc.
+our $TZSTRING;    # timezone string for servertime; "Z" or "+01:00" etc.
 
 =begin TML
 
@@ -123,8 +124,12 @@ sub parseTime {
 
         # Local time at midnight on the epoch gives us minus the
         # local difference. e.g. CST is GMT + 1, so midnight Jan 1 1970 CST
-        # is -01:00Z
-        $tzadj = -Time::Local::timelocal( 0, 0, 0, 1, 0, 70 );
+        # is -01:00Z. But we don't want to give you that! Because it's
+        # wrong on Winblows, where localtime() of a negative number gives
+        # undef, resulting in a mad $tzadj. So we simply offset the
+        # base by 24 hours (86400 seconds). The params are simply the
+        # result of gmtime(86400);
+        $tzadj = 86400 - Time::Local::timelocal(0, 0, 0, 2, 0, 70, 5, 1, 0);
     }
 
     # try "31 Dec 2001 - 23:59"  (Foswiki date)
@@ -164,7 +169,8 @@ sub parseTime {
     }
 
     #any date that leads with a year (2 digit years too)
-    if ($date =~ m|^
+    if (
+        $date =~ m|^
                     (\d\d+)                                 #year
                     (?:\s*[/\s.-]\s*                        #datesep
                         (\d\d?)                             #month
@@ -181,36 +187,40 @@ sub parseTime {
                             )?
                         )?
                     )?
-                    $|x) {
-        #no defaulting yet so we can detect the 2009--12 error
-        my ( $year, $M, $D, $h, $m, $s ) =
-          ( $1, $2 , $3, $4, $5, $6 );
+                    $|x
+      )
+    {
 
-        #without range checking on the 12 Jan 2009 case above, there is abmiguity - what is 14 Jan 12 ?
-        #similarly, how would you decide what Jan 02 and 02 Jan are?
-        #$month_p = $MON2NUM{ lc($month_p) } if (defined($MON2NUM{ lc($month_p) }));
+        #no defaulting yet so we can detect the 2009--12 error
+        my ( $year, $M, $D, $h, $m, $s ) = ( $1, $2, $3, $4, $5, $6 );
+
+#without range checking on the 12 Jan 2009 case above, there is abmiguity - what is 14 Jan 12 ?
+#similarly, how would you decide what Jan 02 and 02 Jan are?
+#$month_p = $MON2NUM{ lc($month_p) } if (defined($MON2NUM{ lc($month_p) }));
 
         #TODO: unhappily, this means 09 == 1909 not 2009
         $year -= 1900 if ( $year > 1900 );
 
         #range checks
-        return undef if (defined($M) && ($M < 1 || $M > 12));
-        my $month = ($M || 1)-1;
+        return undef if ( defined($M) && ( $M < 1 || $M > 12 ) );
+        my $month = ( $M || 1 ) - 1;
         my $monthlength = $MONTHLENS[$month];
+
         # If leap year, note February is month number 1 starting from 0
         $monthlength = 29 if ( $month == 1 && _daysInYear($year) == 366 );
-        return undef if (defined($D) && ($D < 0 || $D > $monthlength));
-        return undef if (defined($h) && ($h < 0 || $h > 24));
-        return undef if (defined($m) && ($m < 0 || $m > 60));
-        return undef if (defined($s) && ($s < 0 || $s > 60));
-        return undef if ( defined($year) && $year < 60 ); 
+        return undef if ( defined($D) && ( $D < 0 || $D > $monthlength ) );
+        return undef if ( defined($h) && ( $h < 0 || $h > 24 ) );
+        return undef if ( defined($m) && ( $m < 0 || $m > 60 ) );
+        return undef if ( defined($s) && ( $s < 0 || $s > 60 ) );
+        return undef if ( defined($year) && $year < 60 );
 
-        my $day = $D || 1;
+        my $day  = $D || 1;
         my $hour = $h || 0;
-        my $min = $m || 0;
-        my $sec = $s || 0;
+        my $min  = $m || 0;
+        my $sec  = $s || 0;
 
-        return Time::Local::timegm( $sec, $min, $hour, $day, $month, $year ) - $tzadj;
+        return Time::Local::timegm( $sec, $min, $hour, $day, $month, $year ) -
+          $tzadj;
     }
 
     # give up, return undef
@@ -253,16 +263,16 @@ sub formatTime {
     my $value = $epochSeconds;
 
     # use default Foswiki format "31 Dec 1999 - 23:59" unless specified
-    $formatString   ||= $Foswiki::cfg{DefaultDateFormat} . ' - $hour:$min';
+    $formatString   ||= 'longdate';
     $outputTimeZone ||= $Foswiki::cfg{DisplayTimeValues};
 
     if ( $formatString =~ /http|email/i ) {
         $outputTimeZone = 'gmtime';
     }
 
-    my ( $sec, $min, $hour, $day, $mon, $year, $wday, $yday );
+    my ( $sec, $min, $hour, $day, $mon, $year, $wday, $yday, $isdst );
     if ( $outputTimeZone eq 'servertime' ) {
-        ( $sec, $min, $hour, $day, $mon, $year, $wday, $yday ) =
+        ( $sec, $min, $hour, $day, $mon, $year, $wday, $yday, $isdst ) =
           localtime($epochSeconds);
     }
     else {
@@ -288,6 +298,9 @@ sub formatTime {
         # e.g. "2002-12-31T19:30:12Z"
         $formatString = '$year-$mo-$dayT$hour:$min:$sec$isotz';
     }
+    elsif ( $formatString =~ /longdate/i ) {
+        $formatString = $Foswiki::cfg{DefaultDateFormat} . ' - $hour:$min';
+    }
 
     $value = $formatString;
     $value =~ s/\$seco?n?d?s?/sprintf('%.2u',$sec)/gei;
@@ -303,11 +316,12 @@ sub formatTime {
     $value =~ s/\$ye/sprintf('%.2u',$year%100)/gei;
     $value =~ s/\$epoch/$epochSeconds/gi;
 
-    if ($value =~ /\$tz/) {
+    if ( $value =~ /\$tz/ ) {
         my $tz_str;
         if ( $outputTimeZone eq 'servertime' ) {
             ( $sec, $min, $hour, $day, $mon, $year, $wday ) =
               localtime($epochSeconds);
+
             # SMELL: how do we get the different timezone strings (and when
             # we add usertime, then what?)
             $tz_str = 'Local';
@@ -319,21 +333,23 @@ sub formatTime {
         }
         $value =~ s/\$tz/$tz_str/gei;
     }
-    if ($value =~ /\$isotz/) {
+    if ( $value =~ /\$isotz/ ) {
         my $tz_str = 'Z';
         if ( $outputTimeZone ne 'gmtime' ) {
+
             # servertime
             # time zone designator (+hh:mm or -hh:mm)
             # cached.
-            unless (defined $TZSTRING) {
+            unless ( defined $TZSTRING ) {
                 my $offset = _tzOffset();
-                my $sign = ($offset < 0) ? '-' : '+';
+                my $sign = ( $offset < 0 ) ? '-' : '+';
                 $offset = abs($offset);
-                my $hours = int($offset / 3600);
-                my $mins = int(($offset - $hours * 3600) / 60);
-                if ($hours || $mins) {
-                    $TZSTRING = sprintf("$sign%02d:%02d", $hours, $mins);
-                } else {
+                my $hours = int( $offset / 3600 );
+                my $mins = int( ( $offset - $hours * 3600 ) / 60 );
+                if ( $hours || $mins ) {
+                    $TZSTRING = sprintf( "$sign%02d:%02d", $hours, $mins );
+                }
+                else {
                     $TZSTRING = 'Z';
                 }
             }
@@ -351,33 +367,36 @@ sub formatTime {
 # domain."
 # Note that unit tests rely on this function being here.
 sub _tzOffset {
-	my $time = time();
-	my @l = localtime($time);
-	my @g = gmtime($time);
+    my $time = time();
+    my @l    = localtime($time);
+    my @g    = gmtime($time);
 
-	my $off =
-      $l[0] - $g[0]
-        + ($l[1] - $g[1]) * 60
-          + ($l[2] - $g[2]) * 3600;
+    my $off = $l[0] - $g[0] + ( $l[1] - $g[1] ) * 60 + ( $l[2] - $g[2] ) * 3600;
 
-	# subscript 7 is yday.
+    # subscript 7 is yday.
 
-	if ($l[7] == $g[7]) {
-		# done
-	} elsif ($l[7] == $g[7] + 1) {
-		$off += 86400;
-	} elsif ($l[7] == $g[7] - 1) {
-		$off -= 86400;
-	} elsif ($l[7] < $g[7]) {
-		# crossed over a year boundary.
-		# localtime is beginning of year, gmt is end
-		# therefore local is ahead
-		$off += 86400;
-	} else {
-		$off -= 86400;
-	}
+    if ( $l[7] == $g[7] ) {
 
-	return $off;
+        # done
+    }
+    elsif ( $l[7] == $g[7] + 1 ) {
+        $off += 86400;
+    }
+    elsif ( $l[7] == $g[7] - 1 ) {
+        $off -= 86400;
+    }
+    elsif ( $l[7] < $g[7] ) {
+
+        # crossed over a year boundary.
+        # localtime is beginning of year, gmt is end
+        # therefore local is ahead
+        $off += 86400;
+    }
+    else {
+        $off -= 86400;
+    }
+
+    return $off;
 }
 
 # Returns the ISO8601 week number for a date.
@@ -386,25 +405,29 @@ sub _tzOffset {
 # Day of year is 0..364 (or 365) where 0==Jan1
 # From http://www.perlmonks.org/?node_id=710571
 sub _weekNumber {
-    my( $dayOfWeek, $dayOfYear, $year ) = @_;
+    my ( $dayOfWeek, $dayOfYear, $year ) = @_;
+
     # rebase dow to Monday==0
-    $dayOfWeek = ($dayOfWeek + 6) % 7;
+    $dayOfWeek = ( $dayOfWeek + 6 ) % 7;
 
     # Locate the nearest Thursday, by locating the Monday at
     # or before and going forwards 3 days)
     my $dayOfNearestThurs = $dayOfYear - $dayOfWeek + 3;
 
     my $daysInThisYear = _daysInYear($year);
-    #print STDERR "dow:$dayOfWeek, doy:$dayOfYear, $year = thu:$dayOfNearestThurs ($daysInThisYear)\n";
+
+#print STDERR "dow:$dayOfWeek, doy:$dayOfYear, $year = thu:$dayOfNearestThurs ($daysInThisYear)\n";
 
     # Is nearest thursday in last year or next year?
-    if ($dayOfNearestThurs < 0) {
+    if ( $dayOfNearestThurs < 0 ) {
+
         # Nearest Thurs is last year
         # We are at the start of the year
         # Adjust by the number of days in LAST year
-        $dayOfNearestThurs += _daysInYear($year - 1);
+        $dayOfNearestThurs += _daysInYear( $year - 1 );
     }
-    if ($dayOfNearestThurs >= $daysInThisYear) {
+    if ( $dayOfNearestThurs >= $daysInThisYear ) {
+
         # Nearest Thurs is next year
         # We are at the end of the year
         # Adjust by the number of days in THIS year
@@ -412,7 +435,7 @@ sub _weekNumber {
     }
 
     # Which week does the Thurs fall into?
-    return int ($dayOfNearestThurs / 7) + 1;
+    return int( $dayOfNearestThurs / 7 ) + 1;
 }
 
 # Returns the number of...
@@ -532,9 +555,9 @@ If the format is not recognised, will return empty interval [0,0].
 
 sub parseInterval {
     my ($interval) = @_;
-    my @lt    = localtime();
+    my @lt = localtime();
     my $today = sprintf( '%04d-%02d-%02d', $lt[5] + 1900, $lt[4] + 1, $lt[3] );
-    my $now   = $today . sprintf( 'T%02d:%02d:%02d', $lt[2], $lt[1], $lt[0] );
+    my $now = $today . sprintf( 'T%02d:%02d:%02d', $lt[2], $lt[1], $lt[0] );
 
     # replace $now and $today shortcuts
     $interval =~ s/\$today/$today/g;
@@ -544,44 +567,47 @@ sub parseInterval {
     $interval = $interval . '/' . $interval
       unless ( $interval =~ /\// );
 
-    my ($first, $last) = split( /\//, $interval, 2 );
+    my ( $first, $last ) = split( /\//, $interval, 2 );
     my ( $start, $end );
 
     # first translate dates into seconds from epoch,
     # in the second loop we will examine interval durations.
 
     if ( $first !~ /^P/ ) {
+
         # complete with parts from "-01-01T00:00:00"
-        if ( length($first) < length('0000-01-01T00:00:00')) {
-            $first .= substr( '0000-01-01T00:00:00', length( $first ) );
+        if ( length($first) < length('0000-01-01T00:00:00') ) {
+            $first .= substr( '0000-01-01T00:00:00', length($first) );
         }
         $start = parseTime( $first, 1 );
     }
 
-    if ($last !~ /^P/) {
+    if ( $last !~ /^P/ ) {
+
         # complete with parts from "-12-31T23:59:60"
         # check last day of month
-        if ( length( $last ) == 7 ) {
+        if ( length($last) == 7 ) {
             my $month = substr( $last, 5 );
             my $year = substr( $last, 0, 4 );
             my $monthlength = $MONTHLENS[ $month - 1 ];
+
             # If leap year, note February is month number 2 here
-            $monthlength = 29 if ( $month == 2 && _daysInYear($year) == 366 ); 
-            $last .= '-'.$monthlength;
+            $monthlength = 29 if ( $month == 2 && _daysInYear($year) == 366 );
+            $last .= '-' . $monthlength;
         }
-        if ( length($last) < length('0000-12-31T23:59:59')) {
-            $last .= substr( '0000-12-31T23:59:59', length( $last ) );
+        if ( length($last) < length('0000-12-31T23:59:59') ) {
+            $last .= substr( '0000-12-31T23:59:59', length($last) );
         }
         $end = parseTime( $last, 1 );
     }
 
-    if (!defined($start)) {
-        $start = ($end || 0) - _parseDuration( $first );
+    if ( !defined($start) ) {
+        $start = ( $end || 0 ) - _parseDuration($first);
     }
-    if (!defined($end)) {
-        $end = $start + _parseDuration( $last );
+    if ( !defined($end) ) {
+        $end = $start + _parseDuration($last);
     }
-    return ( $start || 0, $end || 0);
+    return ( $start || 0, $end || 0 );
 }
 
 sub _parseDuration {
@@ -598,29 +624,29 @@ sub _parseDuration {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2002 John Talintyre, john.talintyre@btinternet.com
-# Copyright (C) 2002-2007  TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root of
-# this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2002 John Talintyre, john.talintyre@btinternet.com
+Copyright (C) 2002-2007  TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root of
+this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

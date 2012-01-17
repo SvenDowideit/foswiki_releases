@@ -8,7 +8,7 @@ Query searches help you search the contents of forms attached to your topics, as
    1 Parent relationships
    1 File attachment information (but *not* the attached files themselves)
 
-Query searches are defined using a simple SQL-like query language. The language consists of _field specifiers_ and _constants_ joined with _operators_.
+Query searches are defined using a simple query language. The language consists of _field specifiers_ and _constants_ joined with _operators_.
 
 %TOC%
 
@@ -37,8 +37,7 @@ All meta-data in a topic is referenced according to a simple plan.
       * =author=
       * =date=
       * =format=
-      * =rev= - topic revision (=12=) to match =%<nop>REVINFO{'$rev'}%= and FormattedSearch =$rev=
-      * =version= - internal Store topic version (=1.12= for rcs based Stores)
+      * =version= - topic version (integer)
    * =META:TOPICMOVED=
       * =by=
       * =date=
@@ -48,9 +47,10 @@ All meta-data in a topic is referenced according to a simple plan.
       * =name=
    * =META:FIELD= - the fields in the form.
       * _for each field in the form_
-         * =name=
-         * =title=
-         * =value=
+         * =name= - name of the field
+         * =title= - title of the field
+         * =value= - what is stored in the field
+         * =form= - name of the form the field is in (currently always equal to META:FORM.name)
    * =META:PREFERENCE=
       * _for each preference in the topic_
          * =name=
@@ -63,20 +63,20 @@ Most things at the top level of the plan - =META:TOPICPARENT=, =META:TOPICINFO= 
 It's a bit clumsy having to type =META:FILEATTACHMENT= every time you want to refer to the array of attachments in a topic, so there are some predefined aliases that make it a bit less typing:
    * =attachments= means the same as =META:FILEATTACHMENT=
    * =info= means the same as =META:TOPICINFO=
-   * =parent= means the same as =META:TOPICPARENT=
+   * =parent= means the same as =META:TOPICPARENT=. *Note:* =parent= is itself a map; use =parent.name= to access the name of the parent topic
    * =moved= means the same as =META:TOPICMOVED=
    * =form= means the same as =META:FORM=, so to test if a topic has a form named 'UserForm' you test for ="form.name ~ '*.UserForm'"=
-      * You can also use the name of the form in place of =form=. This is in anticipation of the day when you can attach more than one form type to a topic.
    * =fields= means the same as =META:FIELD=, You can also use the name of the form (the value of =form.name= e.g. =PersonForm=)
    * =preferences= means the same as =META:PREFERENCE=
 
 Fields in this plan are referenced using a simple _field specifier_ syntax:
 | *Syntax* | *Means* | *Examples* |
 | =X= | refers to the field named =X=. | =info=, =META:TOPICMOVED=, =attachments=, =name=. |
-| =X.Y= | refers to the entry with the key =Y= in the structure named =X= | =info.date=, =moved.by=, =META:TOPICPARENT.name= |
-| =X[<i>query</i>]= | refers to all the elements of the array =X= that match _query_. If <i>query</i> is of the form =name='Y'= then you can use the same =X.Y= syntax as is used for accessing structures. | =attachments[size>1024]=, =DocumentForm[name!='Summary' AND value~'top secret'].value=, =DocumentForm.Summary= |
-| =X[N]= | where =X= is an array and =N= is an integer number >= 0, gets the Nth element of the array =X= | =attachments[3]= |
+| =X.Y= | refers to the entry with the key =Y= in the structure named =X=. If =X= is an array of structure, then returns an array made up from the =Y= entry of each member of the array. | =info.date=, =moved.by=, =META:TOPICPARENT.name=, =attachments.name= |
+| =X[<i>query</i>]= | refers to all the elements of the array =X= that match _query_. If <i>query</i> is of the form =name='Y'= then you can use the same =X.Y= syntax as is used for accessing structures. | =attachments[size>1024]=, =DocumentContainer[name!='Summary' AND value~'top secret'].value=|
+| =X[N]= | where =X= is an array and =N= is an integer number >= 0, gets the Nth element of the array =X=. If N is a floating point number, the integer part will be used as the index. Negative indices can be used to index the array from the end e.g. =attachments[-1]= to get the last attachment. | =attachments[3]= |
 | =X/Y= | accesses =Y= from the topic specified by the _value_ of =X=. =X= must evaluate to a topic name | =parent.name/(form.name='ExampleForm')= will evaluate to true if (1) the topic has a parent, (2) the parent topic has the main form type =ExampleForm=. |
+| ={X}= | expands to the value of the =configure= setting {X}, if it is accessible, or '' otherwise | only some configuration settings are available: %FORMAT{"%QUERY{"{AccessibleCFG}"}%" type="string" format="=$item=" separator=", "}% |
 
 Note: at some point Foswiki may support multiple forms in the same topic. For this reason you are recommended *not* to use the =fields= shortcut when accessing form fields, but always use the name of the form instead.
 
@@ -87,8 +87,19 @@ There is a shortcut for accessing form fields. If you use the name of a field (f
 If =X= would conflict with the name of an entry or alias (e.g. it's =moved= or maybe =parent=), you can prepend the name of the form followed by a dot, as shown in the last example.
 
 ---++ Constants
-You use constants for the values that you compare with fields. Constants are either strings, or numbers. Strings are always delimited by single-quotes (you can escape a quote using backslash). Numbers can be any integer or floating point number.
-
+You use constants for the values that you compare with fields. Constants are either strings, or numbers.
+---++ String Constants
+String constants are always delimited by single-quotes. You can use backslash =\= to include the following special characters:
+| *Code* | *Meaning* |
+| =\n= | newline |
+| =\t= | tab |
+| =\033= | octal character code |
+| =\x7f | hexadecimal character code |
+| =\x{1234} | heaxadecimal wide character code |
+| =\\= | a single =\= | 
+All other occurrences of backslashes are carried through into the string, so =\d= means =\d= (unless the string is used as a regular expression, in which case it means any digit).
+---++ Numerical constants
+Numbers can be any signed or unsigned integer or floating point number using standard scientific notation e.g. -1.2e-3 represents -0.0012
 ---++ Operators
 
 Field specifiers and constants are combined using _operators_ to create queries.
@@ -96,20 +107,28 @@ Field specifiers and constants are combined using _operators_ to create queries.
 | <code>=</code> | Left-hand side (LHS) exactly matches the value on the Right-hand side (RHS). Numbers and strings can be compared. |
 | <code>!=</code> | Inverse of <code>=</code>. |
 | =~= | wildcard match ('*' will match any number of characters, '?' will match any single character e.g. "PersonForm.Surname ~ '*Smit?'") Note: Surname ~ 'Smith' is the same as Surname = 'Smith' |
+| <code>=~</code> | regular expression match |
 | <code>&lt;</code> | LHS is less than RHS. If both sides are numbers, the order is numeric. Otherwise it is lexical (applies to all comparison operators) |
 | <code>&gt;</code> | greater than |
 | <code>&lt;=</code> | less than or equal to |
 | <code>&gt;=</code> | greater than or equal to |
 | =lc(x)= | Converts x to lower case, Use for caseless comparisons. |
 | =uc(x)= | Converts x to UPPER CASE. Use for caseless comparisons. |
-| =d2n(x)= | Converts a date (expressed in [[TimeSpecifications][one of the formats that Foswiki can parse]]) to a number of seconds since 1st Jan 1970. This is the format dates are stored in inside Foswiki, and you have to convert a string date using =d2n= before you can compare it with - for example - the date an attachment was uploaded. Times without a timezone are assumed to be in server local time. If you have date fields in your forms, note that they are *not* stored in Foswiki's internal format, but are stored as text strings. You should still use =d2n= to convert them to numbers for comparisons, though. |
+| =d2n(x)= | Converts a text string representing a date (expressed in [[TimeSpecifications][one of the formats that Foswiki can parse]]) to a number of seconds since 1st Jan 1970. This is the format dates are stored in inside Foswiki, and you have to convert a string date using =d2n= before you can compare it with - for example - the date an attachment was uploaded. Times without a timezone are assumed to be in server local time. If the text string is not recognised as a valid date, then =d2n= will return =undefined=. |
 | =NOT= | Invert the result of the subquery |
 | =AND= | Combine two subqueries |
 | =OR= | Combine two subqueries |
 | =()= | Bracketed subquery |
 
-%I% The same operators are supported for [[VarIF][%IF statements]].
+<blockquote class="foswikiHelp">
+%I% The same operators are supported by the [[VarIF][%IF]] and [[VarQUERY][%QUERY]] macros.
 
+%I% You can get the current time for date comparisons using SpreadSheetPlugin, thus: =%<nop>CALC{"$TIME()"}%=
+
+%I% If you want to know if a field is undefined (has never been given a value) then you can compare it with =undefined= (this requires that no field called =undefined= exists in the form).
+ 
+%I% In the operators (<code>&#61; !&#61; ~ &#61;~ &lt; &gt; &lt&#61; &gt&#61; NOT AND OR</code>) an undefined operand is treated the same as numerical 0. For =lc uc d2n= an undefined operand will give an undefined result. For =length= and undefined operand will give a result of 0.
+</blockquote>
 ---++ Text and Meta Text
 There are two fields that contain the topic text, =text= and =metatext=. =text= just contains the raw text of the topic, as you would see if you viewed the topic raw. =metatext= contains the text of the topic with MetaData embedded. This can be useful when you want to generate output based on processing meta-data.
 
@@ -134,24 +153,28 @@ A query matches if the query returns one or more values when it is applied to th
 
 ---+++ Search examples
 Find all topics that are children of this topic in the current web
-<verbatim>
+<verbatim class="tml">
 %SEARCH{"parent.name = '%TOPIC%'" web="%WEB%" type="query"}%
 </verbatim>
 Find all topics that have an attachment called 'grunge.gif'
-<verbatim>
+<verbatim class="tml">
 %SEARCH{"attachments[name='grunge.gif']" type="query"}%
 </verbatim>
 Find all topics that have form =ColourForm= where the form field 'Shades' is 'green' or 'yellow' but not 'brown'
-<verbatim>
+<verbatim class="tml">
 %SEARCH{"(lc(Shades)='green' OR lc(Shades)='yellow') AND NOT(lc(Shades) ~ 'brown')" type="query"}%
 </verbatim>
 Find all topics that have PNG attachments that have been added since 26th March 2007
-<verbatim>
+<verbatim class="tml">
 %SEARCH{"attachments[name ~ '*.png' AND date >= d2n('2007-03-26')]" type="query"}%
 </verbatim>
 Find all topics that have a field 'Threat' set to 'Amber' and 'cold virus' somewhere in the topic text.
-<verbatim>
+<verbatim class="tml">
 %SEARCH{"Threat='Amber' AND text ~ '*cold virus*'" type="query"}%
 </verbatim>
-
+Find all topics newer than one week old
+<verbatim class="tml">
+%SEARCH{"info.date >= %CALC{"$TIMEADD($TIME(), -7, day)"}%" type="query"}%
+</verbatim>
 __Related Topics:__ SearchHelp, VarSEARCH, FormattedSearch, Foswiki:System/QuerySearchPatternCookbook
+<!-- %JQREQUIRE{"chili"}% -->

@@ -1,31 +1,10 @@
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this file:
-#
-# Copyright (C) 2007-2008 Sven Dowideit, SvenDowideit@distributedINFORMATION.com
-# and TWiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =begin TML
 
----+ package Foswiki::Users::TopicUserMapping
+---+ package Foswiki::Users::TopicUserMapping @isa Foswiki::UserMapping');
+
+use
 
 The User mapping is the process by which Foswiki maps from a username (a login name)
 to a wikiname and back. It is also where groups are defined.
@@ -46,12 +25,15 @@ Subclasses should be named 'XxxxUserMapping' so that configure can find them.
 =cut
 
 package Foswiki::Users::TopicUserMapping;
-use base 'Foswiki::UserMapping';
+use Foswiki::UserMapping ();
+our @ISA = ('Foswiki::UserMapping');
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
-use Foswiki::Prefs;
+use Foswiki::ListIterator ();
+use Foswiki::Func         ();
 
 #use Monitor;
 #Monitor::MonitorMethod('Foswiki::Users::TopicUserMapping');
@@ -83,14 +65,14 @@ sub new {
     die $@ if $@;
     $this->{passwords} = $implPasswordManager->new($session);
 
-    # if password manager says sorry, we're read only today
-    # 'none' is a special case, as it means we're not actually using the password manager for
-    # registration.
-    if ( $this->{passwords}->readOnly()
+# if password manager says sorry, we're read only today
+# 'none' is a special case, as it means we're not actually using the password manager for
+# registration.
+    if (   $this->{passwords}->readOnly()
         && ( $Foswiki::cfg{PasswordManager} ne 'none' )
         && $Foswiki::cfg{Register}{EnableNewUserRegistration} )
     {
-        $session->logger->log('warning',
+        $session->logger->log( 'warning',
 'TopicUserMapping has TURNED OFF EnableNewUserRegistration, because the password file is read only.'
         );
         $Foswiki::cfg{Register}{EnableNewUserRegistration} = 0;
@@ -158,7 +140,6 @@ define $this->{mapping_id} = 'TopicUserMapping_';
 
 sub handlesUser {
     my ( $this, $cUID, $login, $wikiname ) = @_;
-
     if ( defined $cUID && !length( $this->{mapping_id} ) ) {
 
         # Handle all cUIDs if the mapping ID is not defined
@@ -175,7 +156,7 @@ sub handlesUser {
 
     # Or the wiki name
     if ($wikiname) {
-        _loadMapping($this);    # Sorry Sven, has to be done
+        $this->_loadMapping();    # Sorry Sven, has to be done
         return 1 if defined $this->{W2U}->{$wikiname};
     }
 
@@ -200,7 +181,7 @@ sub login2cUID {
     my ( $this, $login, $dontcheck ) = @_;
 
     unless ($dontcheck) {
-        return undef unless ( _userReallyExists( $this, $login ) );
+        return unless ( _userReallyExists( $this, $login ) );
     }
 
     return $this->{mapping_id} . Foswiki::Users::mapLogin2cUID($login);
@@ -218,7 +199,7 @@ Converts an internal cUID to that user's login
 sub getLoginName {
     my ( $this, $cUID ) = @_;
     ASSERT($cUID) if DEBUG;
-    
+
     my $login = $cUID;
 
     #can't call userExists - its recursive
@@ -234,11 +215,11 @@ sub getLoginName {
     $login =~ s/_([0-9a-f][0-9a-f])/chr(hex($1))/gei;
     no bytes;
 
-    return undef unless _userReallyExists( $this, $login );
-    return undef unless ($cUID eq $this->login2cUID($login));
+    return unless _userReallyExists( $this, $login );
+    return unless ( $cUID eq $this->login2cUID($login) );
 
     # Validated
-    return Foswiki::Sandbox::untaintUnchecked( $login );
+    return Foswiki::Sandbox::untaintUnchecked($login);
 }
 
 # test if the login is in the WikiUsers topic, or in the password file
@@ -249,7 +230,7 @@ sub _userReallyExists {
     if ( $Foswiki::cfg{Register}{AllowLoginName} ) {
 
         # need to use the WikiUsers file
-        _loadMapping($this);
+        $this->_loadMapping();
         return 1 if ( defined( $this->{L2U}->{$login} ) );
     }
 
@@ -261,7 +242,7 @@ sub _userReallyExists {
         my $pass = $this->{passwords}->fetchPass($login);
         return unless ( defined($pass) );
         return if ( $pass eq '0' );    # login invalid... (SMELL: what
-                                         # does that really mean)
+                                       # does that really mean)
         return 1;
     }
     else {
@@ -321,37 +302,45 @@ sub addUser {
             $password = Foswiki::Users::randomPassword();
         }
 
-        unless ( $this->{passwords}->setPassword( $login, $password ) == 1) {
+        unless ( $this->{passwords}->setPassword( $login, $password ) == 1 ) {
 
-           #print STDERR "\n Failed to add user:  ".$this->{passwords}->error();
             throw Error::Simple(
                 'Failed to add user: ' . $this->{passwords}->error() );
         }
     }
 
-    my $store = $this->{session}->{store};
-    my ( $meta, $text );
+    my $usersTopicObject;
 
     if (
-        $store->topicExists(
+        $this->{session}->topicExists(
             $Foswiki::cfg{UsersWebName},
             $Foswiki::cfg{UsersTopicName}
         )
       )
     {
-        ( $meta, $text ) = $store->readTopic(
-            undef,
+
+        # Load existing users topic
+        $usersTopicObject = Foswiki::Meta->load(
+            $this->{session},
             $Foswiki::cfg{UsersWebName},
             $Foswiki::cfg{UsersTopicName}
         );
     }
     else {
-        ( $meta, $text ) = $store->readTopic( undef, $Foswiki::cfg{SystemWebName},
+
+        # Construct a new users topic from the template
+        my $templateTopicObject =
+          Foswiki::Meta->load( $this->{session}, $Foswiki::cfg{SystemWebName},
             'UsersTemplate' );
+        $usersTopicObject = Foswiki::Meta->new(
+            $this->{session},              $Foswiki::cfg{UsersWebName},
+            $Foswiki::cfg{UsersTopicName}, $templateTopicObject->text()
+        );
+
+        $usersTopicObject->copyFrom($templateTopicObject);
     }
 
-    my $result = '';
-    my $entry  = "   * $wikiname - ";
+    my $entry = "   * $wikiname - ";
     $entry .= $login . " - " if $login;
 
     require Foswiki::Time;
@@ -368,7 +357,9 @@ sub addUser {
  # insidelist is used to see if we are before the first record or after the last
  # 0 before, 1 inside, 2 after
     my $insidelist = 0;
-    foreach my $line ( split( /\r?\n/, $text ) ) {
+    my $input      = $usersTopicObject->text();
+    my $output     = '';
+    foreach my $line ( split( /\r?\n/, $input || '' ) ) {
 
         # TODO: I18N fix here once basic auth problem with 8-bit user names is
         # solved
@@ -378,9 +369,10 @@ sub addUser {
 /^\s+\*\s($Foswiki::regex{webNameRegex}\.)?($Foswiki::regex{wikiWordRegex})\s*(?:-\s*\w+\s*)?-\s*(.*)/
               )
             {
-                $web        = $1 || $Foswiki::cfg{UsersWebName};
-                $name       = $2;
-                $odate      = $3;
+                $web   = $1 || $Foswiki::cfg{UsersWebName};
+                $name  = $2;
+                $odate = $3;
+
                 # Filter-in date format dd Mmm yyyy
                 $odate = '' unless $odate =~ /^\d+\s+[A-Za-z]+\s+\d+$/;
                 $insidelist = 1;
@@ -419,22 +411,23 @@ sub addUser {
             }
         }
 
-        $result .= $line . "\n";
+        $output .= $line . "\n";
     }
     if ($entry) {
 
         # brand new file - add to end
-        $result .= "$entry$today\n";
+        $output .= "$entry$today\n";
     }
-    try {
-        $store->saveTopic(
+    $usersTopicObject->text($output);
 
-            # SMELL: why is this Admin and not the RegoAgent??
-            $this->{session}->{users}
-              ->getCanonicalUserID( $Foswiki::cfg{AdminUserLogin} ),
-            $Foswiki::cfg{UsersWebName},
-            $Foswiki::cfg{UsersTopicName},
-            $result, $meta
+    $this->{CACHED} = 0;
+    try {
+        $usersTopicObject->save(
+            author =>
+
+              # SMELL: why is this Admin and not the RegoAgent??
+              $this->{session}->{users}
+              ->getCanonicalUserID( $Foswiki::cfg{AdminUserLogin} )
         );
     }
     catch Error::Simple with {
@@ -491,7 +484,7 @@ sub getWikiName {
     my $wikiname;
 
     if ( $Foswiki::cfg{Register}{AllowLoginName} ) {
-        _loadMapping($this);
+        $this->_loadMapping();
         $wikiname = $this->{U2W}->{$cUID};
     }
     else {
@@ -547,7 +540,11 @@ sub userExists {
         #if there is no pwd file, then its external auth
         #and if AllowLoginName is also off, then the only way to know if
         #the user has registered is to test for user topic?
-        if ( Foswiki::Func::topicExists( $Foswiki::cfg{UsersWebName}, $loginName ) )
+        if (
+            Foswiki::Func::topicExists(
+                $Foswiki::cfg{UsersWebName}, $loginName
+            )
+          )
         {
             return 1;
         }
@@ -558,7 +555,7 @@ sub userExists {
 
 =begin TML
 
----++ ObjectMethod eachUser () -> Foswiki::ListIterator of cUIDs
+---++ ObjectMethod eachUser () -> Foswiki::Iterator of cUIDs
 
 See baseclass for documentation
 
@@ -567,9 +564,8 @@ See baseclass for documentation
 sub eachUser {
     my ($this) = @_;
 
-    _loadMapping($this);
+    $this->_loadMapping();
     my @list = keys( %{ $this->{U2W} } );
-    require Foswiki::ListIterator;
     my $iter = new Foswiki::ListIterator( \@list );
     $iter->{filter} = sub {
 
@@ -598,30 +594,32 @@ sub eachGroupMember {
     my $this  = shift;
     my $group = shift;
 
+    if ( Scalar::Util::tainted($group) ) {
+        $group = Foswiki::Sandbox::untaint( $group,
+            \&Foswiki::Sandbox::validateTopicName );
+    }
+
     return new Foswiki::ListIterator( $this->{eachGroupMember}->{$group} )
       if ( defined( $this->{eachGroupMember}->{$group} ) );
 
-    my $store = $this->{session}->{store};
-    my $users = $this->{session}->{users};
+    my $session = $this->{session};
+    my $users   = $session->{users};
 
     my $members = [];
     if (  !$expanding{$group}
-        && $store->topicExists( $Foswiki::cfg{UsersWebName}, $group ) )
+        && $session->topicExists( $Foswiki::cfg{UsersWebName}, $group ) )
     {
         $expanding{$group} = 1;
+        my $groupTopicObject =
+          Foswiki::Meta->load( $this->{session}, $Foswiki::cfg{UsersWebName},
+            $group );
 
-#can't use session's Prefs as it caches the topic, whereas this code previously re-read the topic and re-parsed the setting
-#$Foswiki::Plugins::SESSION->{prefs}->getTopicPreferencesValue('GROUP', $Foswiki::cfg{UsersWebName}, $group) 
-        my $pref = new Foswiki::Prefs( $this->{session} );
-        my $groupSettingString = $pref->getTopicPreferencesValue('GROUP', $Foswiki::cfg{UsersWebName}, $group);
-	
         $members =
-          _expandUserList( $this, $groupSettingString);
+          _expandUserList( $this, $groupTopicObject->getPreference('GROUP') );
         delete $expanding{$group};
     }
     $this->{eachGroupMember}->{$group} = $members;
 
-    require Foswiki::ListIterator;
     return new Foswiki::ListIterator( $this->{eachGroupMember}->{$group} );
 }
 
@@ -639,7 +637,20 @@ sub isGroup {
     # Groups have the same username as wikiname as canonical name
     return 1 if $user eq $Foswiki::cfg{SuperAdminGroup};
 
-    return $user =~ /Group$/;
+    return 0 unless ( $user =~ /Group$/ );
+
+   #actually test for the existance of this group
+   #TODO: SMELL: this is still a lie, because it will claim that a
+   #Group which the currently logged in user does _not_
+   #have VIEW permission for simply is non-existant.
+   #however, this may be desirable for security reasons.
+   #SMELL: this is why we should not use topicExist to test for createability...
+    my $iterator = $this->eachGroup();
+    while ( $iterator->hasNext() ) {
+        my $groupname = $iterator->next();
+        return 1 if ( $groupname eq $user );
+    }
+    return 0;
 }
 
 =begin TML
@@ -653,7 +664,6 @@ See baseclass for documentation
 sub eachGroup {
     my ($this) = @_;
     _getListOfGroups($this);
-    require Foswiki::ListIterator;
     return new Foswiki::ListIterator( \@{ $this->{groupsList} } );
 }
 
@@ -669,12 +679,313 @@ sub eachMembership {
     my ( $this, $user ) = @_;
 
     _getListOfGroups($this);
-    require Foswiki::ListIterator;
     my $it = new Foswiki::ListIterator( \@{ $this->{groupsList} } );
     $it->{filter} = sub {
         $this->isInGroup( $user, $_[0] );
     };
     return $it;
+}
+
+=begin TML
+
+---++ ObjectMethod groupAllowsView($group) -> boolean
+
+returns 1 if the group is able to be viewed by the current logged in user
+
+implemented using topic VIEW permissions
+
+=cut
+
+sub groupAllowsView {
+    my $this  = shift;
+    my $Group = shift;
+
+    my $user = $this->{session}->{user};
+    return 1 if $this->{session}->{users}->isAdmin($user);
+
+    $Group = Foswiki::Sandbox::untaint( $Group,
+        \&Foswiki::Sandbox::validateTopicName );
+    my ( $groupWeb, $groupName ) =
+      $this->{session}
+      ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $Group );
+
+    $groupName = undef
+      if ( not $this->{session}->topicExists( $groupWeb, $groupName ) );
+
+    return Foswiki::Func::checkAccessPermission( 'VIEW', $user, undef,
+        $groupName, $groupWeb );
+}
+
+=begin TML
+
+---++ ObjectMethod groupAllowsChange($group, $cuid) -> boolean
+
+returns 1 if the group is able to be modified by $cuid
+
+implemented using topic CHANGE permissions
+
+=cut
+
+sub groupAllowsChange {
+    my $this  = shift;
+    my $Group = shift;
+    my $user  = shift;
+    ASSERT( defined $user ) if DEBUG;
+
+    return 1 if $this->{session}->{users}->isAdmin($user);
+
+    $Group = Foswiki::Sandbox::untaint( $Group,
+        \&Foswiki::Sandbox::validateTopicName );
+    my ( $groupWeb, $groupName ) =
+      $this->{session}
+      ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $Group );
+
+    $groupName = undef
+      if ( not $this->{session}->topicExists( $groupWeb, $groupName ) );
+
+    return Foswiki::Func::checkAccessPermission( 'CHANGE', $user, undef,
+        $groupName, $groupWeb );
+}
+
+=begin TML
+
+---++ ObjectMethod addToGroup( $cuid, $group, $create ) -> $boolean
+adds the user specified by the cuid to the group.
+If the group does not exist, it will return false and do nothing, unless the create flag is set.
+
+cuid _cannot_  be a groupname
+
+=cut
+
+sub addUserToGroup {
+    my ( $this, $cuid, $Group, $create ) = @_;
+    $Group = Foswiki::Sandbox::untaint( $Group,
+        \&Foswiki::Sandbox::validateTopicName );
+    my ( $groupWeb, $groupName ) =
+      $this->{session}
+      ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $Group );
+
+    #the registration code will call this function using the rego agent
+    my $user = $this->{session}->{user};
+
+#open Group topic, parse for the GROUPs setting, append new user
+#find where GROUP is set, use that code if we can, so that when it goes multi-line it copes
+#TODO: LATER: check for duplicates
+#TODO: make sure the groupName ends in Group...
+
+    my $usersObj = $this->{session}->{users};
+
+    print STDERR "$user, aka("
+      . $usersObj->getWikiName($user)
+      . ") is TRYING to add $cuid aka("
+      . $usersObj->getWikiName($cuid)
+      . ") to $groupName\n"
+      if DEBUG;
+
+    my $membersString = '';
+    my $allowChangeString;
+    my $groupTopicObject;
+
+    if ( $usersObj->isGroup($groupName) ) {
+
+       #if you set create for a group that exists, use that to force an upgrade.
+        if ( ( not $create ) and $usersObj->isInGroup( $cuid, $groupName ) ) {
+
+            #TODO: not sure this is the right thing to do -
+            #it might make more sense to not expand the nested groups,
+            #and add a user if they're not listed here,
+            #that way we are able to not worry about subgroups changing.
+            return 1;    #user already in group, nothing to do
+        }
+        $groupTopicObject =
+          Foswiki::Meta->load( $this->{session}, $groupWeb, $groupName );
+
+        if ( !$groupTopicObject->haveAccess( 'CHANGE', $user ) ) {
+
+            #can't change topic.
+            return 0;
+        }
+
+        $membersString = $groupTopicObject->getPreference('GROUP') || '';
+        if ( $create and !defined($cuid) ) {
+
+            #upgrade group topic.
+            $this->_writeGroupTopic(
+                $groupTopicObject, $groupWeb, $groupName,
+                $membersString,    $allowChangeString
+            );
+
+            return 1;
+        }
+    }
+    else {
+
+ #see if we have permission to add a topic, or to edit the existing topic, etc..
+        return 0 unless ($create);
+        return 0
+          unless (
+            Foswiki::Func::checkAccessPermission(
+                'CHANGE', $user, '', $groupName, $groupWeb
+            )
+          );
+
+        $groupTopicObject =
+          Foswiki::Meta->load( $this->{session}, $groupWeb, 'GroupTemplate' );
+
+        #expand the GroupTemplate as best we can.
+        $this->{session}->{request}
+          ->param( -name => 'topic', -value => $groupName );
+        $groupTopicObject->expandNewTopic();
+
+        $allowChangeString = $groupName;
+    }
+    $membersString .= ', ' if ( $membersString ne '' );
+    my $wikiName = $usersObj->getWikiName($cuid);
+    $membersString .= $wikiName;
+
+    #SMELL: TopicUserMapping specific - we don't refresh Groups cache :(
+    #push(@{$this->{eachGroupMember}->{$groupName}}, $cuid);
+
+    $this->_writeGroupTopic(
+        $groupTopicObject, $groupWeb, $groupName,
+        $membersString,    $allowChangeString
+    );
+
+    #reparse groups brute force :/
+    _getListOfGroups( $this, 1 ) if ($create);
+    return 1;
+}
+
+#start by just writing the new form.
+sub _writeGroupTopic {
+    my $this              = shift;
+    my $groupTopicObject  = shift;
+    my $groupWeb          = shift;
+    my $groupName         = shift;
+    my $membersString     = shift;
+    my $allowChangeString = shift;
+
+    my $text = $groupTopicObject->text() || '';
+
+#TODO: do an attempt to convert existing old style topics - compare to 'normal' GroupTemplate? (I'm hoping to keep any user added descriptions for the group
+    if ( ( !defined $groupTopicObject->getPreference('VIEW_TEMPLATE')
+             or $groupTopicObject->getPreference('VIEW_TEMPLATE') ne 'GroupView' )
+        or ( $text =~ /^---\+!! <nop>.*$/ )
+        or ( $text =~ /^(\t|   )+\* Set GROUP = .*$/ )
+        or ( $text =~ /^(\t|   )+\* Member list \(comma-separated list\):$/ )
+        or ( $text =~ /^(\t|   )+\* Persons\/group who can change the list:$/ )
+        or ( $text =~ /^(\t|   )+\* Set ALLOWTOPICCHANGE = .*$/ )
+        or ( $text =~ /^\*%MAKETEXT{"Related topics:"}%.*$/ ) )
+    {
+        if ( !defined($allowChangeString) ) {
+            $allowChangeString =
+              $groupTopicObject->getPreference('ALLOWTOPICCHANGE') || '';
+        }
+
+        $text =~ s/^---\+!! <nop>.*$//s;
+        $text =~ s/^(\t|   )+\* Set GROUP = .*$//s;
+        $text =~ s/^(\t|   )+\* Member list \(comma-separated list\):$//s;
+        $text =~ s/^(\t|   )+\* Persons\/group who can change the list:$//s;
+        $text =~ s/^(\t|   )+\* Set ALLOWTOPICCHANGE = .*$//s;
+        $text =~ s/^\*%MAKETEXT{"Related topics:"}%.*$//s;
+
+        $text .= "\nEdit this topic to add a description to the $groupName\n";
+
+#TODO: consider removing the VIEW_TEMPLATE that only very few people should ever have...
+    }
+
+    $groupTopicObject->text($text);
+
+    $groupTopicObject->putKeyed(
+        'PREFERENCE',
+        {
+            type  => 'Set',
+            name  => 'GROUP',
+            title => 'GROUP',
+            value => $membersString
+        }
+    );
+    if ( defined($allowChangeString) ) {
+        $groupTopicObject->putKeyed(
+            'PREFERENCE',
+            {
+                type  => 'Set',
+                name  => 'ALLOWTOPICCHANGE',
+                title => 'ALLOWTOPICCHANGE',
+                value => $allowChangeString
+            }
+        );
+    }
+    $groupTopicObject->putKeyed(
+        'PREFERENCE',
+        {
+            type  => 'Set',
+            name  => 'VIEW_TEMPLATE',
+            title => 'VIEW_TEMPLATE',
+            value => 'GroupView'
+        }
+    );
+    #TODO: should also consider securing the new topic?
+    my $user = $this->{session}->{user};
+    $groupTopicObject->saveAs( $groupWeb, $groupName, -author => $user );
+
+}
+
+=begin TML
+
+---++ ObjectMethod removeFromGroup( $cuid, $group ) -> $boolean
+
+=cut
+
+sub removeUserFromGroup {
+    my ( $this, $cuid, $groupName ) = @_;
+    $groupName = Foswiki::Sandbox::untaint( $groupName,
+        \&Foswiki::Sandbox::validateTopicName );
+    my ( $groupWeb, $groupTopic ) =
+      $this->{session}
+      ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $groupName );
+
+    my $user     = $this->{session}->{user};
+    my $usersObj = $this->{session}->{users};
+
+    if (
+        $usersObj->isGroup($groupName)
+        and ( $this->{session}
+            ->topicExists( $Foswiki::cfg{UsersWebName}, $groupName ) )
+      )
+    {
+        if ( !$usersObj->isInGroup( $cuid, $groupName ) ) {
+
+            return 1;    #user not in group - done
+        }
+        my $groupTopicObject =
+          Foswiki::Meta->load( $this->{session}, $Foswiki::cfg{UsersWebName},
+            $groupName );
+        if ( !$groupTopicObject->haveAccess( 'CHANGE', $user ) ) {
+
+            return 0;    #can't change topic.
+        }
+
+        my $WikiName  = $usersObj->getWikiName($cuid);
+        my $LoginName = $usersObj->getLoginName($cuid);
+
+        my $membersString = $groupTopicObject->getPreference('GROUP');
+        my @l;
+        foreach my $ident ( split( /[\,\s]+/, $membersString ) ) {
+            next if ( $ident eq $WikiName );
+            next if ( $ident eq $LoginName );
+            next if ( $ident eq $cuid );
+            push( @l, $ident );
+        }
+        $membersString = join( ', ', @l );
+
+        $this->_writeGroupTopic( $groupTopicObject, $groupWeb, $groupTopic,
+            $membersString );
+
+        return 1;
+    }
+
+    return 0;
 }
 
 =begin TML
@@ -842,8 +1153,8 @@ from Wiki topics.
 sub mapper_getEmails {
     my ( $session, $user ) = @_;
 
-    my ( $meta, $text ) = $session->{store}->readTopic(
-        undef,
+    my $topicObject = Foswiki::Meta->load(
+        $session,
         $Foswiki::cfg{UsersWebName},
         $session->{users}->getWikiName($user)
     );
@@ -851,15 +1162,16 @@ sub mapper_getEmails {
     my @addresses;
 
     # Try the form first
-    my $entry = $meta->get( 'FIELD', 'Email' );
+    my $entry = $topicObject->get( 'FIELD', 'Email' );
     if ($entry) {
         push( @addresses, split( /;/, $entry->{value} ) );
     }
     else {
 
         # Now try the topic text
-        foreach my $l ( split( /\r?\n/, $text ) ) {
+        foreach my $l ( split( /\r?\n/, $topicObject->text ) ) {
             if ( $l =~ /^\s+\*\s+E-?mail:\s*(.*)$/mi ) {
+
                 # SMELL: implicit unvalidated untaint
                 push @addresses, split( /;/, $1 );
             }
@@ -886,13 +1198,13 @@ sub mapper_setEmails {
 
     my $user = $session->{users}->getWikiName($cUID);
 
-    my ( $meta, $text ) =
-      $session->{store}->readTopic( undef, $Foswiki::cfg{UsersWebName}, $user );
+    my $topicObject =
+      Foswiki::Meta->load( $session, $Foswiki::cfg{UsersWebName}, $user );
 
-    if ( $meta->get('FORM') ) {
+    if ( $topicObject->get('FORM') ) {
 
         # use the form if there is one
-        $meta->putKeyed(
+        $topicObject->putKeyed(
             'FIELD',
             {
                 name       => 'Email',
@@ -905,13 +1217,14 @@ sub mapper_setEmails {
     else {
 
         # otherwise use the topic text
+        my $text = $topicObject->text() || '';
         unless ( $text =~ s/^(\s+\*\s+E-?mail:\s*).*$/$1$mails/mi ) {
             $text .= "\n   * Email: $mails\n";
         }
+        $topicObject->text($text);
     }
 
-    $session->{store}
-      ->saveTopic( $cUID, $Foswiki::cfg{UsersWebName}, $user, $text, $meta );
+    $topicObject->save();
 }
 
 =begin TML
@@ -936,7 +1249,7 @@ sub findUserByWikiName {
     elsif ( $Foswiki::cfg{Register}{AllowLoginName} ) {
 
         # Add additional mappings defined in WikiUsers
-        _loadMapping($this);
+        $this->_loadMapping();
         if ( $this->{W2U}->{$wn} ) {
 
             # Wikiname to UID mapping is defined
@@ -945,11 +1258,11 @@ sub findUserByWikiName {
         }
         else {
 
-            # Bloody compatibility!
-            # The wikiname is always a registered user for the purposes of this
-            # mapping. We have to do this because Foswiki defines access controls
-            # in terms of mapped users, and if a wikiname is *missing* from the
-            # mapping there is "no such user".
+           # Bloody compatibility!
+           # The wikiname is always a registered user for the purposes of this
+           # mapping. We have to do this because Foswiki defines access controls
+           # in terms of mapped users, and if a wikiname is *missing* from the
+           # mapping there is "no such user".
             my $user = $this->login2cUID($wn);
             push( @users, $user ) if $user;
         }
@@ -1006,10 +1319,9 @@ Otherwise returns 1 on success, undef on failure.
 
 sub setPassword {
     my ( $this, $user, $newPassU, $oldPassU ) = @_;
-    ASSERT( $user ) if DEBUG; 
+    ASSERT($user) if DEBUG;
     my $login = $this->getLoginName($user) || $user;
-    return $this->{passwords}
-      ->setPassword( $login, $newPassU, $oldPassU );
+    return $this->{passwords}->setPassword( $login, $newPassU, $oldPassU );
 }
 
 =begin TML
@@ -1034,9 +1346,10 @@ sub _cacheUser {
     ASSERT($wikiname) if DEBUG;
 
     $login ||= $wikiname;
-    
+
     #discard users that are the BaseUserMapper's responsibility
-    return if ( $this->{session}->{users}->{basemapping}
+    return
+      if ( $this->{session}->{users}->{basemapping}
         ->handlesUser( undef, $login, $wikiname ) );
 
     my $cUID = $this->login2cUID( $login, 1 );
@@ -1061,10 +1374,12 @@ sub _collateGroups {
 
 # get a list of groups defined in this Wiki
 sub _getListOfGroups {
-    my $this = shift;
+    my $this  = shift;
+    my $reset = shift;
+
     ASSERT( $this->isa('Foswiki::Users::TopicUserMapping') ) if DEBUG;
 
-    unless ( $this->{groupsList} ) {
+    if ( !$this->{groupsList} || $reset ) {
         my $users = $this->{session}->{users};
         $this->{groupsList} = [];
 
@@ -1074,12 +1389,11 @@ sub _getListOfGroups {
                 list  => $this->{groupsList},
                 users => $users
             },
-            inline    => 1,
-            search    => "1",
             web       => $Foswiki::cfg{UsersWebName},
             topic     => "*Group",
-            type      => 'query',
             scope     => 'topic',
+            search    => '1',
+            type      => 'query',
             nosummary => 'on',
             nosearch  => 'on',
             noheader  => 'on',
@@ -1097,7 +1411,8 @@ sub _getListOfGroups {
 # PRIVATE subclasses should *not* implement this.
 sub _loadMapping {
     my $this = shift;
-    return if $this->{CACHED};
+
+    #return if $this->{CACHED};
     $this->{CACHED} = 1;
 
   #TODO: should only really do this mapping IF the user is in the password file.
@@ -1107,19 +1422,20 @@ sub _loadMapping {
     if (   ( $Foswiki::cfg{Register}{AllowLoginName} )
         || ( !$this->{passwords}->canFetchUsers() ) )
     {
-        my $store = $this->{session}->{store};
+        my $session = $this->{session};
         if (
-            $store->topicExists(
+            $session->topicExists(
                 $Foswiki::cfg{UsersWebName},
                 $Foswiki::cfg{UsersTopicName}
             )
           )
         {
-            my $text = $store->readTopicRaw(
-                undef,
+            my $usersTopicObject = Foswiki::Meta->load(
+                $session,
                 $Foswiki::cfg{UsersWebName},
-                $Foswiki::cfg{UsersTopicName}, undef
+                $Foswiki::cfg{UsersTopicName}
             );
+            my $text = $usersTopicObject->text() || '';
 
             # Get the WikiNames and userids, and build hashes in both directions
             # This matches:
@@ -1180,3 +1496,27 @@ sub _expandUserList {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2007-2008 Sven Dowideit, SvenDowideit@fosiki.com
+and TWiki Contributors. All Rights Reserved.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

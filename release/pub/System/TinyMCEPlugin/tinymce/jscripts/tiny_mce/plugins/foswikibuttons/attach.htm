@@ -13,7 +13,7 @@
     <body style="display: none">
       <div class="tabs">
         <ul>
-          <li id="general_tab" class="current"><span><a href="javascript:mcTabs.displayTab('general_tab','general_panel');" onmousedown="return false;">{#foswikibuttons_dlg.general_tab}</a></span></li>
+          <li id="general_tab" class="current"><span><a href="javascript:mcTabs.displayTab('general_tab','general_panel');" onmousedown="AttachDlg.init();return false;">{#foswikibuttons_dlg.general_tab}</a></span></li>
           <li id="upload_tab"><span><a href="javascript:mcTabs.displayTab('upload_tab','upload_panel');" onmousedown="return false;">{#foswikibuttons_dlg.upload_tab}</a></span></li>
         </ul>
       </div>
@@ -35,10 +35,9 @@
                 <input type="button" id="insert" name="insert" value="{#foswikibuttons_dlg.insert_attachment_link}" onclick="AttachDlg.insertLink();" />
               </div>
               <div style="float: right">
-                <input type="button" id="cancel" name="cancel" value="{#cancel}" onclick="tinyMCEPopup.close();" />
+                <input type="button" id="cancel" name="close" value="{#foswikibuttons_dlg.close}" onclick="tinyMCEPopup.close();" />
               </div>
             </fieldset>
-            <label>{#foswikibuttons_dlg.attach_help}</label>
           </div>
           <div id="upload_panel" class="panel">
             <legend>{#foswikibuttons_dlg.fieldset_upload_tab}</legend>
@@ -69,7 +68,7 @@
                 <input type="submit" id="insert" name="insert" value="{#foswikibuttons_dlg.upload}" />
               </div>
               <div style="float: right">
-                <input type="button" id="cancel" name="cancel" value="{#cancel}" onclick="tinyMCEPopup.close();" />
+                <input type="button" id="cancel" name="close" value="{#foswikibuttons_dlg.close}" onclick="tinyMCEPopup.close();" />
               </div>
               <br clear="all" />
               <iframe name="status_frame" style="display: block" width="100%" height="50px">

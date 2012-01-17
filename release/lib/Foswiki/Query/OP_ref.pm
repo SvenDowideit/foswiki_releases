@@ -1,4 +1,4 @@
-# See bottom of file for copyright and license details
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -7,10 +7,14 @@
 =cut
 
 package Foswiki::Query::OP_ref;
-use base 'Foswiki::Query::BinaryOP';
 
 use strict;
+use warnings;
+use Foswiki::Query::BinaryOP ();
+our @ISA = ('Foswiki::Query::BinaryOP');
+
 use Error qw( :try );
+use Assert;
 
 sub new {
     my $class = shift;
@@ -22,14 +26,14 @@ sub evaluate {
     my $pnode  = shift;
     my %domain = @_;
 
-    my $session = $domain{tom}->session;
-    my $topic   = $domain{tom}->topic;
+    eval "require $Foswiki::cfg{Store}{QueryAlgorithm}";
+    die $@ if $@;
 
     my $a    = $pnode->{params}[0];
     my $node = $a->evaluate(@_);
-    return undef unless defined $node;
+    return unless defined $node;
     if ( ref($node) eq 'HASH' ) {
-        return undef;
+        return;
     }
     if ( !( ref($node) eq 'ARRAY' ) ) {
         $node = [$node];
@@ -39,12 +43,14 @@ sub evaluate {
 
         # Has to be relative to the web of the topic we are querying
         my ( $w, $t ) =
-          $session->normalizeWebTopicName( $session->{webName}, $v );
-        my $result = undef;
+          $Foswiki::Plugins::SESSION->normalizeWebTopicName(
+            $Foswiki::Plugins::SESSION->{webName}, $v );
         try {
-            my $submeta = $domain{tom}->getMetaFor( $w, $t );
-            my $b       = $pnode->{params}[1];
-            my $res     = $b->evaluate( tom => $submeta, data => $submeta );
+            my $submeta =
+              $Foswiki::cfg{Store}{QueryAlgorithm}
+              ->getRefTopic( $domain{tom}, $w, $t );
+            my $b = $pnode->{params}[1];
+            my $res = $b->evaluate( tom => $submeta, data => $submeta );
             if ( ref($res) eq 'ARRAY' ) {
                 push( @result, @$res );
             }
@@ -52,30 +58,40 @@ sub evaluate {
                 push( @result, $res );
             }
         }
-        catch Error::Simple with {};
+        catch Error::Simple with {
+            print STDERR "ERROR IN OP_ref: $_[0]->{-text}" if DEBUG;
+        };
     }
-    return undef unless scalar(@result);
+    return unless scalar(@result);
     return $result[0] if scalar(@result) == 1;
     return \@result;
 }
 
+sub evaluatesToConstant {
+    my $this = shift;
+    my $node = shift;
+    return 1 if $node->{params}[0]->evaluatesToConstant(@_);
+
+    # param[1] may contain non-constant terms, but that's OK because
+    # they are evaluated relative to the (constant) param[0]
+    return 0;
+}
+
 1;
+__END__
+Author: Crawford Currie http://c-dot.co.uk
 
-__DATA__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
 
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2007 TWiki Contributors. All Rights Reserved.
+
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License
 as published by the Free Software Foundation; either version 2
@@ -87,5 +103,3 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
 As per the GPL, removal of this notice is prohibited.
-
-Author: Crawford Currie http://c-dot.co.uk

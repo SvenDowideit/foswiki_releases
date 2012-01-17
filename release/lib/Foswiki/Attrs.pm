@@ -20,7 +20,7 @@ values, spaces around the =, and commas as well as spaces separating values.
 The extended syntax has to be enabled by passing the =$friendly= parameter
 to =new=.
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 8969 (2010-09-08) $)
+API version $Date: 2010-05-18 10:53:32 +0200 (Tue, 18 May 2010) $ (revision $Rev: 9498 (2010-10-04) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -47,13 +47,15 @@ the function or parameter.
 package Foswiki::Attrs;
 
 use strict;
+use warnings;
 use Assert;
 
-our $VERSION = '$Rev: 8969 (2010-09-08) $';
+our $VERSION = '$Rev: 9498 (2010-10-04) $';
 
 our $ERRORKEY   = '_ERROR';
 our $DEFAULTKEY = '_DEFAULT';
 our $RAWKEY     = '_RAW';
+our $MARKER     = "\0";
 
 =begin TML
 
@@ -77,8 +79,7 @@ sub new {
 
     return $this unless defined($string);
 
-    $string =~
-      s/\\(["'])/$Foswiki::TranslationToken.sprintf("%.2u", ord($1))/ge; # escapes
+    $string =~ s/\\(["'])/$MARKER.sprintf("%.2u", ord($1))/ge;    # escapes
 
     my $sep = ( $friendly ? "[\\s,]" : "\\s" );
     my $first = 1;
@@ -100,6 +101,7 @@ sub new {
               unless defined( $this->{$DEFAULTKEY} );
             $first = 0;
         }
+
         elsif ($friendly) {
 
             # name='value' pairs
@@ -126,6 +128,7 @@ sub new {
 
             # otherwise the whole string - sans padding - is the default
             else {
+
                 # SMELL: unchecked implicit untaint?
                 if ( $string =~ m/^\s*(.*?)\s*$/s
                     && !defined( $this->{$DEFAULTKEY} ) )
@@ -135,6 +138,7 @@ sub new {
                 last;
             }
         }
+
         # SMELL: unchecked implicit untaint?
         elsif ( $string =~ m/^\s*(.*?)\s*$/s ) {
             $this->{$DEFAULTKEY} = $1 if ($first);
@@ -142,7 +146,7 @@ sub new {
         }
     }
     foreach my $k ( keys %$this ) {
-        $this->{$k} =~ s/$Foswiki::TranslationToken(\d\d)/chr($1)/geo;   # escapes
+        $this->{$k} =~ s/$MARKER(\d\d)/chr($1)/geo;    # escapes
     }
     return $this;
 }
@@ -222,7 +226,7 @@ sub extractValue {
 
     my $value = '';
     return $value unless ($str);
-    $str =~ s/\\\"/\\$Foswiki::TranslationToken/g;    # escape \"
+    $str =~ s/\\\"/\\$MARKER/g;    # escape \"
 
     if ($name) {
 
@@ -257,7 +261,7 @@ sub extractValue {
             $value = $str;
         }
     }
-    $value =~ s/\\$Foswiki::TranslationToken/\"/go;    # resolve \"
+    $value =~ s/\\$MARKER/\"/go;    # resolve \"
     return $value;
 }
 
@@ -274,29 +278,29 @@ sub get {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-# Derived from Contrib::Attrs, which is
-# Copyright (C) 2001 Motorola - All rights reserved
-# Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root of
-# this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+Derived from Contrib::Attrs, which is
+Copyright (C) 2001 Motorola - All rights reserved
+Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root of
+this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

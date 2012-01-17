@@ -1,5 +1,5 @@
-# Users Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/, http://Foswiki.org/
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::Users
@@ -57,20 +57,16 @@ to a user.
 package Foswiki::Users;
 
 use strict;
+use warnings;
 use Assert;
 
-require Foswiki::AggregateIterator;
+use Foswiki::AggregateIterator ();
+use Foswiki::LoginManager      ();
 
 #use Monitor;
 #Monitor::MonitorMethod('Foswiki::Users');
 
 BEGIN {
-
-    # Do a dynamic 'use locale' for this module
-    if ( $Foswiki::cfg{UseLocale} ) {
-        require locale;
-        import locale();
-    }
 
     # no point calling rand() without this
     # See Camel-3 pp 800.  "Do not call =srand()= multiple times in your
@@ -91,17 +87,11 @@ sub new {
     my ( $class, $session ) = @_;
     my $this = bless( { session => $session }, $class );
 
-    require Foswiki::LoginManager;
-    $this->{loginManager} = Foswiki::LoginManager::makeLoginManager($session);
-
-    # setup the cgi session, from a cookie or the url. this may return
-    # the login, but even if it does, plugins will get the chance to
-    # override (in Foswiki.pm)
-    $this->{remoteUser} =
-      $this->{loginManager}->loadSession( $session->{remoteUser} );
-
-    $this->{remoteUser} = $Foswiki::cfg{DefaultUserLogin}
-      unless ( defined( $this->{remoteUser} ) );
+    # Do a dynamic 'use locale' for this module
+    if ( $Foswiki::cfg{UseLocale} ) {
+        require locale;
+        import locale();
+    }
 
     # making basemapping
     my $implBaseUserMappingManager = $Foswiki::cfg{BaseUserMappingManager}
@@ -123,13 +113,7 @@ sub new {
         $this->{mapping} = $implUserMappingManager->new($session);
     }
 
-    # the UI for rego supported/not is different from rego temporarily
-    # turned off
-    if ( $this->supportsRegistration() ) {
-        $session->enterContext('registration_supported');
-        $session->enterContext('registration_enabled')
-          if $Foswiki::cfg{Register}{EnableNewUserRegistration};
-    }
+    $this->{loginManager} = Foswiki::LoginManager::makeLoginManager($session);
 
     # caches - not only used for speedup, but also for authenticated but
     # unregistered users
@@ -139,7 +123,36 @@ sub new {
     $this->{cUID2Login}    = {};
     $this->{isAdmin}       = {};
 
+    # the UI for rego supported/not is different from rego temporarily
+    # turned off
+    if ( $this->supportsRegistration() ) {
+        $session->enterContext('registration_supported');
+        $session->enterContext('registration_enabled')
+          if $Foswiki::cfg{Register}{EnableNewUserRegistration};
+    }
+
     return $this;
+}
+
+=begin TML
+
+---++ ObjectMethod loadSession()
+
+Setup the cgi session, from a cookie or the url. this may return
+the login, but even if it does, plugins will get the chance to
+override (in Foswiki.pm)
+
+=cut
+
+sub loadSession {
+    my ( $this, $defaultUser ) = @_;
+
+    # $this is passed in because it will be used to password check
+    # a command-line login. The {remoteUser} in the session will be
+    # whatever was passed in to the new Foswiki() call.
+    my $remoteUser = $this->{loginManager}->loadSession( $defaultUser, $this );
+
+    return $remoteUser;
 }
 
 =begin TML
@@ -168,6 +181,8 @@ sub finish {
     undef $this->{session};
     undef $this->{cUID2WikiName};
     undef $this->{cUID2Login};
+    undef $this->{wikiName2cUID};
+    undef $this->{login2cUID};
     undef $this->{isAdmin};
 
 }
@@ -201,7 +216,7 @@ sub _getMapping {
     # The base user mapper users must always override those defined in
     # custom mappings, even though that makes it impossible to maintain 100%
     # compatibility with earlier releases (guest user edits will get saved as
-    # edits by BaseMapping_666).
+    # edits by $DEFAULT_USER_CUID).
     return $this->{basemapping}
       if ( $this->{basemapping}->handlesUser( $cUID, $login, $wikiname ) );
 
@@ -213,7 +228,7 @@ sub _getMapping {
     # requested otherwise.
     return $this->{basemapping} unless ($noFallBack);
 
-    return undef;
+    return;
 }
 
 =begin TML
@@ -246,6 +261,9 @@ sub initialiseUser {
     # plugins can provide an alternate login name.
     my $plogin =
       $this->{session}->{plugins}->load( $Foswiki::cfg{DisableAllPlugins} );
+
+    #Monitor::MARK("Plugins loaded");
+
     $login = $plogin if $plogin;
 
     my $cUID;
@@ -384,6 +402,32 @@ sub mapLogin2cUID {
 
 =begin TML
 
+---++ ObjectMethod getCGISession()
+Get the currect CGI session object
+
+=cut
+
+sub getCGISession {
+    my $this = shift;
+    return $this->{loginManager}->getCGISession();
+}
+
+=begin TML
+
+---++ ObjectMethod getLoginManager() -> $loginManager
+
+Get the Foswiki::LoginManager object associated with this session, if there is
+one. May return undef.
+
+=cut
+
+sub getLoginManager {
+    my $this = shift;
+    return $this->{loginManager};
+}
+
+=begin TML
+
 ---++ ObjectMethod getCanonicalUserID( $identifier ) -> $cUID
 
 Works out the Foswiki canonical user identifier for the user who either
@@ -409,7 +453,10 @@ sub getCanonicalUserID {
     my ( $this, $identifier ) = @_;
     my $cUID;
 
+    ASSERT( defined $identifier ) if DEBUG;
+
     # Someone we already know?
+
     if ( defined( $this->{login2cUID}->{$identifier} ) ) {
         $cUID = $this->{login2cUID}->{$identifier};
     }
@@ -437,6 +484,7 @@ sub getCanonicalUserID {
                 );
             }
         }
+
         unless ($cUID) {
 
             # Finally see if it's a valid user wikiname
@@ -473,6 +521,8 @@ sub findUserByWikiName {
     # Trim the (pointless) userweb, if present
     $wn =~ s/^($Foswiki::cfg{UsersWebName}|%USERSWEB%|%MAINWEB%)\.//;
     my $mapping = $this->_getMapping( undef, undef, $wn );
+
+    #my $mapping = $this->_getMapping( $wn, $wn, $wn ); # why not?
     return $mapping->findUserByWikiName($wn);
 }
 
@@ -571,7 +621,7 @@ sub isAdmin {
 
 =begin TML
 
----++ ObjectMethod isInList( $cUID, $list ) -> $boolean
+---++ ObjectMethod isInUserList( $cUID, \@list ) -> $boolean
 
 Return true if $cUID is in a list of user *wikinames*, *logins* and group ids.
 
@@ -579,23 +629,15 @@ The list may contain the conventional web specifiers (which are ignored).
 
 =cut
 
-sub isInList {
+sub isInUserList {
     my ( $this, $cUID, $userlist ) = @_;
 
-    return 0 unless $userlist;
+    return 0 unless defined $userlist && defined $cUID;
 
-    # comma delimited list of users or groups
-    # i.e.: "%USERSWEB%.UserA, UserB, Main.UserC  # something else"
-    $userlist =~ s/(<[^>]*>)//go;    # Remove HTML tags
+    foreach my $ident ( @$userlist ) {
 
-    return 0 unless defined $cUID;
-
-    foreach my $ident ( split( /[\,\s]+/, $userlist ) ) {
-
-        # Dump the users web specifier if userweb
-        $ident =~ s/^($Foswiki::cfg{UsersWebName}|%USERSWEB%|%MAINWEB%)\.//;
-        next unless $ident;
         my $identCUID = $this->getCanonicalUserID($ident);
+
         if ( defined $identCUID ) {
             return 1 if ( $identCUID eq $cUID );
         }
@@ -617,11 +659,12 @@ Get the login name of a user. Returns undef if the user is not known.
 sub getLoginName {
     my ( $this, $cUID ) = @_;
 
-    return undef unless defined($cUID);
+    return unless defined($cUID);
 
     return $this->{cUID2Login}->{$cUID}
       if ( defined( $this->{cUID2Login}->{$cUID} ) );
 
+    ASSERT( $this->{basemapping} );
     my $mapping = $this->_getMapping($cUID);
     my $login;
     if ( $cUID && $mapping ) {
@@ -665,7 +708,9 @@ sub getWikiName {
         else {
             $wikiname = $cUID;
         }
-    } else {
+    }
+    else {
+
         # remove the web part
         # SMELL: is this really needed?
         $wikiname =~ s/^($Foswiki::cfg{UsersWebName}|%MAINWEB%|%USERSWEB%)\.//;
@@ -735,9 +780,9 @@ sub eachUser {
 
 =begin TML
 
----++ ObjectMethod eachGroup() ->  Foswiki::ListIterator of groupnames
+---++ ObjectMethod eachGroup() ->  $iterator
 
-Get an iterator over the list of all the groups.
+Get an iterator over the list of all the group names.
 
 =cut
 
@@ -847,6 +892,64 @@ sub eachMembership {
 
 =begin TML
 
+---++ ObjectMethod groupAllowsView($group) -> boolean
+
+returns 1 if the group is able to be modified by the current logged in user
+
+=cut
+
+sub groupAllowsView {
+    my $this    = shift;
+    my $group   = shift;
+    my $mapping = $this->{mapping};
+    return $mapping->groupAllowsView($group);
+}
+
+=begin TML
+
+---++ ObjectMethod groupAllowsChange($group, $cuid) -> boolean
+
+returns 1 if the group is able to be modified by the current logged in user
+
+=cut
+
+sub groupAllowsChange {
+    my $this  = shift;
+    my $group = shift;
+    my $cuid  = shift || $this->{session}->{user};
+
+    return (  $this->{basemapping}->groupAllowsChange( $group, $cuid )
+          and $this->{mapping}->groupAllowsChange( $group, $cuid ) );
+}
+
+=begin TML
+
+---++ ObjectMethod addToGroup( $cuid, $group, $create ) -> $boolean
+adds the user specified by the cuid to the group.
+If the group does not exist, it will return false and do nothing, unless the create flag is set.
+
+=cut
+
+sub addUserToGroup {
+    my ( $this, $cuid, $group, $create ) = @_;
+    my $mapping = $this->{mapping};
+    return $mapping->addUserToGroup( $cuid, $group, $create );
+}
+
+=begin TML
+
+---++ ObjectMethod removeFromGroup( $cuid, $group ) -> $boolean
+
+=cut
+
+sub removeUserFromGroup {
+    my ( $this, $cuid, $group ) = @_;
+    my $mapping = $this->{mapping};
+    return $mapping->removeUserFromGroup( $cuid, $group );
+}
+
+=begin TML
+
 ---++ ObjectMethod checkLogin( $login, $passwordU ) -> $boolean
 
 Finds if the password is valid for the given user. This method is
@@ -885,7 +988,7 @@ Otherwise returns 1 on success, undef on failure.
 
 sub setPassword {
     my ( $this, $cUID, $newPassU, $oldPassU ) = @_;
-    ASSERT( $cUID ) if DEBUG; 
+    ASSERT($cUID) if DEBUG;
     return $this->_getMapping($cUID)
       ->setPassword( $this->getLoginName($cUID), $newPassU, $oldPassU );
 }
@@ -922,27 +1025,28 @@ sub removeUser {
 }
 
 1;
-__DATA__
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

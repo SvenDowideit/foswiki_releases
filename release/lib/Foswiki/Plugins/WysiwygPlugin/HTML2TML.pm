@@ -1,19 +1,4 @@
-# Copyright (C) 2005 ILOG http://www.ilog.fr
-# and Foswiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of the Foswiki distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =pod
 
@@ -22,7 +7,7 @@
 Convertor for translating HTML into TML (Topic Meta Language)
 
 The conversion is done by parsing the HTML and generating a parse
-tree, and then converting that parse treeinto TML.
+tree, and then converting that parse tree into TML.
 
 The class is a subclass of HTML::Parser, run in XML mode, so it
 should be tolerant to many syntax errors, and will also handle
@@ -38,9 +23,11 @@ the final TML.
 =cut
 
 package Foswiki::Plugins::WysiwygPlugin::HTML2TML;
-use base 'HTML::Parser';
+use HTML::Parser;
+our @ISA = qw( HTML::Parser );
 
 use strict;
+use warnings;
 
 use Encode;
 use HTML::Parser;
@@ -104,6 +91,13 @@ Convert a block of HTML text into TML.
 
 =cut
 
+sub debugEncode {
+    my $text = shift;
+    $text = WC::debugEncode($text);
+    $text =~ s/([^\x20-\x7E])/sprintf '\\x{%X}', ord($1)/ge;
+    return $text;
+}
+
 sub convert {
     my ( $this, $text, $options ) = @_;
 
@@ -113,11 +107,62 @@ sub convert {
     $opts = $WC::VERY_CLEAN
       if ( $options->{very_clean} );
 
-    # If the text is UTF8-encoded we have to decode it first, otherwise
-    # the HTML parser will barf.
+    # $text is octets, encoded as per the $Foswiki::cfg{Site}{CharSet}
+    #print STDERR "input     [". debugEncode($text). "]\n\n";
+
+    # Convert (safe) named entities back to the
+    # site charset. Numeric entities are mapped straight to the
+    # corresponding code point unless their value overflow.
+    # HTML::Entities::_decode_entities converts numeric entities 
+    # to Unicode codepoints, so first convert the text to Unicode
+    # characters
     if ( WC::encoding() =~ /^utf-?8/ ) {
+        # text is already UTF-8, so just decode
         $text = Encode::decode_utf8($text);
     }
+    else {
+        # convert to unicode codepoints
+        $text = Encode::decode(WC::encoding(), $text);
+    }
+    # $text is now Unicode characters
+    #print STDERR "unicoded  [". debugEncode($text). "]\n\n";
+
+    # Make sure that & < > ' and " remain encoded, because the parser depends
+    # on it. The safe-entities does not include the corresponding named
+    # entities, so convert numeric entities for these characters to the named 
+    # entity.
+    $text =~ s/\&\#38;/\&amp;/go;
+    $text =~ s/\&\#x26;/\&amp;/goi;
+    $text =~ s/\&\#60;/\&lt;/go;
+    $text =~ s/\&\#x3c;/\&lt;/goi;
+    $text =~ s/\&\#62;/\&gt;/go;
+    $text =~ s/\&\#x3e;/\&gt;/goi;
+    $text =~ s/\&\#39;/\&apos;/go;
+    $text =~ s/\&\#x27;/\&apos;/goi;
+    $text =~ s/\&\#34;/\&quot;/go;
+    $text =~ s/\&\#x22;/\&quot;/goi;
+
+    require HTML::Entities;
+    HTML::Entities::_decode_entities( $text, WC::safeEntities() );
+    #print STDERR "decodedent[". debugEncode($text). "]\n\n";
+
+    # HTML::Entities::_decode_entities is NOT aware of the site charset
+    # so it converts numeric entities to characters willy-nilly.
+    # Some of those were entities in the first place because the
+    # site character set cannot represent them.
+    # Convert them back to entities:
+    WC::convertNotRepresentabletoEntity($text);
+    #print STDERR "notrep2ent[". debugEncode($text). "]\n\n";
+
+    # $text is now Unicode characters that are representable
+    # in the site charset. Convert to the site charset:
+    if ( WC::encoding() =~ /^utf-?8/ ) {
+        # nothing to do, already in unicode
+    }
+    else {
+        $text = Encode::encode(WC::encoding(), $text);
+    }
+    #print STDERR "sitechrset[". debugEncode($text). "]\n\n";
 
     # get rid of nasties
     $text =~ s/\r//g;
@@ -132,21 +177,15 @@ sub convert {
     $this->_apply(undef);
     $text = $this->{stackTop}->rootGenerate($opts);
 
+    #print STDERR "parsed    [". debugEncode($text). "]\n\n";
+
     # If the site charset is UTF8, we need to recode
     if ( WC::encoding() =~ /^utf-?8/ ) {
         $text = Encode::encode_utf8($text);
+        #print STDERR "re-encoded[". debugEncode($text). "]\n\n";
     }
 
-    # Convert (safe) named entities back to the
-    # site charset. Numeric entities are mapped straight to the
-    # corresponding code point unless their value overflow.
-    require HTML::Entities;
-    HTML::Entities::_decode_entities( $text, WC::safeEntities() );
-
-    # After decoding entities, we have to map unicode characters
-    # back to high bit
-    WC::mapUnicode2HighBit($text);
-
+    # $text is octets, encoded as per the $Foswiki::cfg{Site}{CharSet}
     return $text;
 }
 
@@ -244,3 +283,26 @@ sub _apply {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005 ILOG http://www.ilog.fr
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

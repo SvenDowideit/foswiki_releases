@@ -1,13 +1,3 @@
-.twistyHidden { display:none; }
-.twistyMakeHidden {} /* reserved */
-.twistyMakeVisible { display:none; }
-
-.twistyTrigger {}
-.twistyContent {}
-.twistyPlaceholder { /* color to be implemented by skin */ }
-.twistyRememberSetting { /* behavior class */ }
-.twistyForgetSetting { /* behavior class */ }
-.twistyStartHide { /* behavior class */ }
-.twistyStartShow { /* behavior class */ }
-.twistyInited1 { /* behavior class: state is set to shown */ }
-.twistyInited0 { /* behavior class: state is set to hidden */ }
+.twistyHidden{display:none;}.foswikiMakeVisible,
+.foswikiMakeVisibleInline,
+.foswikiMakeVisibleBlock{display:none;}.foswikiJs .foswikiMakeVisible{display:;}.foswikiJs div.foswikiMakeVisible{display:block;}.foswikiJs span.foswikiMakeVisible{display:inline;}.foswikiJs .foswikiMakeVisibleInline{display:inline;}.foswikiJs .foswikiMakeVisibleBlock{display:block;}.foswikiJs .foswikiMakeHidden{display:none;}

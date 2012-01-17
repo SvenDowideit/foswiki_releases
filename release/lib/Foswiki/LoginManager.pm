@@ -31,7 +31,8 @@ Slightly later in Foswiki::new, loginManager->loadSession is called.
    1 Calls loginManager->getUser to get the username *before* the session is created
       * Foswiki::LoginManager::ApacheLogin looks at REMOTE_USER (only for authenticated scripts)
       * Foswiki::LoginManager::TemplateLogin just returns undef
-   1 reads the FOSWIKISID cookie to get the SID (or the FOSWIKISID parameters in the CGI query if cookies aren't available, or IP2SID mapping if that's enabled).
+   1 If the NO_FOSWIKI_SESSION environment variable is defined, then no session is created and the username is returned. This might be defined for search engine bots, depending on how the web server is configured
+   1 Reads the FOSWIKISID cookie to get the SID (or the FOSWIKISID parameters in the CGI query if cookies aren't available, or IP2SID mapping if that's enabled).
    1 Creates the CGI::Session object, and the session is thereby read.
    1 If the username still isn't known, reads it from the cookie. Thus Foswiki::LoginManager::ApacheLogin overrides the cookie using REMOTE_USER, and Foswiki::LoginManager::TemplateLogin *always* uses the session.
 
@@ -48,20 +49,20 @@ The Foswiki object this login manager is attached to.
 package Foswiki::LoginManager;
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
 
-require Foswiki::Sandbox;
+use Foswiki::Sandbox ();
 
 # Marker chars
-use vars qw( $M1 $M2 $M3 );
-$M1 = chr(5);
-$M2 = chr(6);
-$M3 = chr(7);
+our $M1 = chr(5);
+our $M2 = chr(6);
+our $M3 = chr(7);
 
 # Some session keys are secret (not to be given to the browser) and
 # others read only (not to be changed from the browser)
-our %secretSK   = ( STRIKEONESECRET => 1, VALID_ACTIONS => 1 );
+our %secretSK = ( STRIKEONESECRET => 1, VALID_ACTIONS => 1 );
 our %readOnlySK = ( %secretSK, AUTHUSER => 1, SUDOFROMAUTHUSER => 1 );
 
 =begin TML
@@ -93,10 +94,10 @@ sub makeLoginManager {
         if ( $Foswiki::cfg{Sessions}{UseIPMatching} ) {
             $use .= ' qw(-ip_match)';
         }
-        $use .= '; use CGI::Cookie';
+        $use .= '; use CGI::Cookie ()';
         eval $use;
         throw Error::Simple($@) if $@;
-        if ( $Foswiki::LoginManager::Session::VERSION eq "4.10" ) {
+        if ( $Foswiki::LoginManager::Session::VERSION eq '4.10' ) {
 
             # 4.10 is broken; see Item1989
             $Foswiki::LoginManager::Session::NAME = 'FOSWIKISID';
@@ -141,14 +142,14 @@ sub new {
     my ( $class, $session ) = @_;
     my $this = bless(
         {
-            session => $session,
-            twiki   => $session,    # backwards compatibility
+            session     => $session,
+            twiki       => $session,    # backwards compatibility
+            _haveCookie => 0,
         },
         $class
     );
 
     $session->leaveContext('can_login');
-    $this->{_cookies} = [];
     map { $this->{_authScripts}{$_} = 1; }
       split( /[\s,]+/, $Foswiki::cfg{AuthScripts} );
 
@@ -177,7 +178,6 @@ Break circular references.
 sub finish {
     my $this = shift;
     $this->complete();    # call to flush the session if not already done
-    undef $this->{_cookies};
     undef $this->{_authScripts};
     undef $this->{_cgisession};
     undef $this->{_haveCookie};
@@ -195,8 +195,8 @@ Construct the user management object
 
 sub _real_trace {
     my ( $this, $mess ) = @_;
-    my $id = 'Session'
-      . ( $this->{_cgisession} ? $this->{_cgisession}->id() : 'unknown' );
+    my $id =
+      'SESSION ' . ( $this->{_cgisession} ? $this->{_cgisession}->id() : '?' );
     $id .= '(c)' if $this->{_haveCookie};
     print STDERR "$id: $mess\n";
 }
@@ -216,29 +216,29 @@ else {
 
 =cut
 
-# TSA: Forced to make this a object method
 sub _IP2SID {
     my ( $this, $sid ) = @_;
 
     my $ip = $this->{session}->{request}->address;
 
-    return undef unless $ip;    # no IP address, can't map
+    return unless $ip;    # no IP address, can't map
 
     my %ips;
-    if ( open( IPMAP, '<', $Foswiki::cfg{WorkingDir} . '/tmp/ip2sid' ) ) {
+    my $IPMAP;
+    if ( open( $IPMAP, '<', $Foswiki::cfg{WorkingDir} . '/tmp/ip2sid' ) ) {
         local $/ = undef;
-        %ips = map { split( /:/, $_ ) } split( /\r?\n/, <IPMAP> );
-        close(IPMAP);
+        %ips = map { split( /:/, $_ ) } split( /\r?\n/, <$IPMAP> );
+        close($IPMAP);
     }
     if ($sid) {
 
         # known SID, map the IP addr to it
         $ips{$ip} = $sid;
-        open( IPMAP, '>', $Foswiki::cfg{WorkingDir} . '/tmp/ip2sid' )
+        open( $IPMAP, '>', $Foswiki::cfg{WorkingDir} . '/tmp/ip2sid' )
           || die
 "Failed to open ip2sid map for write. Ask your administrator to make sure that the {Sessions}{Dir} is writable by the webserver user.";
-        print IPMAP map { "$_:$ips{$_}\n" } keys %ips;
-        close(IPMAP);
+        print $IPMAP map { "$_:$ips{$_}\n" } keys %ips;
+        close($IPMAP);
     }
     else {
 
@@ -250,11 +250,13 @@ sub _IP2SID {
 
 =begin TML
 
----++ ObjectMethod loadSession($defaultUser) -> $login
+---++ ObjectMethod loadSession($defaultUser, $pwchecker) -> $login
 
 Get the client session data, using the cookie and/or the request URL.
 Set up appropriate session variables in the twiki object and return
 the login name.
+
+$pwchecker is a pointer to an object that implements checkPassword
 
 $defaultUser is a username to use if one is not available from other
 sources. The username passed when you create a Foswiki instance is
@@ -263,116 +265,146 @@ passed in here.
 =cut
 
 sub loadSession {
-    my ( $this, $defaultUser ) = @_;
+    my ( $this, $defaultUser, $pwchecker ) = @_;
     my $session = $this->{session};
 
-    # Try and get the user from the webserver
-    my $authUser = $this->getUser($this) || $defaultUser;
+    _trace( $this, "LOAD SESSION\n" );
 
-    #this allows the session to over-ride apache_auth (useful for sudo)
-    unless ( $Foswiki::cfg{UseClientSessions} ) {
-        $this->userLoggedIn($authUser) if $authUser;
-        return $authUser;
-    }
+    $defaultUser = $Foswiki::cfg{DefaultUserLogin}
+      unless ( defined($defaultUser) );
 
-    return $session->{request}->{remote_user} || $authUser
-      if $session->inContext('command_line');
-
-    my $query = $session->{request};
-
-    $this->{_haveCookie} = $query->header('Cookie');
-
-    _trace( $this, "URL " . $query->url() );
-    if ( $this->{_haveCookie} ) {
-        _trace( $this, "Cookie " . $this->{_haveCookie} );
-    }
-    else {
-        _trace( $this, "No cookie " );
-    }
-
-    # Item3568: CGI::Session from 4.0 already does the -d and creates the
-    # sessions directory if it does not exist. For performance reasons we
-    # only test for and create session file directory for older CGI::Session
-    if ( $Foswiki::LoginManager::Session::VERSION < 4.0 ) {
-        unless ( -d "$Foswiki::cfg{WorkingDir}/tmp" ) {
-            unless ( mkdir( $Foswiki::cfg{WorkingDir} )
-                && mkdir("$Foswiki::cfg{WorkingDir}/tmp") )
-            {
-                die
-"Could not create $Foswiki::cfg{WorkingDir}/tmp for session files";
-            }
-        }
-    }
-
-    # First, see if there is a cookied session, creating a new session
-    # if necessary.
-    if ( $Foswiki::cfg{Sessions}{MapIP2SID} ) {
-
-        # map the end user IP address to SID
-        my $sid = $this->_IP2SID();
-        if ($sid) {
-            $this->{_cgisession} =
-              Foswiki::LoginManager::Session->new( undef, $sid,
-                { Directory => "$Foswiki::cfg{WorkingDir}/tmp" } );
-        }
-        else {
-            $this->{_cgisession} =
-              Foswiki::LoginManager::Session->new( undef, undef,
-                { Directory => "$Foswiki::cfg{WorkingDir}/tmp" } );
-            _trace( $this, "New IP2SID session" );
-            $this->_IP2SID( $this->{_cgisession}->id() );
-        }
-    }
-    else {
-        $this->{_cgisession} =
-          Foswiki::LoginManager::Session->new( undef, $query,
-            { Directory => "$Foswiki::cfg{WorkingDir}/tmp" } );
-    }
-
-    die Foswiki::LoginManager::Session->errstr() unless $this->{_cgisession};
-    _trace( $this, "Opened session" );
-
+    # Try and get the user from the webserver. This is referred to as
+    # the "webserver user". the webserver user is authenticated by some
+    # means beyond foswiki e.g. Basic Auth
+    my $authUser = $this->getUser($this);
     _trace( $this, "Webserver says user is $authUser" ) if ($authUser);
 
-    # SMELL: is there any way to get evil data into the CGI session such
-    # that this untaint is less than safe?
-    my $sessionUser = Foswiki::Sandbox::untaintUnchecked(
-        $this->{_cgisession}->param('AUTHUSER') );
-    _trace( $this, "session says user is " . ( $sessionUser || 'undef' ) );
-    if (   ( !defined($authUser) )
-        || ( $sessionUser && $sessionUser eq $Foswiki::cfg{AdminUserLogin} ) )
+    # If the NO_FOSWIKI_SESSION environment varaible is defined, then
+    # do not create the session. This might be defined if the request
+    # is made by a search engine bot, depending on how the web server
+    # is configured
+    return $authUser if $ENV{NO_FOSWIKI_SESSION};
+
+    if( $Foswiki::cfg{UseClientSessions}
+        && !$session->inContext('command_line') )
     {
-        $authUser = $sessionUser;
 
-        #_trace($this, "session set to $authUser");
+        $this->{_haveCookie} = $session->{request}->header('Cookie');
+
+        _trace( $this,
+            $this->{_haveCookie}
+            ? "Cookie $this->{_haveCookie}"
+            : "No cookie " );
+
+        # Item3568: CGI::Session from 4.0 already does the -d and creates the
+        # sessions directory if it does not exist. For performance reasons we
+        # only test for and create session file directory for older
+        # CGI::Session
+        my $sessionDir = "$Foswiki::cfg{WorkingDir}/tmp";
+        if ( $Foswiki::LoginManager::Session::VERSION < 4.0 ) {
+            unless (
+                -d $sessionDir
+                || (   mkdir( $Foswiki::cfg{WorkingDir} )
+                    && mkdir($sessionDir) )
+              )
+            {
+                die "Could not create $sessionDir for storing sessions";
+            }
+        }
+
+        # First, see if there is a cookied session, creating a new session
+        # if necessary.
+        if ( $Foswiki::cfg{Sessions}{MapIP2SID} ) {
+
+            # map the end user IP address to a session ID
+
+            my $sid = $this->_IP2SID();
+            if ($sid) {
+                $this->{_cgisession} =
+                  Foswiki::LoginManager::Session->new( undef, $sid,
+                    { Directory => $sessionDir } );
+            }
+            else {
+
+                # The IP address was not mapped; create a new session
+
+                $this->{_cgisession} =
+                  Foswiki::LoginManager::Session->new( undef, undef,
+                    { Directory => $sessionDir } );
+                _trace( $this, "New IP2SID session" );
+                $this->_IP2SID( $this->{_cgisession}->id() );
+            }
+        }
+        else {
+
+            # IP mapping is off; use the request cookie
+
+            $this->{_cgisession} =
+              Foswiki::LoginManager::Session->new( undef, $session->{request},
+                { Directory => $sessionDir } );
+        }
+
+        die Foswiki::LoginManager::Session->errstr()
+          unless $this->{_cgisession};
+
+        # Get the authorised user stored in the session
+
+        my $sessionUser = Foswiki::Sandbox::untaintUnchecked(
+            $this->{_cgisession}->param('AUTHUSER') );
+
+        _trace( $this, "AUTHUSER is $sessionUser" ) if defined $sessionUser;
+
+        # An admin user stored in the session can override the webserver
+        # user; handy for sudo
+
+        $authUser = $sessionUser
+          if ( !defined($authUser)
+            || $sessionUser && $sessionUser eq $Foswiki::cfg{AdminUserLogin} );
     }
 
-    # if we couldn't get the login manager or the http session to tell
-    # us who the user is, then let's use the CGI "remote user"
-    # variable (which may have been set manually by a unit test,
-    # or it might have come from Apache).
-    if ($authUser) {
-        # SMELL: is there any way to get evil data into the CGI session such
-        # that this untaint is less than safe?
-        my $cUID = Foswiki::Sandbox::untaintUnchecked(
-            $this->{_cgisession}->param('cUID') )
-          || '';
-        _trace( $this, "Session says user is $authUser - $cUID" );
-    }
-    else {
+    if ( !$authUser ) {
 
-        # Use remote user provided from "new Foswiki" call. This is mainly
-        # for testing.
-        $authUser = $defaultUser;
-        _trace( $this, "Foswiki object says user is $authUser" ) if $authUser;
+        # if we couldn't get the login manager or the http session to tell
+        # us who the user is, check the username and password URI params.
+
+        my $login = $session->{request}->param('username');
+        my $pass  = $session->{request}->param('password');
+        if ( $login && defined $pass && $pwchecker ) {
+            my $validation = $pwchecker->checkPassword( $login, $pass );
+            unless ($validation) {
+                my $res = $session->{response};
+                my $err = "ERROR: (401) Can't login as $login";
+                # Item1953: You might think that this is needed:
+                #    $res->header( -type => 'text/html', -status => '401' );
+                #    throw Foswiki::EngineException( 401, $err, $res );
+                # but it would be wrong, because it would require the
+                # exception to be handled before the session object is
+                # properly initialised, which would cause an error.
+                # Instead, we do this, and let the caller handle the error.
+                undef $login;
+            }
+            $authUser = $login || $defaultUser;
+            _trace( $this, "URI params say user is $authUser" );
+        }
+        else {
+
+            # Last ditch attempt; if a user was passed in to this function,
+            # then use it (it is normally {remoteUser} from the session
+            # object)
+            $authUser = $defaultUser;
+            _trace( $this, "Falling back to $authUser" ) if $authUser;
+
+        }
     }
 
-    $authUser ||= $defaultUser;
+    # We should have a user at this point; or $defaultUser if there
+    # was no better information available.
 
     # is this a logout?
     if (   ( $authUser && $authUser ne $Foswiki::cfg{DefaultUserLogin} )
-        && ( $query && $query->param('logout') ) )
+        && ( $session->{request} && $session->{request}->param('logout') ) )
     {
+
         # SMELL: is there any way to get evil data into the CGI session such
         # that this untaint is less than safe?
         my $sudoUser = Foswiki::Sandbox::untaintUnchecked(
@@ -380,41 +412,65 @@ sub loadSession {
 
         if ($sudoUser) {
             _trace( $this, "User is logging out to $sudoUser" );
-            $session->logEvent('sudo logout', '',
+            $session->logEvent( 'sudo logout', '',
                 'from ' . ( $authUser || '' ), $sudoUser );
             $this->{_cgisession}->clear('SUDOFROMAUTHUSER');
             $authUser = $sudoUser;
         }
         else {
             _trace( $this, "User is logging out" );
-            $session->logEvent( 'logout', ' ', "AUTHENTICATION LOGOUT - $authUser - " );
+            $session->logEvent( 'logout', ' ',
+                "AUTHENTICATION LOGOUT - $authUser - " );
 
             #TODO: consider if we should risk passing on the urlparams on logout
-            my $path_info = $query->path_info();
-            if (my $topic = $query->param('topic')) {   #we should at least respect the ?topic= request
-                my $topicRequest = Foswiki::Sandbox::untaintUnchecked($query->param('topic'));
-                my ($web, $topic) = $this->{session}->normalizeWebTopicName(undef, $topicRequest);
-                $path_info = '/'.$web.'/'.$topic;
+            my $path_info = $session->{request}->path_info();
+            if ( my $topic = $session->{request}->param('topic') )
+            {    #we should at least respect the ?topic= request
+                my $topicRequest = Foswiki::Sandbox::untaintUnchecked(
+                    $session->{request}->param('topic') );
+                my ( $web, $topic ) =
+                  $this->{session}
+                  ->normalizeWebTopicName( undef, $topicRequest );
+                $path_info = '/' . $web . '/' . $topic;
             }
 
             my $redirectUrl;
             if ($path_info) {
-                $redirectUrl = $query->url() . $path_info;
-            } else {
-                $redirectUrl = $query->referer();
+                $redirectUrl = $session->{request}->url() . $path_info;
+            }
+            else {
+                $redirectUrl = $session->{request}->referer();
             }
 
-            $query->delete('logout');    #lets avoid infinite loops
-            $this->redirectCgiQuery( $query, $redirectUrl );
-            $authUser = undef;
+            #lets avoid infinite loops
+            $session->{request}->delete('logout');
+            $authUser = $defaultUser;
+            $session->redirect( $redirectUrl, 0 );
         }
     }
-    $query->delete('logout');
+    $session->{request}->delete('logout');
+
     $this->userLoggedIn($authUser);
 
-    $session->{SESSION_TAGS}{SESSIONID} = $this->{_cgisession}->id();
-    $session->{SESSION_TAGS}{SESSIONVAR} =
-      $Foswiki::LoginManager::Session::NAME;
+    if ( $this->{_cgisession} ) {
+        $session->{prefs}->setInternalPreferences(
+            SESSIONID  => $this->{_cgisession}->id(),
+            SESSIONVAR => $CGI::Session::NAME
+        );
+
+        # Restore CGI Session parameters
+        for ( $this->{_cgisession}->param ) {
+            my $value = $this->{_cgisession}->param($_);
+            $session->{prefs}->setInternalPreferences( $_ => $value );
+            $this->_trace( "Setting internal preference $_ to "
+                  . ( $value ? $value : 'null' ) );
+        }
+
+        # May end up doing this several times; but this is the only place
+        # if should really need to be done, unless someone allocates a
+        # new response object.
+        $this->_addSessionCookieToResponse();
+    }
 
     return $authUser;
 }
@@ -435,19 +491,24 @@ sub checkAccess {
     my $this    = shift;
     my $session = $this->{session};
 
-    return undef if $session->inContext('command_line');
+    return if $session->inContext('command_line');
 
     unless ( $session->inContext('authenticated')
         || $Foswiki::cfg{LoginManager} eq 'none' )
     {
-        my $script = $session->{request}->action;
 
-        if ( defined $script && $this->{_authScripts}{$script} ) {
+        # This checks the *base_action* which is the action in the
+        # request *before* any request cache was restored. Otherwise
+        # you can end up with an infinite loop - see
+        # Foswiki:Development.FoswikiRedirectCache
+        my $action = $session->{request}->base_action();
+
+        if ( defined $action && $this->{_authScripts}{$action} ) {
             my $topic = $session->{topicName};
             my $web   = $session->{webName};
             require Foswiki::AccessControlException;
-            throw Foswiki::AccessControlException( $script, $session->{user},
-                $web, $topic, 'authentication required' );
+            throw Foswiki::AccessControlException( $action, $session->{user},
+                $web, $topic, $action . ' requires authentication' );
         }
     }
 }
@@ -468,7 +529,6 @@ sub complete {
         $this->{_cgisession}->flush();
         die $this->{_cgisession}->errstr()
           if $this->{_cgisession}->errstr();
-        _trace( $this, "Flushed" );
     }
 
     return unless ( $Foswiki::cfg{Sessions}{ExpireAfter} > 0 );
@@ -495,9 +555,10 @@ sub expireDeadSessions {
 
     opendir( D, "$Foswiki::cfg{WorkingDir}/tmp" ) || return;
     foreach my $file ( readdir(D) ) {
+
         # Validate
         next unless $file =~ /^((passthru|cgisess)_[0-9a-f]{32})$/;
-        $file = $1; # untaint validated file name
+        $file = $1;    # untaint validated file name
 
         my @stat = stat("$Foswiki::cfg{WorkingDir}/tmp/$file");
 
@@ -510,7 +571,8 @@ sub expireDeadSessions {
         # mtime. As a fallback we also check ctime. Files are deleted when
         # they expire.
         my $lat = $stat[9] || $stat[10] || 0;
-        unlink "$Foswiki::cfg{WorkingDir}/tmp/$file" if ( $time - $lat >= $exp );
+        unlink "$Foswiki::cfg{WorkingDir}/tmp/$file"
+          if ( $time - $lat >= $exp );
         next;
     }
     closedir D;
@@ -525,7 +587,7 @@ for instance,
    1 when the user follows the link in their verification email message
    2 or when the session store is read
    3 when the user authenticates (via templatelogin / sudo)
-   
+
    * =$login= - string login name
    * =$wikiname= - string wikiname
 
@@ -535,10 +597,14 @@ sub userLoggedIn {
     my ( $this, $authUser, $wikiName ) = @_;
 
     my $session = $this->{session};
-    if ($session->{users}) {
+    if ( $session->{users} ) {
         $session->{user} = $session->{users}->getCanonicalUserID($authUser);
     }
-    return undef if $session->inContext('command_line');
+    return
+      if $session->inContext('command_line')
+          || $session->{remoteUser}
+          && $authUser
+          && $authUser eq $session->{remoteUser};    # same user
 
     if ( $Foswiki::cfg{UseClientSessions} ) {
 
@@ -552,24 +618,25 @@ sub userLoggedIn {
         }
     }
     if ( $authUser && $authUser ne $Foswiki::cfg{DefaultUserLogin} ) {
-        _trace( $this, "Session is authenticated" );
         _trace( $this,
-                'converting from '
+                'Authenticated; converting from '
               . ( $session->{remoteUser} || 'undef' ) . ' to '
               . $authUser );
 
-#TODO: right now anyone that makes a template login url can log in multiple times - should i forbid it
+        # SMELL: right now anyone that makes a template login url can log
+        # in multiple times - should i forbid it
         if ( $Foswiki::cfg{UseClientSessions} ) {
             if ( defined( $session->{remoteUser} )
                 && $session->inContext('sudo_login') )
             {
-                $session->logEvent('sudo login', '',
+                $session->logEvent( 'sudo login', '',
                     'from ' . ( $session->{remoteUser} || '' ), $authUser );
                 $this->{_cgisession}
                   ->param( 'SUDOFROMAUTHUSER', $session->{remoteUser} );
             }
 
-#TODO: these are bare login's, so if and when there are multiple usermappings, this would need to include cUID..
+            # SMELL: these are bare logins, so if and when there are
+            # multiple usermappings, this would need to include cUID..
             $this->{_cgisession}->param( 'AUTHUSER', $authUser );
         }
         $session->enterContext('authenticated');
@@ -587,7 +654,6 @@ sub userLoggedIn {
         # flush the session, to try to fix Item1820 and Item2234
         $this->{_cgisession}->flush();
         die $this->{_cgisession}->errstr() if $this->{_cgisession}->errstr();
-        _trace( $this, "Flushed" );
     }
 }
 
@@ -625,8 +691,7 @@ sub _myScriptURLRE {
 
 =begin TML
 
----++ ObjectMethod _rewriteURL ($thisl)
-
+---++ ObjectMethod _rewriteURL ($this, $url) -> $url
 
 =cut
 
@@ -654,6 +719,7 @@ sub _rewriteURL {
 
         # strip off existing params
         my $params = "?$Foswiki::LoginManager::Session::NAME=$sessionId";
+
         # implicit untaint is OK because recombined with url later
         if ( $url =~ s/\?(.*)$// ) {
             $params .= ';' . $1;
@@ -710,7 +776,7 @@ sub endRenderingHandler {
     return unless ( $Foswiki::cfg{UseClientSessions} );
 
     my $this = shift;
-    return undef if $this->{session}->inContext('command_line');
+    return if $this->{session}->inContext('command_line');
 
     # If cookies are not turned on and transparent CGI session IDs are,
     # grab every URL that is an internal link and pass a CGI variable
@@ -726,7 +792,7 @@ sub endRenderingHandler {
 
         # a href= rewriting
         $_[0] =~
-s/(<a[^>]*(?<=\s)href=(["']))(.*?)(\2)/$1._rewriteURL( $this,$3).$4/geoi;
+s/(<a[^>]*(?<=\s)href=(["']))(.*?)(\2)/$1.$this->_rewriteURL($3).$4/geoi;
 
         # form action= rewriting
         # SMELL: Forms that have no target are also implicit internal
@@ -740,21 +806,14 @@ s/(<form[^>]*(?<=\s)(?:action)=(["']))(.*?)(\2[^>]*>)/$1._rewriteFORM( $this,$3,
     $_[0] =~ s/%SKINSELECT%/_skinSelect( $this )/geo;
 }
 
-=begin TML
-
----++ ObjectMethod _pushCookie ($thisl)
-
-
-=cut
-
-# Push the standard cookie
-sub _pushCookie {
+sub _addSessionCookieToResponse {
     my $this = shift;
 
     my $cookie = CGI::Cookie->new(
-        -name  => $Foswiki::LoginManager::Session::NAME,
-        -value => $this->{_cgisession}->id(),
-        -path  => '/',
+        -name     => $Foswiki::LoginManager::Session::NAME,
+        -value    => $this->{_cgisession}->id(),
+        -path     => '/',
+        -domain   => $Foswiki::cfg{Sessions}{CookieRealm} || '',
         -httponly => 1
     );
 
@@ -775,91 +834,35 @@ sub _pushCookie {
         $cookie->expires($exp);
     }
 
-    $this->addCookie($cookie);
+    $this->{session}->{response}->cookies( [$cookie] );
 }
 
 =begin TML
 
----++ ObjectMethod addCookie($c)
+---++ ObjectMethod rewriteRedirectUrl( $url ) ->$url
 
-Add a cookie to the list of cookies for this session.
-   * =$c= - a CGI::Cookie
-
-=cut
-
-sub addCookie {
-    return unless ( $Foswiki::cfg{UseClientSessions} );
-
-    my ( $this, $c ) = @_;
-    return undef if $this->{session}->inContext('command_line');
-    ASSERT( $c->isa('CGI::Cookie') ) if DEBUG;
-
-    push( @{ $this->{_cookies} }, $c );
-}
-
-=begin TML
-
----++ ObjectMethod modifyHeader( \%header )
-
-Modify a HTTP header
-   * =\%header= - header entries
-
-=cut
-
-sub modifyHeader {
-    my ( $this, $hopts ) = @_;
-
-    return unless $this->{_cgisession};
-    return if $Foswiki::cfg{Sessions}{MapIP2SID};
-
-    my $response = $this->{session}->{response};
-    _pushCookie($this);
-    $response->cookies( $this->{_cookies} );
-}
-
-=begin TML
-
----++ ObjectMethod redirectCgiQuery( $url )
-
-Generate an HTTP redirect on STDOUT, if you can. Return 1 if you did.
+Rewrite the URL used in a redirect if necessary to include any session
+identification. 
    * =$url= - target of the redirection.
 
 =cut
 
-# TSA SMELL: better to rename this...
-sub redirectCgiQuery {
+sub rewriteRedirectUrl {
 
-    my ( $this, $query, $url ) = @_;
+    my ( $this, $url ) = @_;
 
-    if ( $this->{_cgisession} ) {
-        $url = _rewriteURL( $this, $url )
-          unless ( !$Foswiki::cfg{Sessions}{IDsInURLs}
-            || $this->{_haveCookie} );
+    return $url unless $this->{_cgisession};
 
-        # This usually won't be important, but just in case they haven't
-        # yet received the cookie and happen to be redirecting, be sure
-        # they have the cookie. (this is a lot more important with
-        # transparent CGI session IDs, because the session DIES when those
-        # people go across a redirect without a ?CGISESSID= in it... But
-        # EVEN in that case, they should be redirecting to a URL that
-        # already *HAS* a sessionID in it... Maybe...)
-        #
-        # So this is just a big fat precaution, just like the rest of this
-        # whole handler.
-        _pushCookie($this);
+    if ( $Foswiki::cfg{Sessions}{IDsInURLs} && !$this->{_haveCookie} ) {
+        $url = _rewriteURL( $this, $url );
     }
 
-    if ( $Foswiki::cfg{Sessions}{MapIP2SID} ) {
-        _trace( $this, "Redirect to $url WITHOUT cookie" );
-        $this->{session}->{response}->redirect( -url => $url );
-    }
-    else {
-        _trace( $this, "Redirect to $url with cookie" );
-        $this->{session}->{response}
-          ->redirect( -url => $url, -cookie => $this->{_cookies} );
-    }
+    # This usually won't be important, but just in case they haven't
+    # yet received the cookie and happen to be redirecting, be sure
+    # they do have the cookie.
+    $this->_addSessionCookieToResponse();
 
-    return 1;
+    return $url;
 }
 
 =begin TML
@@ -873,9 +876,21 @@ Get a name->value hash of all the defined session variables
 sub getSessionValues {
     my ($this) = @_;
 
-    return undef unless $this->{_cgisession};
+    return unless $this->{_cgisession};
 
     return $this->{_cgisession}->param_hashref();
+}
+
+=begin TML
+
+---++ ObjectMethod getCGISession()
+Get the currect CGI session object
+
+=cut
+
+sub getCGISession {
+    my $this = shift;
+    return $this->{_cgisession};
 }
 
 =begin TML
@@ -888,7 +903,7 @@ Get the value of a session variable.
 
 sub getSessionValue {
     my ( $this, $key ) = @_;
-    return undef unless $this->{_cgisession};
+    return unless $this->{_cgisession};
 
     return $this->{_cgisession}->param($key);
 }
@@ -905,11 +920,12 @@ sub setSessionValue {
     my ( $this, $key, $value ) = @_;
 
     if ( $this->{_cgisession}
-           && defined( $this->{_cgisession}->param( $key, $value ) ) ) {
+        && defined( $this->{_cgisession}->param( $key, $value ) ) )
+    {
         return 1;
     }
 
-    return undef;
+    return;
 }
 
 =begin TML
@@ -934,7 +950,7 @@ sub clearSessionValue {
         return 1;
     }
 
-    return undef;
+    return;
 }
 
 =begin TML
@@ -975,16 +991,19 @@ sub loginUrl {
 
 ---++ ObjectMethod getUser()
 
-*VIRTUAL METHOD* implemented by subclasses
+Should be implemented by subclasses
 
 If there is some other means of getting a username - for example,
 Apache has remote_user() - then return it. Otherwise, return undef and
 the username stored in the session will be used.
 
+This method of getting the user *assumes* that the identified user
+has been authenticated in some way (for example, by the web server)
+
 =cut
 
 sub getUser {
-    return undef;
+    return;
 }
 
 =begin TML
@@ -998,10 +1017,10 @@ $Foswiki::cfg{LoginNameFilterIn}
 =cut
 
 sub isValidLoginName {
-    my ($this, $name) = @_;
-    # this function was erroneously marked as static
-    ASSERT(! ref($name) ) if DEBUG;
+    my ( $this, $name ) = @_;
 
+    # this function was erroneously marked as static
+    ASSERT( !ref($name) ) if DEBUG;
     return $name =~ /$Foswiki::cfg{LoginNameFilterIn}/;
 }
 
@@ -1016,7 +1035,7 @@ sub _LOGIN {
 
     #my( $session, $params, $topic, $web ) = @_;
     my $session = shift;
-    my $this    = $session->{users}->{loginManager};
+    my $this    = $session->getLoginManager();
 
     return '' if $session->inContext('authenticated');
 
@@ -1037,12 +1056,12 @@ sub _LOGIN {
 
 sub _LOGOUTURL {
     my ( $session, $params, $topic, $web ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->getLoginManager();
 
     return $session->getScriptUrl(
         0, 'view',
-        $session->{SESSION_TAGS}{BASEWEB},
-        $session->{SESSION_TAGS}{BASETOPIC},
+        $session->{prefs}->getPreference('BASEWEB'),
+        $session->{prefs}->getPreference('BASETOPIC'),
         'logout' => 1
     );
 }
@@ -1056,7 +1075,7 @@ sub _LOGOUTURL {
 
 sub _LOGOUT {
     my ( $session, $params, $topic, $web ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->getLoginManager();
 
     return '' unless $session->inContext('authenticated');
 
@@ -1077,7 +1096,7 @@ sub _LOGOUT {
 
 sub _AUTHENTICATED {
     my ( $session, $params ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->getLoginManager();
 
     if ( $session->inContext('authenticated') ) {
         return $params->{then} || 1;
@@ -1095,7 +1114,7 @@ sub _AUTHENTICATED {
 
 sub _CANLOGIN {
     my ( $session, $params ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->getLoginManager();
     if ( $session->inContext('can_login') ) {
         return $params->{then} || 1;
     }
@@ -1112,17 +1131,17 @@ sub _CANLOGIN {
 
 sub _SESSION_VARIABLE {
     my ( $session, $params ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->getLoginManager();
     my $name = $params->{_DEFAULT};
 
-    if (defined $name) {
+    if ( defined $name ) {
         if ( defined( $params->{set} ) ) {
-            unless( $readOnlySK{$name} ) {
+            unless ( $readOnlySK{$name} ) {
                 $this->setSessionValue( $name, $params->{set} );
             }
         }
         elsif ( defined( $params->{clear} ) ) {
-            unless( $readOnlySK{$name} ) {
+            unless ( $readOnlySK{$name} ) {
                 $this->clearSessionValue($name);
             }
         }
@@ -1142,7 +1161,7 @@ sub _SESSION_VARIABLE {
 
 sub _LOGINURL {
     my ( $session, $params ) = @_;
-    my $this = $session->{users}->{loginManager};
+    my $this = $session->{users}->getLoginManager();
     return $this->loginUrl();
 }
 
@@ -1184,7 +1203,7 @@ TODO: what does it do?
 sub _skinSelect {
     my $this    = shift;
     my $session = $this->{session};
-    my $skins   = $session->{prefs}->getPreferencesValue('SKINS');
+    my $skins   = $session->{prefs}->getPreference('SKINS');
     my $skin    = $session->getSkin();
     my @skins   = split( /,/, $skins );
     unshift( @skins, 'default' );
@@ -1203,29 +1222,29 @@ sub _skinSelect {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-# Copyright (C) 2005-2007 TWiki Contributors.
-# Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 2005 Garage Games
-# Copyright (C) 2005 Crawford Currie http://c-dot.co.uk
-# Copyright (C) 2005 Greg Abbas, twiki@abbas.org
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+Copyright (C) 2005-2007 TWiki Contributors.
+Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
+Copyright (C) 2005 Garage Games
+Copyright (C) 2005 Crawford Currie http://c-dot.co.uk
+Copyright (C) 2005 Greg Abbas, twiki@abbas.org
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

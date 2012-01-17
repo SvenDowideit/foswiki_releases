@@ -8,4 +8,3 @@ Use the "Minor changes, don't notify" checkbox in preview in case you only make 
 
 ---
 *Related Topics:* UserDocumentationCategory
-

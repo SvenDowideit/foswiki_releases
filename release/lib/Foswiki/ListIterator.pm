@@ -7,12 +7,19 @@
 
 Iterator over a perl list
 
+WARNING: this Iterator will skip any elements that are == undef. 
+SMELL: hasNext should not 'return 1 if defined($this->{next}), but rather use a boolean - to allow array elements to be undef too.
+
 =cut
 
 package Foswiki::ListIterator;
-use base 'Foswiki::Iterator';
-
 use strict;
+use warnings;
+
+use Foswiki::Iterator ();
+our @ISA = ('Foswiki::Iterator');
+
+use Assert;
 
 =begin TML
 
@@ -26,6 +33,9 @@ any way.
 
 sub new {
     my ( $class, $list ) = @_;
+
+    ASSERT( !defined($list) || UNIVERSAL::isa( $list, 'ARRAY' ) ) if DEBUG;
+
     my $this = bless(
         {
             list    => $list,
@@ -55,7 +65,9 @@ while ($it->hasNext()) {
 
 sub hasNext {
     my ($this) = @_;
-    return 1 if $this->{next};
+    return 1
+      if defined( $this->{next} )
+    ; #SMELL: this is still wrong if the array element == undef, but at least means zero is an element
     my $n;
     do {
         if ( $this->{list} && $this->{index} < scalar( @{ $this->{list} } ) ) {
@@ -113,29 +125,79 @@ sub next {
     return $n;
 }
 
+=begin TML
+
+---++ ObjectMethod all() -> @list
+
+Exhaust the iterator. Return all remaining elements in the iteration
+as a list. The returned list should be considered to be immutable.
+
+This method is cheap if it is called when the cursor is at the first
+element in the iteration, and expensive otherwise, as it requires a list
+copy to be made.
+
+=cut
+
+sub all {
+    my $this = shift;
+    if ( $this->{index} ) {
+        my @copy = @{ $this->{list} };    # don't damage the original list
+        splice( @copy, 0, $this->{index} );
+        $this->{index} = scalar( @{ $this->{list} } );
+        return @copy;
+    }
+    else {
+
+        # At the start (good)
+        $this->{index} = scalar( @{ $this->{list} } );
+        return @{ $this->{list} };
+    }
+}
+
+=begin TML
+
+---++ reset() -> $boolean
+
+Start at the begining of the list
+<verbatim>
+$it->reset();
+while ($it->hasNext()) {
+   ...
+</verbatim>
+
+=cut
+
+sub reset {
+    my ($this) = @_;
+    $this->{next}  = undef;
+    $this->{index} = 0;
+
+    return 1;
+}
+
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

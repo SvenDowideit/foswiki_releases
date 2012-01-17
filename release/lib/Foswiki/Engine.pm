@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+!! package Foswiki::Engine
@@ -14,9 +15,10 @@ to achieve correct behavior.
 package Foswiki::Engine;
 
 use strict;
+use warnings;
 use Error qw( :try );
 use Assert;
-use Scalar::Util;
+use Scalar::Util ();
 
 =begin TML
 
@@ -43,7 +45,7 @@ Start point to Runtime Engines.
 
 sub run {
     my $this = shift;
-    my $req  = $this->prepare;
+    my $req  = $this->prepare();
     if ( defined $req ) {
         my $res = Foswiki::UI::handleRequest($req);
         $this->finalize( $res, $req );
@@ -80,12 +82,12 @@ sub prepare {
             $res = new Foswiki::Response();
             $res->header( -type => 'text/html', -status => $e->{status} );
             my $html = CGI::start_html( $e->{status} . ' Bad Request' );
-            $html .= CGI::h1('Bad Request');
-            $html .= CGI::p( $e->{reason} );
+            $html .= CGI::h1( {}, 'Bad Request' );
+            $html .= CGI::p( {}, $e->{reason} );
             $html .= CGI::end_html();
             $res->print($html);
         }
-        $this->finalizeError($res);
+        $this->finalizeError($res, $req);
         return $e->{status};
     }
     otherwise {
@@ -112,7 +114,7 @@ sub prepare {
             $text .= $mess;
             $res->print($text);
         }
-        $this->finalizeError($res);
+        $this->finalizeError($res, $req);
         return 500;    # Internal server error
     };
     return $req;
@@ -147,7 +149,8 @@ sub prepareQueryParameters {
     my @pairs = split /[&;]/, $queryString;
     my ( $param, $value, %params, @plist );
     foreach my $pair (@pairs) {
-        ( $param, $value ) = split('=', $pair, 2);
+        ( $param, $value ) = split( '=', $pair, 2 );
+
         # url decode
         if ( defined $value ) {
             $value =~ tr/+/ /;
@@ -264,9 +267,13 @@ take any appropriate finalize actions, such as delete temporary files.
 
 sub finalize {
     my ( $this, $res, $req ) = @_;
-    $this->finalizeUploads($res, $req);
-    $this->finalizeHeaders( $res, $req );
-    $this->finalizeBody($res);
+    if ($res->outputHasStarted()) {
+        $this->flush($res, $req);
+    } else {
+        $this->finalizeUploads( $res, $req );
+        $this->finalizeHeaders( $res, $req );
+        $this->finalizeBody($res);
+    }
 }
 
 =begin TML
@@ -285,18 +292,19 @@ sub finalizeUploads { }
 
 =begin TML
 
----++ ObjectMethod finalizeError( $res )
+---++ ObjectMethod finalizeError( $res, $req )
 
 Called if some engine especific error happens.
 
    * =$res= - Foswiki::Response object to get data from
+   * =$req= - Foswiki::Request object to get data from
 
 =cut
 
 sub finalizeError {
-    my ( $this, $res ) = @_;
-    $this->finalizeHeaders($res);
-    $this->finalizeBody($res);
+    my ( $this, $res, $req ) = @_;
+    $this->finalizeHeaders($res, $req);
+    $this->finalizeBody($res, $req);
 }
 
 =begin TML
@@ -316,7 +324,7 @@ Should call finalizeCookies and then send $res' headers to client.
 sub finalizeHeaders {
     my ( $this, $res, $req ) = @_;
     $this->finalizeCookies($res);
-    if ( $req && $req->method() && uc($req->method()) eq 'HEAD' ) {
+    if ( $req && $req->method() && uc( $req->method() ) eq 'HEAD' ) {
         $res->body('');
         $res->deleteHeader('Content-Length');
     }
@@ -347,9 +355,10 @@ sub finalizeCookies {
 
 =begin TML
 
----++ ObjectMethod finalizeBody( $res )
+---++ ObjectMethod finalizeBody( $res, $req )
 
    * =$res= - Foswiki::Response object to get data from
+   * =$req= - Foswiki::Request object to get data from
 
 Should send $res' body to client. This method calls =write()=
 as needed, sou engines should redefine that method insted of this one.
@@ -357,7 +366,7 @@ as needed, sou engines should redefine that method insted of this one.
 =cut
 
 sub finalizeBody {
-    my ( $this, $res ) = @_;
+    my ( $this, $res, $req ) = @_;
     my $body = $res->body;
     return unless $body;
     $this->prepareWrite($res);
@@ -377,12 +386,52 @@ sub finalizeBody {
 
 =begin TML
 
+---++ flush($res, $req)
+
+Forces the response headers to be emitted if they haven't already been sent
+(note that this may in some circumstances result in cookies being missed)
+before flushing what is in the body so far.
+
+Before headers are sent, any Content-length is removed, as a call to
+flush is a statement that there's more to follow, but we don't know
+how much at this point.
+
+This function should be used with great care! It requires that the output
+headers are fully complete before it is first called. Once it *has* been
+called, the response object will refuse any modifications that would alter
+the header.
+
+=cut
+
+sub flush {
+    my ($this, $res, $req) = @_;
+
+    unless ($res->outputHasStarted()) {
+        $res->deleteHeader('Content-Length');
+        $this->finalizeUploads( $res, $req );
+        $this->finalizeHeaders( $res, $req );
+        $this->prepareWrite($res);
+        $res->outputHasStarted(1);
+    }
+
+    my $body = $res->body();
+
+    if ( Scalar::Util::blessed($body) || ref( $body ) eq 'GLOB' ) {
+        throw Foswiki::EngineException('Cannot flush non-text response body');
+    }
+
+    $this->write($body);
+    $res->body('');
+}
+
+=begin TML
+
 ---++ ObjectMethod prepareWrite( $res )
 
-Abstract method, must be defined by inherited classes.
+Abstract method, may be defined by inherited classes.
    * =$res= - Foswiki::Response object to get data from
 
-Shold perform any task needed before writing.
+Should perform any task needed before writing.
 That's ok if none needed ;-)
 
 =cut
@@ -405,34 +454,32 @@ sub write {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This module is based/inspired on Catalyst framework. Refer to
-#
-# http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm
-#
-# for credits and liscence details.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This module is based/inspired on Catalyst framework. Refer to
+http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm
+for credits and liscence details.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

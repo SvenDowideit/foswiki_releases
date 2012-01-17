@@ -3,17 +3,12 @@
 #patternClearHeaderCenter,
 #patternClearHeaderLeft,
 #patternClearHeaderRight,
-#patternTopBarContentsOuter,
 #patternTopBarContents {
 	height:0;
 }
 #patternTopBar,
 #patternTopBarContents {
 	display:hidden;
-}
-/* move the left bar contents down to show the logo */
-#patternSideBarContents {
-	margin-top:64px; /* top bar height */
 }
 #patternSideBar {
 	/* dynamic background image set in topic */

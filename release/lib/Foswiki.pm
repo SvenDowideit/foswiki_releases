@@ -16,9 +16,8 @@ with CGI accelerators such as mod_perl.
 
 ---++ Public Data members
    * =request=          Pointer to the Foswiki::Request
-   * =response=         Pointer to the Foswiki::Respose
+   * =response=         Pointer to the Foswiki::Response
    * =context=          Hash of context ids
-   * moved: =loginManager=     Foswiki::LoginManager singleton (moved to Foswiki::Users)
    * =plugins=          Foswiki::Plugins singleton
    * =prefs=            Foswiki::Prefs singleton
    * =remoteUser=       Login ID when using ApacheLogin. Maintained for
@@ -29,8 +28,6 @@ with CGI accelerators such as mod_perl.
                         Only required to support {GetScriptUrlFromCgi} and
                         not consistently used. Avoid.
    * =security=         Foswiki::Access singleton
-   * =SESSION_TAGS=     Hash of preference settings whose value is specific to
-                        the current request.
    * =store=            Foswiki::Store singleton
    * =topicName=        Name of topic found in URL path or =topic= URL
                         parameter
@@ -45,52 +42,43 @@ with CGI accelerators such as mod_perl.
 =cut
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
+use Monitor                  ();
+use CGI                      ();  # Always required to get html generation tags;
+use Digest::MD5              ();  # For passthru and validation
+use Foswiki::Configure::Load ();
 
-use Fcntl;          # File control constants e.g. O_EXCL
-use CGI         (); # Always required to get html generation tags;
-use Digest::MD5 (); # For passthru and validation
-
-use Foswiki::Response ();
-use Foswiki::Request  ();
-use Foswiki::Logger   ();
-use Foswiki::Validation ();
-
-require 5.005;    # For regex objects and internationalisation
+require 5.005;                    # For regex objects and internationalisation
 
 # Site configuration constants
-use vars qw( %cfg );
-
-# Uncomment this and the __END__ to enable AutoLoader
-#use AutoLoader 'AUTOLOAD';
-# You then need to autosplit Foswiki.pm:
-# cd lib
-# perl -e 'use AutoSplit; autosplit("Foswiki.pm", "auto")'
+our %cfg;
 
 # Other computed constants
 our $foswikiLibDir;
 our %regex;
-our %functionTags;
+our %macros;
 our %contextFreeSyntax;
 our $VERSION;
 our $RELEASE;
 our $TRUE  = 1;
 our $FALSE = 0;
 our $engine;
-our $ifParser;
+our $TranslationToken = "\0";    # Do not deprecate - used in many plugins
 
-# Token character that must not occur in any normal text - converted
-# to a flag character if it ever does occur (very unlikely)
-# Foswiki uses $TranslationToken to mark points in the text. This is
-# normally \0, which is not a useful character in any 8-bit character
-# set we can find, nor in UTF-8. But if you *do* encounter problems
-# with it, the workaround is to change $TranslationToken to something
-# longer that is unlikely to occur in your text - for example
-# muRfleFli5ble8leep (do *not* use punctuation characters or whitspace
-# in the string!)
-# See Codev.NationalCharTokenClash for more.
-our $TranslationToken = "\0";
+# Note: the following marker is used in text to mark RENDERZONE
+# macros that have been hoisted from the source text of a page. It is
+# carefully chosen so that it is (1) not normally present in written
+# text (2) does not combine with other characters to form valid
+# wide-byte characters and (3) does not conflict with other markers used
+# by Foswiki/Render.pm
+our $RENDERZONE_MARKER = "\3";
+
+# Used by takeOut/putBack blocks
+our $BLOCKID = 0;
+our $OC      = "<!--\0";
+our $CC      = "\0-->";
 
 # Returns the full path of the directory containing Foswiki.pm
 sub _getLibDir {
@@ -139,94 +127,163 @@ sub _getLibDir {
 }
 
 BEGIN {
-    require Monitor;
-    require Foswiki::Sandbox;                  # system command sandbox
-    require Foswiki::Configure::Load;          # read configuration files
 
+    #Monitor::MARK("Start of BEGIN block in Foswiki.pm");
     if (DEBUG) {
+        if ( not $Assert::soft ) {
 
-        # If ASSERTs are on, then warnings are errors. Paranoid,
-        # but the only way to be sure we eliminate them all.
-        # Look out also for $cfg{WarningsAreErrors}, below, which
-        # is another way to install this handler without enabling
-        # ASSERTs
-        # ASSERTS are turned on by defining the environment variable
-        # FOSWIKI_ASSERTS. If ASSERTs are off, this is assumed to be a
-        # production environment, and no stack traces or paths are
-        # output to the browser.
-        $SIG{'__WARN__'} = sub { die @_ };
-        $Error::Debug = 1;    # verbose stack traces, please
+            # If ASSERTs are on (and not soft), then warnings are errors.
+            # Paranoid, but the only way to be sure we eliminate them all.
+            # Look out also for $cfg{WarningsAreErrors}, below, which
+            # is another way to install this handler without enabling
+            # ASSERTs
+            # ASSERTS are turned on by defining the environment variable
+            # FOSWIKI_ASSERTS. If ASSERTs are off, this is assumed to be a
+            # production environment, and no stack traces or paths are
+            # output to the browser.
+            $SIG{'__WARN__'} = sub { die @_ };
+            $Error::Debug = 1;    # verbose stack traces, please
+        }
+        else {
+
+            # ASSERTs are soft, so warnings are not errors
+            # but ASSERTs are enabled. This is useful for tracking down
+            # problems that only manifest on production servers.
+            # Consequently, this is only useful when
+            # $cfg{WarningsAreErrors} is NOT enabled
+            $Error::Debug = 0;    # no verbose stack traces
+        }
     }
     else {
-        $Error::Debug = 0;    # no verbose stack traces
+        $Error::Debug = 0;        # no verbose stack traces 
     }
 
-    # DO NOT CHANGE THE FORMAT OF  $VERSION
-    # Automatically expanded on checkin of this module 
-    $VERSION = '$Date: 2010-09-08 10:52:30 +0200 (Wed, 08 Sep 2010) $ $Rev: 8969 (2010-09-08) $ ';
-    $RELEASE = 'Foswiki-1.0.10';
+    # DO NOT CHANGE THE FORMAT OF $VERSION
+    # Automatically expanded on checkin of this module
+    $VERSION = '$Date: 2010-10-04 17:25:59 +0200 (Mon, 04 Oct 2010) $ $Rev: 9498 (2010-10-04) $ ';
+    $RELEASE = 'Foswiki-1.1.0';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
-    %functionTags = (
-        ADDTOHEAD         => \&ADDTOHEAD,
-        ALLVARIABLES      => \&ALLVARIABLES,
-        ATTACHURL         => \&ATTACHURL,
-        ATTACHURLPATH     => \&ATTACHURLPATH,
-        COREPOD           => \&COREPOD,
-        DATE              => \&DATE,
-        DISPLAYTIME       => \&DISPLAYTIME,
-        ENCODE            => \&ENCODE,
-        ENV               => \&ENV,
-        FORMFIELD         => \&FORMFIELD,
-        GMTIME            => \&GMTIME,
-        GROUPS            => \&GROUPS,
-        HTTP_HOST         => \&HTTP_HOST_deprecated,
-        HTTP              => \&HTTP,
-        HTTPS             => \&HTTPS,
-        ICON              => \&ICON,
-        ICONURL           => \&ICONURL,
-        ICONURLPATH       => \&ICONURLPATH,
-        IF                => \&IF,
-        INCLUDE           => \&INCLUDE,
-        INTURLENCODE      => \&INTURLENCODE_deprecated,
-        LANGUAGES         => \&LANGUAGES,
-        MAKETEXT          => \&MAKETEXT,
-        META              => \&META,
-        METASEARCH        => \&METASEARCH,
-        NOP               => \&NOP,
-        PLUGINVERSION     => \&PLUGINVERSION,
-        PUBURL            => \&PUBURL,
-        PUBURLPATH        => \&PUBURLPATH,
-        QUERYPARAMS       => \&QUERYPARAMS,
-        QUERYSTRING       => \&QUERYSTRING,
-        RELATIVETOPICPATH => \&RELATIVETOPICPATH,
-        REMOTE_ADDR       => \&REMOTE_ADDR_deprecated,
-        REMOTE_PORT       => \&REMOTE_PORT_deprecated,
-        REMOTE_USER       => \&REMOTE_USER_deprecated,
-        RENDERHEAD        => \&RENDERHEAD,
-        REVINFO           => \&REVINFO,
-        REVTITLE          => \&REVTITLE,
-        REVARG            => \&REVARG,
-        SCRIPTNAME        => \&SCRIPTNAME,
-        SCRIPTURL         => \&SCRIPTURL,
-        SCRIPTURLPATH     => \&SCRIPTURLPATH,
-        SEARCH            => \&SEARCH,
-        SEP               => \&SEP,
-        SERVERTIME        => \&SERVERTIME,
-        SPACEDTOPIC       => \&SPACEDTOPIC_deprecated,
-        SPACEOUT          => \&SPACEOUT,
-        'TMPL:P'          => \&TMPLP,
-        TOPICLIST         => \&TOPICLIST,
-        URLENCODE         => \&ENCODE,
-        URLPARAM          => \&URLPARAM,
-        LANGUAGE          => \&LANGUAGE,
-        USERINFO          => \&USERINFO,
-        USERNAME          => \&USERNAME_deprecated,
-        VAR               => \&VAR,
-        WEBLIST           => \&WEBLIST,
-        WIKINAME          => \&WIKINAME_deprecated,
-        WIKIUSERNAME      => \&WIKIUSERNAME_deprecated,
+    # Where an entry is set as 'undef', the tag will be demand-loaded
+    # from Foswiki::Macros, if it is used. This tactic is used to reduce
+    # the load time of this module, especially when it is used from
+    # REST handlers.
+    %macros = (
+        ADDTOHEAD => undef,
+
+        # deprecated, use ADDTOZONE instead
+        ADDTOZONE    => undef,
+        ALLVARIABLES => sub { $_[0]->{prefs}->stringify() },
+        ATTACHURL =>
+          sub { return $_[0]->getPubUrl( 1, $_[2]->web, $_[2]->topic ); },
+        ATTACHURLPATH =>
+          sub { return $_[0]->getPubUrl( 0, $_[2]->web, $_[2]->topic ); },
+        DATE => sub {
+            Foswiki::Time::formatTime(
+                time(),
+                $Foswiki::cfg{DefaultDateFormat},
+                $Foswiki::cfg{DisplayTimeValues}
+            );
+        },
+        DISPLAYTIME => sub {
+            Foswiki::Time::formatTime(
+                time(),
+                $_[1]->{_DEFAULT} || '',
+                $Foswiki::cfg{DisplayTimeValues}
+            );
+        },
+        ENCODE    => undef,
+        ENV       => undef,
+        EXPAND    => undef,
+        FORMAT    => undef,
+        FORMFIELD => undef,
+        GMTIME    => sub {
+            Foswiki::Time::formatTime( time(), $_[1]->{_DEFAULT} || '',
+                'gmtime' );
+        },
+        GROUPINFO => undef,
+        GROUPS    => undef,
+        HTTP_HOST =>
+
+          #deprecated functionality, now implemented using %ENV%
+          sub { $_[0]->{request}->header('Host') || '' },
+        HTTP         => undef,
+        HTTPS        => undef,
+        ICON         => undef,
+        ICONURL      => undef,
+        ICONURLPATH  => undef,
+        IF           => undef,
+        INCLUDE      => undef,
+        INTURLENCODE => undef,
+        LANGUAGE     => sub { $_[0]->i18n->language(); },
+        LANGUAGES    => undef,
+        MAKETEXT     => undef,
+        META         => undef,                              # deprecated
+        METASEARCH   => undef,                              # deprecated
+        NOP =>
+
+          # Remove NOP tag in template topics but show content.
+          # Used in template _topics_ (not templates, per se, but
+          # topics used as templates for new topics)
+          sub { $_[1]->{_RAW} ? $_[1]->{_RAW} : '<nop>' },
+        PLUGINVERSION => sub {
+            $_[0]->{plugins}->getPluginVersion( $_[1]->{_DEFAULT} );
+        },
+        PUBURL            => sub { $_[0]->getPubUrl(1) },
+        PUBURLPATH        => sub { $_[0]->getPubUrl(0) },
+        QUERY             => undef,
+        QUERYPARAMS       => undef,
+        QUERYSTRING       => sub { $_[0]->{request}->queryString() },
+        RELATIVETOPICPATH => undef,
+        REMOTE_ADDR =>
+
+          # DEPRECATED, now implemented using %ENV%
+          #move to compatibility plugin in Foswiki 2.0
+          sub { $_[0]->{request}->remoteAddress() || ''; },
+        REMOTE_PORT =>
+
+          # DEPRECATED
+          # CGI/1.1 (RFC 3875) doesn't specify REMOTE_PORT,
+          # but some webservers implement it. However, since
+          # it's not RFC compliant, Foswiki should not rely on
+          # it. So we get more portability.
+          sub { '' },
+        REMOTE_USER =>
+
+          # DEPRECATED
+          sub { $_[0]->{request}->remoteUser() || '' },
+        RENDERZONE => undef,
+        REVINFO    => undef,
+        REVTITLE   => undef,
+        REVARG     => undef,
+        SCRIPTNAME => sub { $_[0]->{request}->action() },
+        SCRIPTURL  => sub { $_[0]->getScriptUrl( 1, $_[1]->{_DEFAULT} || '' ) },
+        SCRIPTURLPATH =>
+          sub { $_[0]->getScriptUrl( 0, $_[1]->{_DEFAULT} || '' ) },
+        SEARCH => undef,
+        SEP =>
+
+          # Shortcut to %TMPL:P{"sep"}%
+          sub { $_[0]->templates->expandTemplate('sep') },
+        SERVERTIME => sub {
+            Foswiki::Time::formatTime( time(), $_[1]->{_DEFAULT} || '',
+                'servertime' );
+        },
+        SHOWPREFERENCE      => undef,
+        SPACEDTOPIC         => undef,
+        SPACEOUT            => undef,
+        'TMPL:P'            => sub { $_[0]->templates->tmplP( $_[1] ) },
+        TOPICLIST           => undef,
+        URLENCODE           => undef,
+        URLPARAM            => undef,
+        USERINFO            => undef,
+        USERNAME            => undef,
+        VAR                 => undef,
+        WEBLIST             => undef,
+        WIKINAME            => undef,
+        WIKIUSERNAME        => undef,
+        DISPLAYDEPENDENCIES => undef,
 
         # Constant tag strings _not_ dependent on config. These get nicely
         # optimised by the compiler.
@@ -268,8 +325,7 @@ BEGIN {
     # readConfig is defined in Foswiki::Configure::Load to allow overriding it
     if ( Foswiki::Configure::Load::readConfig() ) {
         $Foswiki::cfg{isVALID} = 1;
-    }
-
+        }
 
     if ( $Foswiki::cfg{WarningsAreErrors} ) {
 
@@ -290,26 +346,27 @@ BEGIN {
       unless defined $Foswiki::cfg{Validation}{MaxKeys};
 
     # Constant tags dependent on the config
-    $functionTags{ALLOWLOGINNAME} =
+    $macros{ALLOWLOGINNAME} =
       sub { $Foswiki::cfg{Register}{AllowLoginName} || 0 };
-    $functionTags{AUTHREALM}      = sub { $Foswiki::cfg{AuthRealm} };
-    $functionTags{DEFAULTURLHOST} = sub { $Foswiki::cfg{DefaultUrlHost} };
-    $functionTags{HOMETOPIC}      = sub { $Foswiki::cfg{HomeTopicName} };
-    $functionTags{LOCALSITEPREFS} = sub { $Foswiki::cfg{LocalSitePreferences} };
-    $functionTags{NOFOLLOW} =
+    $macros{AUTHREALM}      = sub { $Foswiki::cfg{AuthRealm} };
+    $macros{DEFAULTURLHOST} = sub { $Foswiki::cfg{DefaultUrlHost} };
+    $macros{HOMETOPIC}      = sub { $Foswiki::cfg{HomeTopicName} };
+    $macros{LOCALSITEPREFS} = sub { $Foswiki::cfg{LocalSitePreferences} };
+    $macros{NOFOLLOW} =
       sub { $Foswiki::cfg{NoFollow} ? 'rel=' . $Foswiki::cfg{NoFollow} : '' };
-    $functionTags{NOTIFYTOPIC}     = sub { $Foswiki::cfg{NotifyTopicName} };
-    $functionTags{SCRIPTSUFFIX}    = sub { $Foswiki::cfg{ScriptSuffix} };
-    $functionTags{STATISTICSTOPIC} = sub { $Foswiki::cfg{Stats}{TopicName} };
-    $functionTags{SYSTEMWEB}       = sub { $Foswiki::cfg{SystemWebName} };
-    $functionTags{TRASHWEB}        = sub { $Foswiki::cfg{TrashWebName} };
-    $functionTags{WIKIADMINLOGIN}  = sub { $Foswiki::cfg{AdminUserLogin} };
-    $functionTags{USERSWEB}        = sub { $Foswiki::cfg{UsersWebName} };
-    $functionTags{WEBPREFSTOPIC}   = sub { $Foswiki::cfg{WebPrefsTopicName} };
-    $functionTags{WIKIPREFSTOPIC}  = sub { $Foswiki::cfg{SitePrefsTopicName} };
-    $functionTags{WIKIUSERSTOPIC}  = sub { $Foswiki::cfg{UsersTopicName} };
-    $functionTags{WIKIWEBMASTER}   = sub { $Foswiki::cfg{WebMasterEmail} };
-    $functionTags{WIKIWEBMASTERNAME} = sub { $Foswiki::cfg{WebMasterName} };
+    $macros{NOTIFYTOPIC}       = sub { $Foswiki::cfg{NotifyTopicName} };
+    $macros{SCRIPTSUFFIX}      = sub { $Foswiki::cfg{ScriptSuffix} };
+    $macros{STATISTICSTOPIC}   = sub { $Foswiki::cfg{Stats}{TopicName} };
+    $macros{SYSTEMWEB}         = sub { $Foswiki::cfg{SystemWebName} };
+    $macros{TRASHWEB}          = sub { $Foswiki::cfg{TrashWebName} };
+    $macros{SANDBOXWEB}        = sub { $Foswiki::cfg{SandboxWebName} };
+    $macros{WIKIADMINLOGIN}    = sub { $Foswiki::cfg{AdminUserLogin} };
+    $macros{USERSWEB}          = sub { $Foswiki::cfg{UsersWebName} };
+    $macros{WEBPREFSTOPIC}     = sub { $Foswiki::cfg{WebPrefsTopicName} };
+    $macros{WIKIPREFSTOPIC}    = sub { $Foswiki::cfg{SitePrefsTopicName} };
+    $macros{WIKIUSERSTOPIC}    = sub { $Foswiki::cfg{UsersTopicName} };
+    $macros{WIKIWEBMASTER}     = sub { $Foswiki::cfg{WebMasterEmail} };
+    $macros{WIKIWEBMASTERNAME} = sub { $Foswiki::cfg{WebMasterName} };
 
     # locale setup
     #
@@ -334,12 +391,11 @@ BEGIN {
         setlocale( &LC_COLLATE, $Foswiki::cfg{Site}{Locale} );
     }
 
-    $functionTags{CHARSET} = sub {
-        $Foswiki::cfg{Site}{CharSet}
-          || 'iso-8859-1';
+    $macros{CHARSET} = sub {
+        $Foswiki::cfg{Site}{CharSet} || CGI::charset();
     };
 
-    $functionTags{LANG} = sub {
+    $macros{LANG} = sub {
         $Foswiki::cfg{Site}{Locale} =~ m/^([a-z]+_[a-z]+)/i ? $1 : 'en_US';
     };
 
@@ -395,13 +451,19 @@ BEGIN {
     $regex{headerPatternNoTOC} = '(\!\!+|%NOTOC%)';
 
     # Foswiki concept regexes
-    $regex{wikiWordRegex} =
-qr/[$regex{upperAlpha}]+[$regex{lowerAlphaNum}]+[$regex{upperAlpha}]+[$regex{mixedAlphaNum}]*/o;
+    $regex{wikiWordRegex} = qr(
+            [$regex{upperAlpha}]+
+            [$regex{lowerAlphaNum}]+
+            [$regex{upperAlpha}]+
+            [$regex{mixedAlphaNum}]*
+       )xo;
     $regex{webNameBaseRegex} =
       qr/[$regex{upperAlpha}]+[$regex{mixedAlphaNum}_]*/o;
     if ( $Foswiki::cfg{EnableHierarchicalWebs} ) {
-        $regex{webNameRegex} =
-          qr/$regex{webNameBaseRegex}(?:(?:[\.\/]$regex{webNameBaseRegex})+)*/o;
+        $regex{webNameRegex} = qr(
+                $regex{webNameBaseRegex}
+                (?:(?:[\.\/]$regex{webNameBaseRegex})+)*
+           )xo;
     }
     else {
         $regex{webNameRegex} = $regex{webNameBaseRegex};
@@ -409,6 +471,7 @@ qr/[$regex{upperAlpha}]+[$regex{lowerAlphaNum}]+[$regex{upperAlpha}]+[$regex{mix
     $regex{defaultWebNameRegex} = qr/_[$regex{mixedAlphaNum}_]+/o;
     $regex{anchorRegex}         = qr/\#[$regex{mixedAlphaNum}_]+/o;
     $regex{abbrevRegex}         = qr/[$regex{upperAlpha}]{3,}s?\b/o;
+
     $regex{topicNameRegex} =
       qr/(?:(?:$regex{wikiWordRegex})|(?:$regex{abbrevRegex}))/o;
 
@@ -417,9 +480,10 @@ qr/[$regex{upperAlpha}]+[$regex{lowerAlphaNum}]+[$regex{upperAlpha}]+[$regex{mix
     $regex{emailAddrRegex} =
       qr/([a-z0-9!+$%&'*+-\/=?^_`{|}~.]+\@[a-z0-9\.\-]+)/i;
 
-# Filename regex to used to match invalid characters in attachments - allow
-# alphanumeric characters, spaces, underscores, etc.
-# TODO: Get this to work with I18N chars - currently used only with UseLocale off
+    # Filename regex to used to match invalid characters in attachments
+    # - allow alphanumeric characters, spaces, underscores, etc.
+    # TODO: Get this to work with I18N chars - currently used only
+    # with UseLocale off
     $regex{filenameInvalidCharRegex} = qr/[^$regex{mixedAlphaNum}\. _-]/o;
 
     # Multi-character alpha-based regexes
@@ -477,7 +541,7 @@ qr/[$regex{upperAlpha}]+[$regex{lowerAlphaNum}]+[$regex{upperAlpha}]+[$regex{mix
                     [\x80-\xBF][\x80-\xBF]
                 }xo;
 
-    $regex{validUtf8StringRegex} = qr/^ (?: $regex{validUtf8CharRegex} )+ $/xo;
+    $regex{validUtf8StringRegex} = qr/^(?:$regex{validUtf8CharRegex})+$/o;
 
     # Check for unsafe search regex mode (affects filtering in) - default
     # to safe mode
@@ -497,17 +561,20 @@ qr/[$regex{upperAlpha}]+[$regex{lowerAlphaNum}]+[$regex{upperAlpha}]+[$regex{mix
     $engine = eval qq(use $Foswiki::cfg{Engine}; $Foswiki::cfg{Engine}->new);
     die $@ if $@;
 
-    Monitor::MARK('Static configuration loaded');
+    #Monitor::MARK('End of BEGIN block in Foswiki.pm');
 }
 
-=begin TML
-
----++ ObjectMethod UTF82SiteCharSet( $utf8 ) -> $ascii
-
-Auto-detect UTF-8 vs. site charset in string, and convert UTF-8 into site
-charset.
-
-=cut
+# Components that all requests need
+use Foswiki::Response ();
+use Foswiki::Request  ();
+use Foswiki::Logger   ();
+use Foswiki::Meta     ();
+use Foswiki::Sandbox  ();
+use Foswiki::Time     ();
+use Foswiki::Prefs    ();
+use Foswiki::Plugins  ();
+use Foswiki::Store    ();
+use Foswiki::Users    ();
 
 sub UTF82SiteCharSet {
     my ( $this, $text ) = @_;
@@ -515,7 +582,7 @@ sub UTF82SiteCharSet {
     return $text unless ( defined $Foswiki::cfg{Site}{CharSet} );
 
     # Detect character encoding of the full topic name from URL
-    return undef if ( $text =~ $regex{validAsciiStringRegex} );
+    return if ( $text =~ $regex{validAsciiStringRegex} );
 
     # SMELL: all this regex stuff should go away.
     # If not UTF-8 - assume in site character set, no conversion required
@@ -530,7 +597,7 @@ sub UTF82SiteCharSet {
     else {
 
         #SMELL: this seg faults on OSX leopard. (and possibly others)
-        return undef unless ( $text =~ $regex{validUtf8StringRegex} );
+        return unless ( $text =~ $regex{validUtf8StringRegex} );
     }
 
     # If site charset is already UTF-8, there is no need to convert anything:
@@ -622,7 +689,7 @@ sub UTF82SiteCharSet {
 ---++ ObjectMethod writeCompletePage( $text, $pageType, $contentType )
 
 Write a complete HTML page with basic header to the browser.
-   * =$text= is the text of the page body (&lt;html&gt; to &lt;/html&gt; if it's HTML)
+   * =$text= is the text of the page script (&lt;html&gt; to &lt;/html&gt; if it's HTML)
    * =$pageType= - May be "edit", which will cause headers to be generated that force
      caching for 24 hours, to prevent Codev.BackFromPreviewLosesText bug, which caused
      data loss with IE5 and IE6.
@@ -637,91 +704,136 @@ sub writeCompletePage {
     my ( $this, $text, $pageType, $contentType ) = @_;
     $contentType ||= 'text/html';
 
-    if ( $contentType ne 'text/plain' ) {
+    my $cgis = $this->getCGISession();
+    if (   $cgis
+        && $contentType eq 'text/html'
+        && $Foswiki::cfg{Validation}{Method} ne 'none' )
+    {
 
-        # Remove <nop> and <noautolink> tags
-        $text =~ s/([\t ]?)[ \t]*<\/?(nop|noautolink)\/?>/$1/gis;
-        $text .= "\n" unless $text =~ /\n$/s;
+        # Don't expire the validation key through login, or when
+        # endpoint is an error.
+        Foswiki::Validation::expireValidationKeys($cgis)
+          unless ( $this->{request}->action() eq 'login'
+            or ( $ENV{REDIRECT_STATUS} || 0 ) >= 400 );
 
-        my $cgis = $this->getCGISession();
-        if ( $cgis && $contentType eq 'text/html'
-               && $Foswiki::cfg{Validation}{Method} ne 'none') {
-            # Don't expire the validation key through login, or when
-            # endpoint is an error.
-            Foswiki::Validation::expireValidationKeys($cgis)
-                unless ($this->{request}->action() eq 'login'
-                          or ( $ENV{REDIRECT_STATUS} || 0 ) >= 400);
-            my $usingStrikeOne = 0;
-            if ($Foswiki::cfg{Validation}{Method} eq 'strikeone'
-                  # Add the onsubmit handler to the form
-                  && $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
-                    Foswiki::Validation::addOnSubmit($1)/gei) {
-                # At least one form has been touched; add the validation
-                # cookie
-                $this->{users}->{loginManager}->addCookie(
-                    Foswiki::Validation::getCookie(
-                        $cgis, $this->{response}));
-                # Add the JS module to the page. Note that this is *not*
-                # incorporated into the foswikilib.js because that module
-                # is conditionally loaded under the control of the
-                # templates, and we have to be *sure* it gets loaded.
-                $this->addToHEAD( 'FOSWIKI STRIKE ONE',
-                                  <<STRIKEONE);
-<script type="text/javascript" src="$Foswiki::cfg{PubUrlPath}/$Foswiki::cfg{SystemWebName}/JavascriptFiles/strikeone.js"></script>
-STRIKEONE
-                $usingStrikeOne = 1;
-            }
-            # Inject validation key in HTML forms
-            my $context =
-              $this->{request}->url( -full => 1, -path => 1, -query => 1 )
-                . time();
-            $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
-              $1 . Foswiki::Validation::addValidationKey(
-                  $cgis, $context, $usingStrikeOne )/gei;
+        my $usingStrikeOne = 0;
+        if (
+            $Foswiki::cfg{Validation}{Method} eq 'strikeone'
+
+            # Add the onsubmit handler to the form
+            && $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
+                Foswiki::Validation::addOnSubmit($1)/gei
+          )
+        {
+
+            # At least one form has been touched; add the validation
+            # cookie
+            $this->{response}
+              ->cookies( [ Foswiki::Validation::getCookie($cgis) ] );
+
+            # Add the JS module to the page. Note that this is *not*
+            # incorporated into the foswikilib.js because that module
+            # is conditionally loaded under the control of the
+            # templates, and we have to be *sure* it gets loaded.
+            my $src = $this->{prefs}->getPreference('FWSRC') || '';
+            $this->addToZone( 'head', 'JavascriptFiles/strikeone', <<JS );
+<script type="text/javascript" src="$Foswiki::cfg{PubUrlPath}/$Foswiki::cfg{SystemWebName}/JavascriptFiles/strikeone$src.js"></script>
+JS
+            $usingStrikeOne = 1;
         }
-        my $htmlHeader = join( "\n",
-            map { '<!--' . $_ . '-->' . $this->{_HTMLHEADERS}{$_} }
-              keys %{ $this->{_HTMLHEADERS} } );
-        $text =~ s!(</head>)!$htmlHeader$1!i if $htmlHeader;
-        chomp($text);
+
+        # Inject validation key in HTML forms
+        my $context =
+          $this->{request}->url( -full => 1, -path => 1, -query => 1 ) . time();
+        $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
+          $1 . Foswiki::Validation::addValidationKey(
+              $cgis, $context, $usingStrikeOne )/gei;
     }
 
-    $this->generateHTTPHeaders( undef, $pageType, $contentType );
-    my $hdr = $this->{response}->printHeaders;
+    if ( $contentType ne 'text/plain' ) {
+
+        $text = $this->_renderZones($text);
+    }
+
+    # SMELL: can't compute; faking content-type for backwards compatibility;
+    # any other information might become bogus later anyway
+    my $hdr = "Content-type: " . $contentType . "\r\n";
 
     # Call final handler
     $this->{plugins}->dispatch( 'completePageHandler', $text, $hdr );
+
+    # cache final page, but only view
+    my $cachedPage;
+    if ( $contentType ne 'text/plain' ) {
+        if ( $Foswiki::cfg{Cache}{Enabled}
+            && ( $this->inContext('view') || $this->inContext('rest') ) )
+        {
+            $cachedPage = $this->{cache}->cachePage( $contentType, $text );
+            $this->{cache}->renderDirtyAreas( \$text )
+              if $cachedPage->{isDirty};
+        }
+        else {
+
+            # remove <dirtyarea> tags
+            $text =~ s/<\/?dirtyarea[^>]*>//go;
+        }
+
+        # Remove <nop> and <noautolink> tags
+        $text =~ s/([\t ]?)[ \t]*<\/?(nop|noautolink)\/?>/$1/gis;
+
+        # Check that the templates specified clean HTML
+        if (DEBUG) {
+
+            # When tracing is enabled in Foswiki::Templates, then there will
+            # always be a <!--bodyend--> after </html>. So we need to disable
+            # this check.
+            require Foswiki::Templates;
+            if (   !Foswiki::Templates->TRACE
+                && $contentType =~ m#text/html#
+                && $text =~ m#</html>(.*?\S.*)$#s )
+            {
+                ASSERT( 0, <<BOGUS );
+Junk after </html>: $1. Templates may be bogus
+- Check for excess blank lines at ends of .tmpl files
+-  or newlines after %TMPL:INCLUDE
+- You can enable TRACE in Foswiki::Templates to help debug
+BOGUS
+            }
+        }
+    }
+
+    $this->generateHTTPHeaders( $pageType, $contentType, $text, $cachedPage );
+
+    # SMELL: null operation. the http headers are written out
+    # during Foswiki::Engine::finalize
+    # $hdr = $this->{response}->printHeaders;
 
     $this->{response}->print($text);
 }
 
 =begin TML
 
----++ ObjectMethod generateHTTPHeaders( $query, $pageType, $contentType ) -> $header
+---++ ObjectMethod generateHTTPHeaders( $pageType, $contentType, $text, $cachedPage )
 
 All parameters are optional.
 
-   * =$query= CGI query object | Session CGI query (there is no good reason to set this)
    * =$pageType= - May be "edit", which will cause headers to be generated that force caching for 24 hours, to prevent Codev.BackFromPreviewLosesText bug, which caused data loss with IE5 and IE6.
    * =$contentType= - page content type | text/html
+   * =$text= - page content
+   * =$cachedPage= - a pointer to the page container as fetched from the page cache
 
 =cut
 
 sub generateHTTPHeaders {
-    my ( $this, $query, $pageType, $contentType ) = @_;
-
-    $query = $this->{request} unless $query;
-
-    # Handle Edit pages - future versions will extend to caching
-    # of other types of page, with expiry time driven by page type.
-    my ( $pluginHeaders, $coreHeaders );
+    my ( $this, $pageType, $contentType, $text, $cachedPage ) = @_;
 
     my $hopts = {};
 
+    # Handle Edit pages - future versions will extend to caching
+    # of other types of page, with expiry time driven by page type.
     if ( $pageType && $pageType eq 'edit' ) {
 
         # Get time now in HTTP header format
-        require Foswiki::Time;
         my $lastModifiedString =
           Foswiki::Time::formatTime( time, '$http', 'gmtime' );
 
@@ -743,7 +855,8 @@ sub generateHTTPHeaders {
 
     # DEPRECATED plugins header handler. Plugins should use
     # modifyHeaderHandler instead.
-    $pluginHeaders = $this->{plugins}->dispatch( 'writeHeaderHandler', $query )
+    my $pluginHeaders =
+      $this->{plugins}->dispatch( 'writeHeaderHandler', $this->{request} )
       || '';
     if ($pluginHeaders) {
         foreach ( split /\r?\n/, $pluginHeaders ) {
@@ -756,9 +869,11 @@ sub generateHTTPHeaders {
     }
 
     $contentType = 'text/html' unless $contentType;
-    if ( defined( $Foswiki::cfg{Site}{CharSet} ) ) {
-        $contentType .= '; charset=' . $Foswiki::cfg{Site}{CharSet};
-    }
+    $contentType .= '; charset=' . $Foswiki::cfg{Site}{CharSet}
+      if $contentType ne ''
+          && $contentType =~ m!^text/!
+          && $contentType !~ /\bcharset\b/
+          && $Foswiki::cfg{Site}{CharSet};
 
     # use our version of the content type
     $hopts->{'Content-Type'} = $contentType;
@@ -767,8 +882,87 @@ sub generateHTTPHeaders {
     $this->{plugins}
       ->dispatch( 'modifyHeaderHandler', $hopts, $this->{request} );
 
-    # add cookie(s)
-    $this->{users}->{loginManager}->modifyHeader($hopts);
+    # add http compression and conditional cache controls
+    if ( !$this->inContext('command_line') && $text ) {
+
+        if (   $Foswiki::cfg{HttpCompress}
+            && $ENV{'HTTP_ACCEPT_ENCODING'}
+            && $ENV{'HTTP_ACCEPT_ENCODING'} =~ /(x-gzip|gzip)/i )
+        {
+            my $encoding = $1;
+            $hopts->{'Content-Encoding'} = $encoding;
+            $hopts->{'Vary'}             = 'Accept-Encoding';
+
+            # check if we take the version from the cache
+            if ( $cachedPage && !$cachedPage->{isDirty} ) {
+                $text = $cachedPage->{text};
+            }
+            else {
+                require Compress::Zlib;
+                $text = Compress::Zlib::memGzip($text);
+            }
+        }
+        elsif ($cachedPage
+            && !$cachedPage->{isDirty}
+            && $Foswiki::cfg{HttpCompress} )
+        {
+
+            # Outch, we need to uncompressed pages from cache again
+            # Note, this is effort to avoid under any circumstances as
+            # the page has been compressed when it has been created and now
+            # is uncompressed again to get back the original. For now the
+            # only know situation this can happen is for older browsers like IE6
+            # which does not understand gzip'ed http encodings
+            require Compress::Zlib;
+            $text = Compress::Zlib::memGunzip($text);
+        }
+
+        # we need to force the browser into a check on every
+        # request; let the server decide on an 304 as below
+        $hopts->{'Cache-Control'} = 'max-age=0';
+
+        # check etag and last modification time
+        # if we have a cached page on the server side
+        if ($cachedPage) {
+            my $etag         = $cachedPage->{etag};
+            my $lastModified = $cachedPage->{lastModified};
+
+            $hopts->{'ETag'} = $etag;
+            $hopts->{'Last-Modified'} = $lastModified if $lastModified;
+
+            # only send a 304 if both criteria are true
+            my $etagFlag         = 1;
+            my $lastModifiedFlag = 1;
+
+            # check etag
+            unless ( $ENV{'HTTP_IF_NONE_MATCH'}
+                && $etag eq $ENV{'HTTP_IF_NONE_MATCH'} )
+            {
+                $etagFlag = 0;
+            }
+
+            # check last-modified
+            unless ( $ENV{'HTTP_IF_MODIFIED_SINCE'}
+                && $lastModified eq $ENV{'HTTP_IF_MODIFIED_SINCE'} )
+            {
+                $lastModifiedFlag = 0;
+            }
+
+            # finally decide on a 304 reply
+            if ( $etagFlag && $lastModified ) {
+                $hopts->{'Status'} = '304 Not Modified';
+                $text = '';
+
+                #print STDERR "NOT modified\n";
+            }
+        }
+
+        # write back to text
+        $_[3] = $text;
+    }
+
+    $hopts->{"X-FoswikiAction"} = $this->{request}->action;
+    $hopts->{"X-FoswikiURI"}    = $this->{request}->uri;
 
     # The headers method resets all headers to what we pass
     # what we want is simply ensure our headers are there
@@ -824,7 +1018,7 @@ Conditions for a valid redirection target are:
 
 sub redirectto {
     my ( $this, $url ) = @_;
-    ASSERT($url);
+    ASSERT($url) if DEBUG;
 
     my $redirecturl = $this->{request}->param('redirectto');
     return $url unless $redirecturl;
@@ -865,7 +1059,7 @@ The anchor includes the # sign. Returns an empty string if not found in the url.
 sub splitAnchorFromUrl {
     my ($url) = @_;
 
-    ($url, my $anchor) = $url =~ m/^(.*?)(#(.*?))*$/;
+    ( $url, my $anchor ) = $url =~ m/^(.*?)(#(.*?))*$/;
     return ( $url, $anchor );
 }
 
@@ -878,7 +1072,8 @@ sub splitAnchorFromUrl {
      parameters (see below)
 
 Redirects the request to =$url=, *unless*
-   1 It is overridden by a plugin declaring a =redirectCgiQueryHandler=.
+   1 It is overridden by a plugin declaring a =redirectCgiQueryHandler=
+     (a dangerous, deprecated handler!)
    1 =$session->{request}= is =undef= or
 Thus a redirect is only generated when in a CGI context.
 
@@ -900,36 +1095,33 @@ server.
 
 sub redirect {
     my ( $this, $url, $passthru ) = @_;
-    ASSERT( defined $url );
+    ASSERT( defined $url ) if DEBUG;
 
-    my $query = $this->{request};
+    return unless $this->{request};
 
-    # if we got here without a query, there's not much more we can do
-    return unless $query;
+    ( $url, my $anchor ) = splitAnchorFromUrl($url);
 
-	( $url, my $anchor ) = splitAnchorFromUrl($url);
-
-    if ( $passthru && defined $query->method() ) {
+    if ( $passthru && defined $this->{request}->method() ) {
         my $existing = '';
         if ( $url =~ s/\?(.*)$// ) {
             $existing = $1;    # implicit untaint OK; recombined later
         }
-
-        if ( uc( $query->method() ) eq 'POST' ) {
+        if ( uc( $this->{request}->method() ) eq 'POST' ) {
 
             # Redirecting from a post to a get
             my $cache = $this->cacheQuery();
             if ($cache) {
-                if ($url eq '/') {
-                    $url = $this->getScriptUrl(1, 'view');
+                if ( $url eq '/' ) {
+                    $url = $this->getScriptUrl( 1, 'view' );
                 }
                 $url .= $cache;
             }
         }
         else {
+
             # Redirecting a get to a get; no need to use passthru
-            if ( $query->query_string() ) {
-                $url .= '?' . $query->query_string();
+            if ( $this->{request}->query_string() ) {
+                $url .= '?' . $this->{request}->query_string();
             }
             if ($existing) {
                 if ( $url =~ /\?/ ) {
@@ -963,15 +1155,20 @@ sub redirect {
         );
     }
 
-	$url .= $anchor if $anchor;
+    $url .= $anchor if $anchor;
 
+    # Dangerous, deprecated handler! Might work, probably won't.
     return
       if ( $this->{plugins}
         ->dispatch( 'redirectCgiQueryHandler', $this->{response}, $url ) );
 
-    # SMELL: this is a bad breaking of encapsulation: the loginManager
-    # should just modify the url, then the redirect should only happen here.
-    return !$this->{users}->{loginManager}->redirectCgiQuery( $query, $url );
+    $url = $this->getLoginManager()->rewriteRedirectUrl($url);
+
+    # Foswiki::Response::redirect doesn't automatically pass on the cookies
+    # for us, so we have to do it explicitly; otherwise the session cookie
+    # won't get passed on.
+    $this->{response}
+      ->redirect( -url => $url, -cookies => $this->{response}->cookies() );
 }
 
 =begin TML
@@ -997,22 +1194,12 @@ sub cacheQuery {
     # Don't double-cache
     return '' if ( $query->param('foswiki_redirect_cache') );
 
-    $this->{digester}->add( $$, rand(time) );
-    my $uid              = $this->{digester}->hexdigest();
-    my $passthruFilename = "$Foswiki::cfg{WorkingDir}/tmp/passthru_$uid";
-
-    # passthrough file is only written to once, so if it already exists,
-    # suspect a security hack (O_EXCL)
-    sysopen( F, "$passthruFilename", O_RDWR | O_EXCL | O_CREAT, 0600 )
-      || die 'Unable to open '.$Foswiki::cfg{WorkingDir}
-        .'/tmp for write; check the setting of {WorkingDir} in configure,'
-          .' and check file permissions: '.$!;
-    $query->save( \*F );
-    close(F);
-
-    if ($Foswiki::cfg{UsePathForRedirectCache}) {
+    require Foswiki::Request::Cache;
+    my $uid = Foswiki::Request::Cache->new()->save($query);
+    if ( $Foswiki::cfg{UsePathForRedirectCache} ) {
         return '/foswiki_redirect_cache/' . $uid;
-    } else {
+    }
+    else {
         return '?foswiki_redirect_cache=' . $uid;
     }
 }
@@ -1027,8 +1214,20 @@ one. May return undef.
 =cut
 
 sub getCGISession {
-    my $this = shift;
-    return $this->{users}->{loginManager}->{_cgisession};
+    $_[0]->{users}->getCGISession();
+}
+
+=begin TML
+
+---++ ObjectMethod getLoginManager() -> $loginManager
+
+Get the Foswiki::LoginManager object associated with this session, if there is
+one. May return undef.
+
+=cut
+
+sub getLoginManager {
+    $_[0]->{users}->getLoginManager();
 }
 
 =begin TML
@@ -1060,7 +1259,7 @@ sub isValidTopicName {
     return 0 unless defined $name && $name ne '';
     return 1 if ( $name =~ m/^$regex{topicNameRegex}$/o );
     return 0 unless $nonww;
-    return 0 if $name =~ /$Foswiki::cfg{NameFilter}/;
+    return 0 if $name =~ /$cfg{NameFilter}/o;
     return 1;
 }
 
@@ -1095,8 +1294,8 @@ STATIC Check for a valid email address name.
 
 # Note: must work on tainted names.
 sub isValidEmailAddress {
-    my ($name) = @_;
-    return $name =~ /^$regex{emailAddrRegex}$/;
+    my $name = shift || '';
+    return $name =~ /^$regex{emailAddrRegex}$/o;
 }
 
 =begin TML
@@ -1110,22 +1309,42 @@ Get the currently requested skin path
 sub getSkin {
     my $this = shift;
 
-    my $skinpath = $this->{prefs}->getPreferencesValue('SKIN') || '';
+    my @skinpath;
+    my $skins;
 
     if ( $this->{request} ) {
-        my $resurface = $this->{request}->param('skin');
-        $skinpath = $resurface if $resurface;
+        $skins = $this->{request}->param('cover');
+        if ( defined $skins
+            && $skins =~ /([$regex{mixedAlphaNum}.,\s]+)/o )
+        {
+
+            # Implicit untaint ok - validated
+            $skins = $1;
+            push( @skinpath, split( /,\s]+/, $skins ) );
+        }
     }
 
-    my $epidermis = $this->{prefs}->getPreferencesValue('COVER');
-    $skinpath = $epidermis . ',' . $skinpath if $epidermis;
+    $skins = $this->{prefs}->getPreference('COVER');
+    if ( defined $skins
+        && $skins =~ /([$regex{mixedAlphaNum}.,\s]+)/o )
+    {
 
-    if ( $this->{request} ) {
-        $epidermis = $this->{request}->param('cover');
-        $skinpath = $epidermis . ',' . $skinpath if $epidermis;
+        # Implicit untaint ok - validated
+        $skins = $1;
+        push( @skinpath, split( /[,\s]+/, $skins ) );
     }
 
-    return $skinpath;
+    $skins = $this->{request} ? $this->{request}->param('skin') : undef;
+    $skins = $this->{prefs}->getPreference('SKIN') unless $skins;
+
+    if ( defined $skins && $skins =~ /([$regex{mixedAlphaNum}.,\s]+)/o ) {
+
+        # Implicit untaint ok - validated
+        $skins = $1;
+        push( @skinpath, split( /[,\s]+/, $skins ) );
+    }
+
+    return join( ',', @skinpath );
 }
 
 =begin TML
@@ -1201,16 +1420,18 @@ sub getScriptUrl {
 }
 
 sub _make_params {
-    my ( $notfirst, @args ) = @_;
-    my $url    = '';
-    my $ps     = '';
-    my $anchor = '';
-    while ( my $p = shift @args ) {
+    my $notfirst = shift;
+    my $url      = '';
+    my $ps       = '';
+    my $anchor   = '';
+    while ( my $p = shift @_ ) {
         if ( $p eq '#' ) {
-            $anchor .= '#' . urlEncode( shift(@args) );
+            $anchor .= '#' . urlEncode( shift(@_) );
         }
         else {
-            $ps .= ';' . urlEncode($p) . '=' . urlEncode( shift(@args) || '' );
+            my $v = shift(@_);
+            $v = '' unless defined $v;
+            $ps .= ';' . urlEncode($p) . '=' . urlEncode($v);
         }
     }
     if ($ps) {
@@ -1273,71 +1494,36 @@ sub getPubUrl {
 
 =begin TML
 
----++ ObjectMethod getIconUrl( $absolute, $iconName ) -> $iconURL
+---++ ObjectMethod deepWebList($filter, $web) -> @list
 
-Map an icon name to a URL path.
+Deep list subwebs of the named web. $filter is a Foswiki::WebFilter
+object that is used to filter the list. The listing of subwebs is
+dependent on $Foswiki::cfg{EnableHierarchicalWebs} being true.
+
+Webs are returned as absolute web pathnames.
 
 =cut
 
-sub getIconUrl {
-    my ( $this, $absolute, $iconName ) = @_;
-
-    my $iconTopic = $this->{prefs}->getPreferencesValue('ICONTOPIC');
-    if ( defined($iconTopic) ) {
-        $iconTopic =~ s/\s+$//;
-        my ( $web, $topic ) =
-          $this->normalizeWebTopicName( $this->{webName}, $iconTopic );
-        $iconName =~ s/^.*\.(.*?)$/$1/;
-        return $this->getPubUrl( $absolute, $web, $topic, $iconName . '.gif' );
+sub deepWebList {
+    my ( $this, $filter, $rootWeb ) = @_;
+    my @list;
+    my $webObject = new Foswiki::Meta( $this, $rootWeb );
+    my $it = $webObject->eachWeb( $Foswiki::cfg{EnableHierarchicalWebs} );
+    return $it->all() unless $filter;
+    while ( $it->hasNext() ) {
+        my $w = $rootWeb || '';
+        $w .= '/' if $w;
+        $w .= $it->next();
+        if ( $filter->ok( $this, $w ) ) {
+            push( @list, $w );
+        }
     }
-    else {
-        return '';
-    }
+    return @list;
 }
 
 =begin TML
 
----++ ObjectMethod mapToIconFileName( $fileName, $default ) -> $fileName
-
-Maps from a filename (or just the extension) to the name of the
-file that contains the image for that file type.
-
-=cut
-
-sub mapToIconFileName {
-    my ( $this, $fileName, $default ) = @_;
-
-    my @bits = ( split( /\./, $fileName ) );
-    my $fileExt = lc( $bits[$#bits] );
-
-    unless ( $this->{_ICONMAP} ) {
-        my $iconTopic = $this->{prefs}->getPreferencesValue('ICONTOPIC');
-        if ( defined($iconTopic) ) {
-            my ( $web, $topic ) =
-              $this->normalizeWebTopicName( $this->{webName}, $iconTopic );
-            local $/ = undef;
-            try {
-                my $icons =
-                  $this->{store}->getAttachmentStream( undef, $web, $topic,
-                    '_filetypes.txt' );
-                %{ $this->{_ICONMAP} } = split( /\s+/, <$icons> );
-                close($icons);
-            }
-            catch Error::Simple with {
-                %{ $this->{_ICONMAP} } = ();
-            };
-        }
-        else {
-            return $default || $fileName;
-        }
-    }
-
-    return $this->{_ICONMAP}->{$fileExt} || $default || 'else';
-}
-
-=begin TML
-
----++ ObjectMethod normalizeWebTopicName( $theWeb, $theTopic ) -> ( $theWeb, $theTopic )
+---++ ObjectMethod normalizeWebTopicName( $web, $topic ) -> ( $web, $topic )
 
 Normalize a Web<nop>.<nop>TopicName
 
@@ -1376,7 +1562,7 @@ sub normalizeWebTopicName {
     # MAINWEB and TWIKIWEB expanded for compatibility reasons
     while (
         $web =~ s/%((MAIN|TWIKI|USERS|SYSTEM|DOC)WEB)%/
-              $this->_expandTagOnTopicRendering( $1 ) || ''/e
+              $this->_expandMacroOnTopicRendering( $1 ) || ''/e
       )
     {
     }
@@ -1389,28 +1575,47 @@ sub normalizeWebTopicName {
 
 =begin TML
 
----++ ClassMethod new( $loginName, $query, \%initialContext )
+---++ ClassMethod new( $defaultUser, $query, \%initialContext )
 
-Constructs a new Foswiki object. Parameters are taken from the query object.
+Constructs a new Foswiki session object. A unique session object exists for
+ever transaction with Foswiki, for example every browser request, or every
+script run. Session objects do not persist between mod_perl runs.
 
-   * =$loginName= is the login username (*not* the wikiname) of the user you
-     want to be logged-in if none is available from a session or browser.
-     Used mainly for side scripts and debugging.
-   * =$query= the Foswiki::Request query (may be undef, in which case an empty query
-     is used)
+   * =$defaultUser= is the username (*not* the wikiname) of the default
+     user you want to be logged-in, if none is available from a session
+     or browser. Used mainly for unit tests and debugging, it is typically
+     undef, in which case the default user is taken from
+     $Foswiki::cfg{DefaultUserName}.
+   * =$query= the Foswiki::Request query (may be undef, in which case an
+     empty query is used)
    * =\%initialContext= - reference to a hash containing context
-     name=value pairs to be pre-installed in the context hash
+     name=value pairs to be pre-installed in the context hash. May be undef.
 
 =cut
 
 sub new {
-    my ( $class, $login, $query, $initialContext ) = @_;
-    ASSERT( !$query || UNIVERSAL::isa( $query, 'Foswiki::Request' ) );
-    Monitor::MARK("Static compilation complete");
+    my ( $class, $defaultUser, $query, $initialContext ) = @_;
+    Monitor::MARK("Static init over; make Foswiki object");
+    ASSERT( !$query || UNIVERSAL::isa( $query, 'Foswiki::Request' ) ) if DEBUG;
 
     # Compatibility; not used except maybe in plugins
     $Foswiki::cfg{TempfileDir} = "$Foswiki::cfg{WorkingDir}/tmp"
       unless defined( $Foswiki::cfg{TempfileDir} );
+    if ( defined $Foswiki::cfg{WarningFileName}
+        && $Foswiki::cfg{Log}{Implementation} eq 'Foswiki::Logger::PlainFile' )
+    {
+
+        # Admin has already expressed a preference for where they want their
+        # logfiles to go, and has obviously not re-run configure yet.
+        $Foswiki::cfg{Log}{Implementation} = 'Foswiki::Logger::Compatibility';
+
+#print STDERR "WARNING: Foswiki is using the compatibility logger. Please re-run configure and check your logfiles settings\n";
+    }
+    else {
+
+        # Otherwise define it for use in plugins
+        $Foswiki::cfg{LogFileName} = "$Foswiki::cfg{Log}{Dir}/events.log";
+    }
 
     # Set command_line context if there is no query
     $initialContext ||= defined($query) ? {} : { command_line => 1 };
@@ -1418,10 +1623,27 @@ sub new {
     $query ||= new Foswiki::Request();
     my $this = bless( { sandbox => 'Foswiki::Sandbox' }, $class );
 
+    if ( defined $Foswiki::cfg{Site}{CharSet} ) {
+
+        # Ensure the auto-encoding in CGI uses the correct character set.
+        # CGI defaults to iso-8859-1, and has a special exception for
+        # iso-8859-1 and windows1252 in CGI::escapeHTML which breaks
+        # UTF-8 content. See Item758. Get this wrong, and CGI will
+        # fail to encode certain UTF-8 characters correctly.
+        # Note we cannot call CGI::charset in begin block. We must have
+        # the CGI object created because otherwise Perl 5.8 versions of
+        # CGI will lose things like its temp files.
+        CGI::charset( $Foswiki::cfg{Site}{CharSet} );
+    }
+
     $this->{request}  = $query;
     $this->{cgiQuery} = $query;    # for backwards compatibility in contribs
     $this->{response} = new Foswiki::Response();
     $this->{digester} = new Digest::MD5();
+
+    # This is required in case we get an exception during
+    # initialisation, so that we have a session to handle it with.
+    $Foswiki::Plugins::SESSION = $this;
 
     # Tell Foswiki::Response which charset we are using if not default
     if ( defined $Foswiki::cfg{Site}{CharSet}
@@ -1430,36 +1652,33 @@ sub new {
         $this->{response}->charset( $Foswiki::cfg{Site}{CharSet} );
     }
 
-    $this->{_HTMLHEADERS} = {};
-    $this->{context}      = $initialContext;
+    # hash of zone records
+    $this->{_zones} = ();
 
-    require Foswiki::Plugins;
+    # hash of occurences of RENDERZONE
+    $this->{_renderZonePlaceholder} = ();
+
+    $this->{context} = $initialContext;
+
+    if ( $Foswiki::cfg{Cache}{Enabled} ) {
+        require Foswiki::PageCache;
+        $this->{cache} = new Foswiki::PageCache($this);
+    }
+    my $prefs = new Foswiki::Prefs($this);
+    $this->{prefs}   = $prefs;
     $this->{plugins} = new Foswiki::Plugins($this);
-    require Foswiki::Store;
-    $this->{store} = new Foswiki::Store($this);
 
-    # use login as a default (set when running from cmd line)
-    $this->{remoteUser} = $login;
+    eval "require $Foswiki::cfg{Store}{Implementation}";
+    ASSERT( !$@, $@ ) if DEBUG;
+    $this->{store} = $Foswiki::cfg{Store}{Implementation}->new();
 
-    require Foswiki::Users;
-    $this->{users}      = new Foswiki::Users($this);
-    $this->{remoteUser} = $this->{users}->{remoteUser};
+    #Monitor::MARK("Created store");
 
-    # Make %ENV safer, preventing hijack of the search path. The
-    # environment is set per-query, so this can't be done in a BEGIN.
-    # TWikibug:Item4382: Default $ENV{PATH} must be untainted because
-    # Foswiki runs with use strict and calling external programs that
-    # writes on the disk will fail unless Perl seens it as set to safe value.
-    if ( $Foswiki::cfg{SafeEnvPath} ) {
-        $ENV{PATH} = $Foswiki::cfg{SafeEnvPath};
-    }
-    else {
+    $this->{users} = new Foswiki::Users($this);
 
-        # SMELL: how can we validate the PATH?
-        $ENV{PATH} = Foswiki::Sandbox::untaintUnchecked( $ENV{PATH} );
-    }
-    delete @ENV{qw( IFS CDPATH ENV BASH_ENV )};
+    #Monitor::MARK("Created users object");
 
+    #{urlHost}  is needed by loadSession..
     my $url = $query->url();
     if ( $url && $url =~ m{^([^:]*://[^/]*).*$} ) {
         $this->{urlHost} = $1;
@@ -1478,6 +1697,26 @@ sub new {
     else {
         $this->{urlHost} = $Foswiki::cfg{DefaultUrlHost};
     }
+    ASSERT( $this->{urlHost} ) if DEBUG;
+
+    # Load (or create) the CGI session
+    $this->{remoteUser} = $this->{users}->loadSession($defaultUser);
+
+    # Make %ENV safer, preventing hijack of the search path. The
+    # environment is set per-query, so this can't be done in a BEGIN.
+    # TWikibug:Item4382: Default $ENV{PATH} must be untainted because
+    # Foswiki runs with use strict and calling external programs that
+    # writes on the disk will fail unless Perl seens it as set to safe value.
+    if ( $Foswiki::cfg{SafeEnvPath} ) {
+        $ENV{PATH} = $Foswiki::cfg{SafeEnvPath};
+    }
+    else {
+
+        # SMELL: how can we validate the PATH?
+        $ENV{PATH} = Foswiki::Sandbox::untaintUnchecked( $ENV{PATH} );
+    }
+    delete @ENV{qw( IFS CDPATH ENV BASH_ENV )};
+
     if (   $Foswiki::cfg{GetScriptUrlFromCgi}
         && $url
         && $url =~ m{^[^:]*://[^/]*(.*)/.*$}
@@ -1498,7 +1737,10 @@ sub new {
             && $this->{request} )
         {
 
-            # redirect to URI
+            # SMELL: this is a result of Codev.GoBoxUnderstandsURLs,
+            # an unrequested, undocumented, and AFAICT pretty useless
+            #"feature". It should be deprecated (or silently removed; I
+            # really, really doubt anyone is using it)
             $this->{webName} = '';
             $this->redirect($topic);
             return $this;
@@ -1539,18 +1781,24 @@ sub new {
         # implicit untaint OK - validated later
         $web = $1 unless $web;
     }
-
     my $topicNameTemp = $this->UTF82SiteCharSet($topic);
     if ($topicNameTemp) {
         $topic = $topicNameTemp;
     }
 
-    # TWikibug:Item3270 - here's the appropriate place to enforce spec
+    # Item3270 - here's the appropriate place to enforce spec
+    # http://develop.twiki.org/~twiki4/cgi-bin/view/Bugs/Item3270
     $topic = ucfirst($topic);
 
     # Validate and untaint topic name from path info
     $this->{topicName} = Foswiki::Sandbox::untaint( $topic,
         \&Foswiki::Sandbox::validateTopicName );
+
+    # Set the requestedWebName before applying defaults - used by statistics
+    # generation.   Note:  This is validated using Topic name rules to permit
+    # names beginning with lower case.
+    $this->{requestedWebName} =
+      Foswiki::Sandbox::untaint( $web, \&Foswiki::Sandbox::validateTopicName );
 
     # Validate web name from path info
     $this->{webName} =
@@ -1579,58 +1827,51 @@ sub new {
 
     $this->{scriptUrlPath} = $Foswiki::cfg{ScriptUrlPath};
 
-    require Foswiki::Prefs;
-    my $prefs = new Foswiki::Prefs($this);
-    $this->{prefs} = $prefs;
-
     # Form definition cache
     $this->{forms} = {};
 
     # Push global preferences from %SYSTEMWEB%.DefaultPreferences
-    $prefs->pushGlobalPreferences();
+    $prefs->loadDefaultPreferences();
 
-    # SMELL: what happens if we move this into the Foswiki::User::new?
+    #Monitor::MARK("Loaded default prefs");
+
+    # SMELL: what happens if we move this into the Foswiki::Users::new?
     $this->{user} = $this->{users}->initialiseUser( $this->{remoteUser} );
+
+    #Monitor::MARK("Initialised user");
 
     # Static session variables that can be expanded in topics when they
     # are enclosed in % signs
     # SMELL: should collapse these into one. The duplication is pretty
-    # pointless. Could get rid of the SESSION_TAGS hash, might be
-    # the easiest thing to do, but then that would allow other
-    # upper-case named fields in the object to be accessed as well...
-    $this->{SESSION_TAGS}{BASEWEB}        = $this->{webName};
-    $this->{SESSION_TAGS}{BASETOPIC}      = $this->{topicName};
-    $this->{SESSION_TAGS}{INCLUDINGTOPIC} = $this->{topicName};
-    $this->{SESSION_TAGS}{INCLUDINGWEB}   = $this->{webName};
+    # pointless.
+    $prefs->setInternalPreferences(
+        BASEWEB        => $this->{webName},
+        BASETOPIC      => $this->{topicName},
+        INCLUDINGTOPIC => $this->{topicName},
+        INCLUDINGWEB   => $this->{webName}
+    );
 
     # Push plugin settings
     $this->{plugins}->settings();
 
     # Now the rest of the preferences
-    $prefs->pushGlobalPreferencesSiteSpecific();
+    $prefs->loadSitePreferences();
 
     # User preferences only available if we can get to a valid wikiname,
     # which depends on the user mapper.
     my $wn = $this->{users}->getWikiName( $this->{user} );
     if ($wn) {
-        $prefs->pushPreferences( $Foswiki::cfg{UsersWebName},
-            $wn, 'USER ' . $wn );
+        $prefs->setUserPreferences($wn);
     }
 
-    $prefs->pushWebPreferences( $this->{webName} );
+    $prefs->pushTopicContext( $this->{webName}, $this->{topicName} );
 
-    $prefs->pushPreferences( $this->{webName}, $this->{topicName}, 'TOPIC' );
-
-    $prefs->pushPreferenceValues( 'SESSION',
-        $this->{users}->{loginManager}->getSessionValues() );
+    #Monitor::MARK("Preferences all set up");
 
     # Finish plugin initialization - register handlers
     $this->{plugins}->enable();
 
- # SMELL: Every place should localize it before use, so it's not necessary here.
-    $Foswiki::Plugins::SESSION = $this;
-
-    Monitor::MARK("Foswiki session created");
+    Monitor::MARK("Foswiki object created");
 
     return $this;
 }
@@ -1648,8 +1889,6 @@ sub renderer {
 
     unless ( $this->{renderer} ) {
         require Foswiki::Render;
-
-        # requires preferences (such as LINKTOOLTIPINFO)
         $this->{renderer} = new Foswiki::Render($this);
     }
     return $this->{renderer};
@@ -1722,10 +1961,21 @@ sub logger {
     my $this = shift;
 
     unless ( $this->{logger} ) {
-        eval "require $Foswiki::cfg{Log}{Implementation}";
-        die $@ if $@;
-        $this->{logger} = $Foswiki::cfg{Log}{Implementation}->new();
+        if ( $Foswiki::cfg{Log}{Implementation} eq 'none' ) {
+            $this->{logger} = Foswiki::Logger->new();
+        }
+        else {
+            eval "require $Foswiki::cfg{Log}{Implementation}";
+            if ($@) {
+                print STDERR "Logger load failed: $@";
+                $this->{logger} = Foswiki::Logger->new();
+            }
+            else {
+                $this->{logger} = $Foswiki::cfg{Log}{Implementation}->new();
+            }
+        }
     }
+
     return $this->{logger};
 }
 
@@ -1745,24 +1995,6 @@ sub search {
         $this->{search} = new Foswiki::Search($this);
     }
     return $this->{search};
-}
-
-=begin TML
-
----++ ObjectMethod security()
-Get a reference to the security object. Done lazily because not everyone
-needs the security.
-
-=cut
-
-sub security {
-    my ($this) = @_;
-
-    unless ( $this->{security} ) {
-        require Foswiki::Access;
-        $this->{security} = new Foswiki::Access($this);
-    }
-    return $this->{security};
 }
 
 =begin TML
@@ -1810,52 +2042,81 @@ Break circular references.
 sub finish {
     my $this = shift;
 
+    # Print any macros that are never loaded
+    #print STDERR "NEVER USED\n";
+    #for my $i (keys %macros) {
+    #    print STDERR "\t$i\n" unless defined $macros{$i};
+    #}
     $_->finish() foreach values %{ $this->{forms} };
-    $this->{plugins}->finish()   if $this->{plugins};
+    undef $this->{forms};
+    $this->{plugins}->finish() if $this->{plugins};
     undef $this->{plugins};
-    $this->{users}->finish()     if $this->{users};
+    $this->{users}->finish() if $this->{users};
     undef $this->{users};
-    $this->{prefs}->finish()     if $this->{prefs};
+    $this->{prefs}->finish() if $this->{prefs};
     undef $this->{prefs};
     $this->{templates}->finish() if $this->{templates};
     undef $this->{templates};
-    $this->{renderer}->finish()  if $this->{renderer};
+    $this->{renderer}->finish() if $this->{renderer};
     undef $this->{renderer};
-    $this->{net}->finish()       if $this->{net};
+    $this->{net}->finish() if $this->{net};
     undef $this->{net};
-    $this->{store}->finish()     if $this->{store};
+    $this->{store}->finish() if $this->{store};
     undef $this->{store};
-    $this->{search}->finish()    if $this->{search};
+    $this->{search}->finish() if $this->{search};
     undef $this->{search};
-    $this->{attach}->finish()    if $this->{attach};
+    $this->{attach}->finish() if $this->{attach};
     undef $this->{attach};
-    $this->{security}->finish()  if $this->{security};
+    $this->{security}->finish() if $this->{security};
     undef $this->{security};
-    $this->{i18n}->finish()      if $this->{i18n};
+    $this->{i18n}->finish() if $this->{i18n};
     undef $this->{i18n};
-#TODO: the logger doesn't seem to have a finish...
-#    $this->{logger}->finish()      if $this->{logger};
+    $this->{cache}->finish() if $this->{cache};
+    undef $this->{cache};
+
+    #TODO: the logger doesn't seem to have a finish...
+    #    $this->{logger}->finish()      if $this->{logger};
     undef $this->{logger};
-    
-    undef $this->{_HTMLHEADERS};
+
+    undef $this->{_zones};
+    undef $this->{_renderZonePlaceholder};
+
     undef $this->{request};
+    undef $this->{cgiQuery};
+
     undef $this->{digester};
     undef $this->{urlHost};
     undef $this->{web};
     undef $this->{topic};
     undef $this->{webName};
     undef $this->{topicName};
-    undef $this->{_ICONMAP};
+    undef $this->{_ICONSPACE};
+    undef $this->{_EXT2ICON};
+    undef $this->{_KNOWNICON};
+    undef $this->{_ICONSTEMPLATE};
     undef $this->{context};
     undef $this->{remoteUser};
     undef $this->{requestedWebName};    # Web name before renaming
     undef $this->{scriptUrlPath};
     undef $this->{user};
-    undef $this->{SESSION_TAGS};
     undef $this->{_INCLUDES};
     undef $this->{response};
     undef $this->{evaluating_if};
     undef $this->{_addedToHEAD};
+    undef $this->{sandbox};
+    undef $this->{evaluatingEval};
+
+    undef $this->{DebugVerificationCode};    # from Foswiki::UI::Register
+
+    if (DEBUG) {
+        my $remaining = join ',', grep { defined $this->{$_} } keys %$this;
+        ASSERT( 0,
+                "Fields with defined values in "
+              . ref($this)
+              . "->finish(): "
+              . $remaining )
+          if $remaining;
+    }
 }
 
 =begin TML
@@ -1879,20 +2140,25 @@ sub logEvent {
     my $extra    = shift || '';
     my $user     = shift;
 
+    return
+      if ( defined $Foswiki::cfg{Log}{Action}{$action}
+        && !$Foswiki::cfg{Log}{Action}{$action} );
+
     $user ||= $this->{user};
     $user = ( $this->{users}->getLoginName($user) || 'unknown' )
       if ( $this->{users} );
 
-    $user = '' unless (defined $user);  # Avoid undefined string in compare
-
-    if ( $user eq $cfg{DefaultUserLogin} ) {
-        my $cgiQuery = $this->{request};
-        if ($cgiQuery) {
-            my $agent = $cgiQuery->user_agent();
-            if ($agent) {
-                if ( $agent =~ m/([\w]+)/ ) {
-                    $extra .= ' ' . $1;
-                }
+    my $cgiQuery = $this->{request};
+    if ($cgiQuery) {
+        my $agent = $cgiQuery->user_agent();
+        if ($agent) {
+            $extra .= ' ' if $extra;
+            if ( $agent =~ /(MSIE 6|MSIE 7|Firefox|Opera|Konqueror|Safari)/ ) {
+                $extra .= $1;
+            }
+            else {
+                $agent =~ m/([\w]+)/;
+                $extra .= $1;
             }
         }
     }
@@ -1901,55 +2167,6 @@ sub logEvent {
 
     $this->logger->log( 'info', $user, $action, $webTopic, $extra,
         $remoteAddr );
-}
-
-# Add a web reference to a [[...][...]] link in an included topic
-sub _fixIncludeLink {
-    my ( $web, $link, $label ) = @_;
-
-    # Detect absolute and relative URLs and web-qualified wikinames
-    if ( $link =~
-m#^($regex{webNameRegex}\.|$regex{defaultWebNameRegex}\.|$regex{linkProtocolPattern}:|/)#o
-      )
-    {
-        if ($label) {
-            return "[[$link][$label]]";
-        }
-        else {
-            return "[[$link]]";
-        }
-    }
-    elsif ( !$label ) {
-
-        # Must be wikiword or spaced-out wikiword (or illegal link :-/)
-        $label = $link;
-    }
-
-    # If link is only an anchor, leave it as is (Foswikitask:Item771)
-    return "[[$link][$label]]" if $link =~ /^#/;
-    return "[[$web.$link][$label]]";
-}
-
-# Replace web references in a topic. Called from forEachLine, applying to
-# each non-verbatim and non-literal line.
-sub _fixupIncludedTopic {
-    my ( $text, $options ) = @_;
-
-    my $fromWeb = $options->{web};
-
-    unless ( $options->{in_noautolink} ) {
-
-        # 'TopicName' to 'Web.TopicName'
-        $text =~
-          s#(?:^|(?<=[\s(]))($regex{wikiWordRegex})(?=\s|\)|$)#$fromWeb.$1#go;
-    }
-
-    # Handle explicit [[]] everywhere
-    # '[[TopicName][...]]' to '[[Web.TopicName][...]]'
-    $text =~ s/\[\[([^]]+)\](?:\[([^]]+)\])?\]/
-      _fixIncludeLink( $fromWeb, $1, $2 )/geo;
-
-    return $text;
 }
 
 =begin TML
@@ -1974,240 +2191,6 @@ sub validatePattern {
 
 =begin TML
 
----++ StaticMethod applyPatternToIncludedText( $text, $pattern ) -> $text
-
-Apply a pattern on included text to extract a subset
-
-=cut
-
-sub applyPatternToIncludedText {
-    my ( $text, $pattern ) = @_;
-
-    $pattern = Foswiki::Sandbox::untaint( $pattern, \&validatePattern );
-
-    my $ok = 0;
-    eval {
-        # The eval acts as a try block in case there is anything evil in
-        # the pattern.
-
-        # The () ensures that $1 is defined if $pattern matches
-        # but does not capture anything
-        if ($text =~ m/$pattern()/is) {
-            $text = $1;
-        }
-        else {
-            # The pattern did not match, so return nothing
-            $text = '';
-        }
-        $ok = 1;
-    };
-    $text = '' unless $ok;
-
-    return $text;
-}
-
-#
-# SMELL: this is _not_ a tag handler in the sense of other builtin tags,
-# because it requires far more context information (the text of the topic)
-# than any handler.
-# SMELL: as a tag handler that also semi-renders the topic to extract the
-# headings, this handler would be much better as a preRenderingHandler in
-# a plugin (where head, script and verbatim sections are already protected)
-#
-#    * $text  : ref to the text of the current topic
-#    * $topic : the topic we are in
-#    * $web   : the web we are in
-#    * $args  : 'Topic' [web='Web'] [depth='N']
-# Return value: $tableOfContents
-# Handles %<nop>TOC{...}% syntax.  Creates a table of contents
-# using Foswiki bulleted
-# list markup, linked to the section headings of a topic. A section heading is
-# entered in one of the following forms:
-#    * $headingPatternSp : \t++... spaces section heading
-#    * $headingPatternDa : ---++... dashes section heading
-#    * $headingPatternHt : &lt;h[1-6]> HTML section heading &lt;/h[1-6]>
-sub _TOC {
-    my ( $this, $text, $defaultTopic, $defaultWeb, $args ) = @_;
-
-    require Foswiki::Attrs;
-
-    my $params = new Foswiki::Attrs($args);
-
-    # get the topic name attribute
-    my $topic = $params->{_DEFAULT} || $defaultTopic;
-
-    # get the web name attribute
-    $defaultWeb =~ s#/#.#g;
-    my $web = $params->{web} || $defaultWeb;
-
-    my $isSameTopic = $web eq $defaultWeb && $topic eq $defaultTopic;
-
-    $web =~ s#/#\.#g;
-    my $webPath = $web;
-    $webPath =~ s/\./\//g;
-
-    # get the depth limit attribute
-    my $maxDepth =
-         $params->{depth}
-      || $this->{prefs}->getPreferencesValue('TOC_MAX_DEPTH')
-      || 6;
-    my $minDepth = $this->{prefs}->getPreferencesValue('TOC_MIN_DEPTH') || 1;
-
-    # get the title attribute
-    my $title =
-         $params->{title}
-      || $this->{prefs}->getPreferencesValue('TOC_TITLE')
-      || '';
-    $title = CGI::span( { class => 'foswikiTocTitle' }, $title ) if ($title);
-
-    if ( $web ne $defaultWeb || $topic ne $defaultTopic ) {
-        unless (
-            $this->security->checkAccessPermission(
-                'VIEW', $this->{user}, undef, undef, $topic, $web
-            )
-          )
-        {
-            return $this->inlineAlert( 'alerts', 'access_denied', $web,
-                $topic );
-        }
-        my $meta;
-        ( $meta, $text ) =
-          $this->{store}->readTopic( $this->{user}, $web, $topic );
-    }
-
-    my $insidePre      = 0;
-    my $insideVerbatim = 0;
-    my $highest        = 99;
-    my $result         = '';
-    my $verbatim       = {};
-    $text = $this->renderer->takeOutBlocks( $text, 'verbatim', $verbatim );
-    $text = $this->renderer->takeOutBlocks( $text, 'pre',      $verbatim );
-
-    # Find URL parameters
-    my $query   = $this->{request};
-    my @qparams = ();
-    foreach my $name ( $query->param ) {
-        next if ( $name eq 'keywords' );
-        next if ( $name eq 'topic' );
-        next if ( $name eq 'text' );
-        push @qparams, $name => $query->param($name);
-    }
-
-   # clear the set of unique anchornames in order to inhibit the 'relabeling' of
-   # anchor names if the same topic is processed more than once, cf. explanation
-   # in handleCommonTags()
-    $this->renderer->_eraseAnchorNameMemory();
-
-    # NB: While we're processing $text line by line here,
-    # $this->renderer->getRendereredVersion() 'allocates' unique anchor names by
-    # first replacing '#WikiWord', followed by regex{headerPatternHt} and
-    # regex{headerPatternDa}. In order to stay in sync and not 'clutter'/slow
-    # down the renderer code, we have to adhere to this order here as well
-    my @regexps = (
-        '^(\#)(' . $regex{wikiWordRegex} . ')',
-        $regex{headerPatternHt}, $regex{headerPatternDa}
-    );
-    my @lines    = split( /\r?\n/, $text );
-    my %anchors  = ();
-    my %headings = ();
-    my %levels   = ();
-    for my $i ( 0 .. $#regexps ) {
-        my $lineno = 0;
-
-        # SMELL: use forEachLine
-        foreach my $line (@lines) {
-            $lineno++;
-            if ( $line =~ m/$regexps[$i]/ ) {
-                my ( $level, $heading ) = ( $1, $2 );
-                my $anchor =
-                  $this->renderer->makeUniqueAnchorName( $web, $topic,
-                    $heading );
-
-                if ( $i > 0 ) {
-
-                 # SMELL: needed only because Render::_makeAnchorHeading uses it
-                    my $compatAnchor =
-                      $this->renderer->makeAnchorName( $anchor, 1 );
-                    $compatAnchor =
-                      $this->renderer->makeUniqueAnchorName( $web, $topic,
-                        $anchor, 1 )
-                      if ( $compatAnchor ne $anchor );
-
-                    $heading =~ s/\s*$regex{headerPatternNoTOC}.+$//go;
-                    next unless $heading;
-
-                    $level = length $level if ( $i == 2 );
-                    if ( ( $level >= $minDepth ) && ( $level <= $maxDepth ) ) {
-                        $anchors{$lineno}  = $anchor;
-                        $headings{$lineno} = $heading;
-                        $levels{$lineno}   = $level;
-                    }
-                }
-            }
-        }
-    }
-
-    # SMELL: this handling of <pre> is archaic.
-    foreach my $lineno ( sort { $a <=> $b } ( keys %headings ) ) {
-        my ( $level, $line, $anchor ) =
-          ( $levels{$lineno}, $headings{$lineno}, $anchors{$lineno} );
-        $highest = $level if ( $level < $highest );
-        my $tabs = "\t" x $level;
-
-        # Remove *bold*, _italic_ and =fixed= formatting
-        $line =~
-s/(^|[\s\(])\*([^\s]+?|[^\s].*?[^\s])\*($|[\s\,\.\;\:\!\?\)])/$1$2$3/g;
-        $line =~
-s/(^|[\s\(])_+([^\s]+?|[^\s].*?[^\s])_+($|[\s\,\.\;\:\!\?\)])/$1$2$3/g;
-        $line =~
-s/(^|[\s\(])=+([^\s]+?|[^\s].*?[^\s])=+($|[\s\,\.\;\:\!\?\)])/$1$2$3/g;
-
-        # Prevent WikiLinks
-        $line =~ s/\[\[.*?\]\[(.*?)\]\]/$1/g;    # '[[...][...]]'
-        $line =~ s/\[\[(.*?)\]\]/$1/ge;          # '[[...]]'
-        $line =~
-          s/([\s\(])($regex{webNameRegex})\.($regex{wikiWordRegex})/$1<nop>$3/go
-          ;                                      # 'Web.TopicName'
-        $line =~ s/([\s\(])($regex{wikiWordRegex})/$1<nop>$2/go;   # 'TopicName'
-        $line =~ s/([\s\(])($regex{abbrevRegex})/$1<nop>$2/go;     # 'TLA'
-        $line =~ s/([\s\-\*\(])([$regex{mixedAlphaNum}]+\:)/$1<nop>$2/go
-          ;    # 'Site:page' Interwiki link
-               # Prevent manual links
-        $line =~ s/<[\/]?a\b[^>]*>//gi;
-
-        # create linked bullet item, using a relative link to anchor
-        my $target =
-          $isSameTopic
-          ? _make_params( 0, '#' => $anchor, @qparams )
-          : $this->getScriptUrl(
-            0, 'view', $web, $topic,
-            '#' => $anchor,
-            @qparams
-          );
-        $line = $tabs . '* ' . CGI::a( { href => $target }, $line );
-        $result .= "\n" . $line;
-    }
-
-    if ($result) {
-        if ( $highest > 1 ) {
-
-            # left shift TOC
-            $highest--;
-            $result =~ s/^\t{$highest}//gm;
-        }
-
-        # add a anchor to be able to jump to the toc and add a outer div
-        return CGI::a( { name => 'foswikiTOC' }, '' )
-          . CGI::div( { class => 'foswikiToc' }, "$title$result\n" );
-
-    }
-    else {
-        return '';
-    }
-}
-
-=begin TML
-
 ---++ ObjectMethod inlineAlert($template, $def, ... ) -> $string
 
 Format an error for inline inclusion in rendered output. The message string
@@ -2221,16 +2204,15 @@ sub inlineAlert {
     my $template = shift;
     my $def      = shift;
 
-    my $text =
-      $this->templates->readTemplate( 'oops' . $template, $this->getSkin() );
+    # web and topic can be anything; they are not used
+    my $topicObject =
+      Foswiki::Meta->new( $this, $this->{webName}, $this->{topicName} );
+    my $text = $this->templates->readTemplate( 'oops' . $template );
     if ($text) {
         my $blah = $this->templates->expandTemplate($def);
         $text =~ s/%INSTANTIATE%/$blah/;
 
-        # web and topic can be anything; they are not used
-        $text =
-          $this->handleCommonTags( $text, $this->{webName},
-            $this->{topicName} );
+        $text = $topicObject->expandMacros($text);
         my $n = 1;
         while ( defined( my $param = shift ) ) {
             $text =~ s/%PARAM$n%/$param/g;
@@ -2244,13 +2226,14 @@ sub inlineAlert {
         $text =~ s/%PARAM\d+%//g;
     }
     else {
-        $text =
-            CGI::h1('Foswiki Installation Error')
-          . 'Template "'
-          . $template
-          . '" not found.'
-          . CGI::p()
-          . 'Check your configuration settings for {TemplateDir} and {TemplatePath}';
+
+        # Error in the template system.
+        $text = $topicObject->renderTML(<<MESSAGE);
+---+ Foswiki Installation Error
+Template '$template' not found.
+
+Check your configuration settings for {TemplateDir} and {TemplatePath}
+MESSAGE
     }
 
     return $text;
@@ -2281,14 +2264,17 @@ round out the spec.
 
 sub parseSections {
 
-    #my( $text _ = @_;
+    my $text = shift;
+
+    return ( '', [] ) unless defined $text;
+
     my %sections;
     my @list = ();
 
     my $seq    = 0;
     my $ntext  = '';
     my $offset = 0;
-    foreach my $bit ( split( /(%(?:START|END)SECTION(?:{.*?})?%)/, $_[0] ) ) {
+    foreach my $bit ( split( /(%(?:START|END)SECTION(?:{.*?})?%)/, $text ) ) {
         if ( $bit =~ /^%STARTSECTION(?:{(.*)})?%$/ ) {
             require Foswiki::Attrs;
 
@@ -2369,101 +2355,104 @@ sub parseSections {
 
 =begin TML
 
----++ ObjectMethod expandVariablesOnTopicCreation ( $text, $user, $web, $topic ) -> $text
+---++ ObjectMethod expandMacrosOnTopicCreation ( $topicObject )
 
-   * =$text= - text to expand
-   * =$user= - This is the user expanded in e.g. %USERNAME. Optional, defaults to logged-in user.
-Expand limited set of variables during topic creation. These are variables
-expected in templates that must be statically expanded in new content.
-   * =$web= - name of web
-   * =$topic= - name of topic
+   * =$topicObject= - the topic
+
+Expand only that subset of Foswiki variables that are
+expanded during topic creation, in the body text and
+PREFERENCE meta only. The expansion is in-place inside
+the topic object.
 
 # SMELL: no plugin handler
 
 =cut
 
-sub expandVariablesOnTopicCreation {
-    my ( $this, $text, $user, $theWeb, $theTopic ) = @_;
-
-    $user ||= $this->{user};
-
-    # Chop out templateonly sections
-    my ( $ntext, $sections ) = parseSections($text);
-    if ( scalar(@$sections) ) {
-
- # Note that if named templateonly sections overlap, the behaviour is undefined.
-        foreach my $s ( reverse @$sections ) {
-            if ( $s->{type} eq 'templateonly' ) {
-                $ntext =
-                    substr( $ntext, 0, $s->{start} )
-                  . substr( $ntext, $s->{end}, length($ntext) );
-            }
-            else {
-
-                # put back non-templateonly sections
-                my $start = $s->remove('start');
-                my $end   = $s->remove('end');
-                $ntext =
-                    substr( $ntext, 0, $start )
-                  . '%STARTSECTION{'
-                  . $s->stringify() . '}%'
-                  . substr( $ntext, $start, $end - $start )
-                  . '%ENDSECTION{'
-                  . $s->stringify() . '}%'
-                  . substr( $ntext, $end, length($ntext) );
-            }
-        }
-        $text = $ntext;
-    }
+sub expandMacrosOnTopicCreation {
+    my ( $this, $topicObject ) = @_;
 
     # Make sure func works, for registered tag handlers
-    $Foswiki::Plugins::SESSION = $this;
+    local $Foswiki::Plugins::SESSION = $this;
 
-    # Note: it may look dangerous to override the user this way, but
-    # it's actually quite safe, because only a subset of tags are
-    # expanded during topic creation. if the set of tags expanded is
-    # extended, then the impact has to be considered.
-    my $safe = $this->{user};
-    $this->{user} = $user;
-    $text = _processTags( $this, $text, \&_expandTagOnTopicCreation, 16 );
+    my $text = $topicObject->text();
+    if ($text) {
 
-    # expand all variables for type="expandvariables" sections
-    ( $ntext, $sections ) = parseSections($text);
-    if ( scalar(@$sections) ) {
-        $theWeb   ||= $this->{session}->{webName};
-        $theTopic ||= $this->{session}->{topicName};
-        foreach my $s ( reverse @$sections ) {
-            if ( $s->{type} eq 'expandvariables' ) {
-                my $etext =
-                  substr( $ntext, $s->{start}, $s->{end} - $s->{start} );
-                expandAllTags( $this, \$etext, $theTopic, $theWeb );
-                $ntext =
-                    substr( $ntext, 0, $s->{start} ) 
-                  . $etext
-                  . substr( $ntext, $s->{end}, length($ntext) );
+        # Chop out templateonly sections
+        my ( $ntext, $sections ) = parseSections($text);
+        if ( scalar(@$sections) ) {
+
+            # Note that if named templateonly sections overlap,
+            # the behaviour is undefined.
+            foreach my $s ( reverse @$sections ) {
+                if ( $s->{type} eq 'templateonly' ) {
+                    $ntext =
+                        substr( $ntext, 0, $s->{start} )
+                      . substr( $ntext, $s->{end}, length($ntext) );
+                }
+                else {
+
+                    # put back non-templateonly sections
+                    my $start = $s->remove('start');
+                    my $end   = $s->remove('end');
+                    $ntext =
+                        substr( $ntext, 0, $start )
+                      . '%STARTSECTION{'
+                      . $s->stringify() . '}%'
+                      . substr( $ntext, $start, $end - $start )
+                      . '%ENDSECTION{'
+                      . $s->stringify() . '}%'
+                      . substr( $ntext, $end, length($ntext) );
+                }
             }
-            else {
-
-                # put back non-expandvariables sections
-                my $start = $s->remove('start');
-                my $end   = $s->remove('end');
-                $ntext =
-                    substr( $ntext, 0, $start )
-                  . '%STARTSECTION{'
-                  . $s->stringify() . '}%'
-                  . substr( $ntext, $start, $end - $start )
-                  . '%ENDSECTION{'
-                  . $s->stringify() . '}%'
-                  . substr( $ntext, $end, length($ntext) );
-            }
+            $text = $ntext;
         }
-        $text = $ntext;
+
+        $text = _processMacros( $this, $text, \&_expandMacroOnTopicCreation,
+            $topicObject, 16 );
+
+        # expand all variables for type="expandvariables" sections
+        ( $ntext, $sections ) = parseSections($text);
+        if ( scalar(@$sections) ) {
+            foreach my $s ( reverse @$sections ) {
+                if ( $s->{type} eq 'expandvariables' ) {
+                    my $etext =
+                      substr( $ntext, $s->{start}, $s->{end} - $s->{start} );
+                    $this->innerExpandMacros( \$etext, $topicObject );
+                    $ntext =
+                        substr( $ntext, 0, $s->{start} ) 
+                      . $etext
+                      . substr( $ntext, $s->{end}, length($ntext) );
+                }
+                else {
+
+                    # put back non-expandvariables sections
+                    my $start = $s->remove('start');
+                    my $end   = $s->remove('end');
+                    $ntext =
+                        substr( $ntext, 0, $start )
+                      . '%STARTSECTION{'
+                      . $s->stringify() . '}%'
+                      . substr( $ntext, $start, $end - $start )
+                      . '%ENDSECTION{'
+                      . $s->stringify() . '}%'
+                      . substr( $ntext, $end, length($ntext) );
+                }
+            }
+            $text = $ntext;
+        }
+
+        # kill markers used to prevent variable expansion
+        $text =~ s/%NOP%//g;
+        $topicObject->text($text);
     }
 
-    # kill markers used to prevent variable expansion
-    $text =~ s/%NOP%//g;
-    $this->{user} = $safe;
-    return $text;
+    # Expand preferences
+    my @prefs = $topicObject->find('PREFERENCE');
+    foreach my $p (@prefs) {
+        $p->{value} =
+          _processMacros( $this, $p->{value}, \&_expandMacroOnTopicCreation,
+            $topicObject, 16 );
+    }
 }
 
 =begin TML
@@ -2679,7 +2668,7 @@ s/([$regex{lowerAlpha}])([$regex{upperAlpha}$regex{numeric}]+)/$1$sep$2/go;
 
 =begin TML
 
----++ ObjectMethod expandAllTags(\$text, $topic, $web, $meta)
+---++ ObjectMethod innerExpandMacros(\$text, $topicObject)
 Expands variables by replacing the variables with their
 values. Some example variables: %<nop>TOPIC%, %<nop>SCRIPTURL%,
 %<nop>WIKINAME%, etc.
@@ -2696,18 +2685,21 @@ The rules for tag expansion are:
 
 =cut
 
-sub expandAllTags {
-    my $this = shift;
-    my $text = shift;    # reference
-    my ( $topic, $web, $meta ) = @_;
-    $web =~ s#\.#/#go;
+sub innerExpandMacros {
+    my ( $this, $text, $topicObject ) = @_;
 
     # push current context
-    my $memTopic = $this->{SESSION_TAGS}{TOPIC};
-    my $memWeb   = $this->{SESSION_TAGS}{WEB};
+    my $memTopic = $this->{prefs}->getPreference('TOPIC');
+    my $memWeb   = $this->{prefs}->getPreference('WEB');
 
-    $this->{SESSION_TAGS}{TOPIC} = $topic;
-    $this->{SESSION_TAGS}{WEB}   = $web;
+    # Historically this couldn't be called on web objects.
+    my $webContext   = $topicObject->web   || $this->{webName};
+    my $topicContext = $topicObject->topic || $this->{topicName};
+
+    $this->{prefs}->setInternalPreferences(
+        TOPIC => $topicContext,
+        WEB   => $webContext
+    );
 
     # Escape ' !%VARIABLE%'
     $$text =~ s/(?<=\s)!%($regex{tagNameRegex})/&#37;$1/g;
@@ -2717,19 +2709,137 @@ sub expandAllTags {
 
     # NOTE TO DEBUGGERS
     # The depth parameter in the following call controls the maximum number
-    # of levels of expansion. If it is set to 1 then only tags in the
-    # topic will be expanded; tags that they in turn generate will be
+    # of levels of expansion. If it is set to 1 then only macros in the
+    # topic will be expanded; macros that they in turn generate will be
     # left unexpanded. If it is set to 2 then the expansion will stop after
     # the first recursive inclusion, and so on. This is incredible useful
-    # when debugging. The default is set to 16
-    # to match the original limit on search expansion, though this of
-    # course applies to _all_ tags and not just search.
-    $$text =
-      _processTags( $this, $$text, \&_expandTagOnTopicRendering, 16, @_ );
+    # when debugging. The default, 16, was selected empirically.
+    $$text = _processMacros( $this, $$text, \&_expandMacroOnTopicRendering,
+        $topicObject, 16 );
 
     # restore previous context
-    $this->{SESSION_TAGS}{TOPIC} = $memTopic;
-    $this->{SESSION_TAGS}{WEB}   = $memWeb;
+    $this->{prefs}->setInternalPreferences(
+        TOPIC => $memTopic,
+        WEB   => $memWeb
+    );
+}
+
+=begin TML
+
+---++ StaticMethod takeOutBlocks( \$text, $tag, \%map ) -> $text
+   * =$text= - Text to process
+   * =$tag= - XML-style tag.
+   * =\%map= - Reference to a hash to contain the removed blocks
+
+Return value: $text with blocks removed
+
+Searches through $text and extracts blocks delimited by an XML-style tag,
+storing the extracted block, and replacing with a token string which is
+not affected by TML rendering.  The text after these substitutions is
+returned.
+
+=cut
+
+sub takeOutBlocks {
+    my ( $intext, $tag, $map ) = @_;
+
+    return $intext unless ( $intext =~ m/<$tag\b/i );
+
+    my $out   = '';
+    my $depth = 0;
+    my $scoop;
+    my $tagParams;
+
+    foreach my $token ( split( /(<\/?$tag[^>]*>)/i, $intext ) ) {
+        if ( $token =~ /<$tag\b([^>]*)?>/i ) {
+            $depth++;
+            if ( $depth eq 1 ) {
+                $tagParams = $1;
+                next;
+            }
+        }
+        elsif ( $token =~ /<\/$tag>/i ) {
+            if ( $depth > 0 ) {
+                $depth--;
+                if ( $depth eq 0 ) {
+                    my $placeholder = "$tag$BLOCKID";
+                    $BLOCKID++;
+                    $map->{$placeholder}{text}   = $scoop;
+                    $map->{$placeholder}{params} = $tagParams;
+                    $out .= "$OC$placeholder$CC";
+                    $scoop = '';
+                    next;
+                }
+            }
+        }
+        if ( $depth > 0 ) {
+            $scoop .= $token;
+        }
+        else {
+            $out .= $token;
+        }
+    }
+
+    # unmatched tags
+    if ( defined($scoop) && ( $scoop ne '' ) ) {
+        my $placeholder = "$tag$BLOCKID";
+        $BLOCKID++;
+        $map->{$placeholder}{text}   = $scoop;
+        $map->{$placeholder}{params} = $tagParams;
+        $out .= "$OC$placeholder$CC";
+    }
+
+    return $out;
+}
+
+=begin TML
+
+---++ StaticMethod putBackBlocks( \$text, \%map, $tag, $newtag, $callBack ) -> $text
+
+Return value: $text with blocks added back
+   * =\$text= - reference to text to process
+   * =\%map= - map placeholders to blocks removed by takeOutBlocks
+   * =$tag= - Tag name processed by takeOutBlocks
+   * =$newtag= - Tag name to use in output, in place of $tag.
+     If undefined, uses $tag.
+   * =$callback= - Reference to function to call on each block
+     being inserted (optional)
+
+Reverses the actions of takeOutBlocks.
+
+Each replaced block is processed by the callback (if there is one) before
+re-insertion.
+
+Parameters to the outermost cut block are replaced into the open tag,
+even if that tag is changed. This allows things like =&lt;verbatim class=''>=
+to be changed to =&lt;pre class=''>=
+
+If you set $newtag to '', replaces the taken-out block with the contents
+of the block, not including the open/close. This is used for &lt;literal>,
+for example.
+
+=cut
+
+sub putBackBlocks {
+    my ( $text, $map, $tag, $newtag, $callback ) = @_;
+
+    $newtag = $tag if ( !defined($newtag) );
+
+    foreach my $placeholder ( keys %$map ) {
+        if ( $placeholder =~ /^$tag\d+$/ ) {
+            my $params = $map->{$placeholder}{params} || '';
+            my $val = $map->{$placeholder}{text};
+            $val = &$callback($val) if ( defined($callback) );
+            if ( $newtag eq '' ) {
+                $$text =~ s($OC$placeholder$CC)($val);
+            }
+            else {
+                $$text =~ s($OC$placeholder$CC)
+                           (<$newtag$params>$val</$newtag>);
+            }
+            delete( $map->{$placeholder} );
+        }
+    }
 }
 
 # Process Foswiki %TAGS{}% by parsing the input tokenised into
@@ -2738,19 +2848,15 @@ sub expandAllTags {
 # than that.
 # $depth limits the number of recursive expansion steps that
 # can be performed on expanded tags.
-sub _processTags {
-    my $this = shift;
-    my $text = shift;
-    my $tagf = shift;
+sub _processMacros {
+    my ( $this, $text, $tagf, $topicObject, $depth ) = @_;
     my $tell = 0;
 
     return '' if ( ( !defined($text) )
         || ( $text eq '' ) );
 
     #no tags to process
-    return $text unless ( $text =~ /(%)/ );
-
-    my $depth = shift;
+    return $text unless ( $text =~ /%/ );
 
     unless ($depth) {
         my $mess = "Max recursive depth reached: $text";
@@ -2763,10 +2869,11 @@ sub _processTags {
     }
 
     my $verbatim = {};
-    $text = $this->renderer->takeOutBlocks( $text, 'verbatim', $verbatim );
+    $text = takeOutBlocks( $text, 'verbatim', $verbatim );
 
-    # See Item1442
-    #my $percent = ($TranslationToken x 3).'%'.($TranslationToken x 3);
+    my $dirtyAreas = {};
+    $text = takeOutBlocks( $text, 'dirtyarea', $dirtyAreas )
+      if $Foswiki::cfg{Cache}{Enabled};
 
     my @queue = split( /(%)/, $text );
     my @stack;
@@ -2775,6 +2882,8 @@ sub _processTags {
          # should be considered to be $stack[$#stack]
 
     while ( scalar(@queue) ) {
+
+        #print STDERR "QUEUE:".join("\n      ", map { "'$_'" } @queue)."\n";
         my $token = shift(@queue);
 
         #print STDERR ' ' x $tell,"PROCESSING $token \n";
@@ -2791,7 +2900,7 @@ sub _processTags {
             # in tag parameters into account.
             if ( $stackTop =~ /}$/s ) {
                 while ( scalar(@stack)
-                    && $stackTop !~ /^%($regex{tagNameRegex}){.*}$/so )
+                    && $stackTop !~ /^%$regex{tagNameRegex}\{.*}$/so )
                 {
                     my $top = $stackTop;
 
@@ -2807,61 +2916,65 @@ sub _processTags {
                 my ( $expr, $tag, $args ) = ( $1, $2, $3 );
 
                 #print STDERR ' ' x $tell,"POP $tag\n";
-                my $e = &$tagf( $this, $tag, $args, @_ );
+                #Monitor::MARK("Before $tag");
+                my $e = &$tagf( $this, $tag, $args, $topicObject );
+
+                #Monitor::MARK("After $tag");
 
                 if ( defined($e) ) {
 
                     #print STDERR ' ' x $tell--,"EXPANDED $tag -> $e\n";
                     $stackTop = pop(@stack);
-                    unless ( $e =~ /(%)/ ) {
 
-#SMELL: this is a profiler speedup found by Sven on the last day of 4.2.1
-#TODO: I don't think this parser should be in this section - re-analysis desired.
-#print STDERR "no tags to recurse\n";
+                    # Don't bother recursively expanding unless there are
+                    # unexpanded tags in the result.
+                    unless ( $e =~ /%$regex{tagNameRegex}(?:{.*})?%/so ) {
                         $stackTop .= $e;
                         next;
                     }
 
                     # Recursively expand tags in the expansion of $tag
                     $stackTop .=
-                      _processTags( $this, $e, $tagf, $depth - 1, @_ );
+                      $this->_processMacros( $e, $tagf, $topicObject,
+                        $depth - 1 );
                 }
-                else {    # expansion failed
-                      #print STDERR ' ' x $tell++,"EXPAND $tag FAILED\n";
-                      # To handle %NOP
-                      # correctly, we have to handle the %VAR% case differently
-                      # to the %VAR{}% case when a variable expansion fails.
-                      # This is so that recursively define variables e.g.
-                      # %A%B%D% expand correctly, but at the same time we ensure
-                      # that a mismatched }% can't accidentally close a context
-                      # that was left open when a tag expansion failed.
-                      # However Cairo didn't do this, so for compatibility
-                      # we have to accept that %NOP can never be fixed. if it
-                      # could, then we could uncomment the following:
+                else {
+
+                    #print STDERR ' ' x $tell++,"EXPAND $tag FAILED\n";
+                    # To handle %NOP
+                    # correctly, we have to handle the %VAR% case differently
+                    # to the %VAR{}% case when a variable expansion fails.
+                    # This is so that recursively define variables e.g.
+                    # %A%B%D% expand correctly, but at the same time we ensure
+                    # that a mismatched }% can't accidentally close a context
+                    # that was left open when a tag expansion failed.
+                    # However TWiki didn't do this, so for compatibility
+                    # we have to accept that %NOP can never be fixed. if it
+                    # could, then we could uncomment the following:
 
                     #if( $stackTop =~ /}$/ ) {
                     #    # %VAR{...}% case
                     #    # We need to push the unexpanded expression back
                     #    # onto the stack, but we don't want it to match the
                     #    # tag expression again. So we protect the %'s
-                    #    $stackTop = $percent.$expr.$percent;
+                    #    $stackTop = "&#37;$expr&#37;";
                     #} else
-                    {
+                    #{
 
-                        # %VAR% case.
-                        # In this case we *do* want to match the tag expression
-                        # again, as an embedded %VAR% may have expanded to
-                        # create a valid outer expression. This is directly
-                        # at odds with the %VAR{...}% case.
-                        push( @stack, $stackTop );
-                        $stackTop = '%';    # open new context
-                    }
+                    # %VAR% case.
+                    # In this case we *do* want to match the tag expression
+                    # again, as an embedded %VAR% may have expanded to
+                    # create a valid outer expression. This is directly
+                    # at odds with the %VAR{...}% case.
+                    push( @stack, $stackTop );
+                    $stackTop = '%';    # open new context
+                                        #}
                 }
             }
             else {
                 push( @stack, $stackTop );
-                $stackTop = '%';            # push a new context
-                                            #$tell++;
+                $stackTop = '%';        # push a new context
+                                        #$tell++;
             }
         }
         else {
@@ -2876,9 +2989,9 @@ sub _processTags {
         $stackTop .= $expr;
     }
 
-    #$stackTop =~ s/$percent/%/go;
-
-    $this->renderer->putBackBlocks( \$stackTop, $verbatim, 'verbatim' );
+    putBackBlocks( \$stackTop, $dirtyAreas, 'dirtyarea' )
+      if $Foswiki::cfg{Cache}{Enabled};
+    putBackBlocks( \$stackTop, $verbatim, 'verbatim' );
 
     #print STDERR "FINAL $stackTop\n";
 
@@ -2890,21 +3003,31 @@ sub _processTags {
 # $args is the bit in the {} (if there are any)
 # $topic and $web should be passed for dynamic tags (not needed for
 # session or constant tags
-sub _expandTagOnTopicRendering {
-    my $this = shift;
-    my $tag  = shift;
-    my $args = shift;
+sub _expandMacroOnTopicRendering {
+    my ( $this, $tag, $args, $topicObject ) = @_;
 
-    # my( $topic, $web, $meta ) = @_;
     require Foswiki::Attrs;
+    my $e = $this->{prefs}->getPreference($tag);
+    if ( defined $e ) {
 
-    my $e = $this->{prefs}->getPreferencesValue($tag);
-    unless ( defined($e) ) {
-        $e = $this->{SESSION_TAGS}{$tag};
-        if ( !defined($e) && defined( $functionTags{$tag} ) ) {
-            $e = &{ $functionTags{$tag} }(
-                $this, new Foswiki::Attrs( $args, $contextFreeSyntax{$tag} ), @_
-            );
+        # Preferences aren't supposed to have parameters - so ignore them
+    }
+    else {
+        if ( exists( $macros{$tag} ) ) {
+            unless ( defined( $macros{$tag} ) ) {
+
+                # Demand-load the macro module
+                die $tag unless $tag =~ /([A-Z_:]+)/i;
+                $tag = $1;
+                eval "require Foswiki::Macros::$tag";
+                die $@ if $@;
+                $macros{$tag} = eval "\\&$tag";
+                die $@ if $@;
+            }
+
+            my $attrs = new Foswiki::Attrs( $args, $contextFreeSyntax{$tag} );
+
+            $e = &{ $macros{$tag} }( $this, $attrs, $topicObject );
         }
     }
     return $e;
@@ -2913,10 +3036,10 @@ sub _expandTagOnTopicRendering {
 # Handle expansion of a tag during new topic creation. When creating a
 # new topic from a template we only expand a subset of the available legal
 # tags, and we expand %NOP% differently.
-sub _expandTagOnTopicCreation {
+sub _expandMacroOnTopicCreation {
     my $this = shift;
 
-    # my( $tag, $args, $topic, $web ) = @_;
+    # my( $tag, $args, $topicObject ) = @_;
 
     # Required for Cairo compatibility. Ignore %NOP{...}%
     # %NOP% is *not* ignored until all variable expansion is complete,
@@ -2931,11 +3054,11 @@ sub _expandTagOnTopicCreation {
     # This is what we want to make sure new user templates are populated
     # correctly, but you need to think about this if you extend the set of
     # tags expanded here.
-    return undef
+    return
       unless $_[0] =~
 /^(URLPARAM|DATE|(SERVER|GM)TIME|(USER|WIKI)NAME|WIKIUSERNAME|USERINFO)$/;
 
-    return _expandTagOnTopicRendering( $this, @_ );
+    return $this->_expandMacroOnTopicRendering(@_);
 }
 
 =begin TML
@@ -2999,17 +3122,35 @@ sub inContext {
 
 =begin TML
 
----++ StaticMethod registerTagHandler( $tag, $fnref )
+---++ StaticMethod registerTagHandler( $tag, $fnref, $syntax )
 
 STATIC Add a tag handler to the function tag handlers.
    * =$tag= name of the tag e.g. MYTAG
    * =$fnref= Function to execute. Will be passed ($session, \%params, $web, $topic )
+   * =$syntax= somewhat legacy - 'classic' or 'context-free' (context-free may be removed in future)
+   
+   
+$syntax parameter:
+Way back in prehistory, back when the dinosaur still roamed the earth, 
+Crawford tried to extend the tag syntax of macros such that they could be processed 
+by a context-free parser (hence the "context-free") 
+and bring them into line with HTML. 
+This work was banjaxed by one particular tyrranosaur, 
+who felt that the existing syntax was perfect. 
+However by that time Crawford had used it in a couple of places - most notable in the action tracker. 
+
+The syntax isn't vastly different from what's there; the differences are: 
+   1 Use either type of quote for parameters 
+   2 Optional quotes on parameter values e.g. recurse=on 
+   3 Standardised use of \ for escapes 
+   4 Boolean (valueless) options (i.e. recurse instead of recurse="on" 
+
 
 =cut
 
 sub registerTagHandler {
     my ( $tag, $fnref, $syntax ) = @_;
-    $functionTags{$tag} = \&$fnref;
+    $macros{$tag} = $fnref;
     if ( $syntax && $syntax eq 'context-free' ) {
         $contextFreeSyntax{$tag} = 1;
     }
@@ -3017,7 +3158,7 @@ sub registerTagHandler {
 
 =begin TML
 
----++ ObjectMethod handleCommonTags( $text, $web, $topic, $meta ) -> $text
+---++ ObjectMethod expandMacros( $text, $topicObject ) -> $text
 
 Processes %<nop>VARIABLE%, and %<nop>TOC% syntax; also includes
 'commonTagsHandler' plugin hook.
@@ -3025,58 +3166,68 @@ Processes %<nop>VARIABLE%, and %<nop>TOC% syntax; also includes
 Returns the text of the topic, after file inclusion, variable substitution,
 table-of-contents generation, and any plugin changes from commonTagsHandler.
 
-$meta may be undef when, for example, expanding templates, or one-off strings
+$topicObject may be undef when, for example, expanding templates, or one-off strings
 at a time when meta isn't available.
+
+DO NOT CALL THIS DIRECTLY; use $topicObject->expandMacros instead.
 
 =cut
 
-sub handleCommonTags {
-    my ( $this, $text, $theWeb, $theTopic, $meta ) = @_;
+sub expandMacros {
+    my ( $this, $text, $topicObject ) = @_;
 
-    ASSERT($theWeb)   if DEBUG;
-    ASSERT($theTopic) if DEBUG;
-
-    return $text unless $text;
-    my $verbatim = {};
+    return '' unless defined $text;
 
     # Plugin Hook (for cache Plugins only)
     $this->{plugins}
-      ->dispatch( 'beforeCommonTagsHandler', $text, $theTopic, $theWeb, $meta );
+      ->dispatch( 'beforeCommonTagsHandler', $text, $topicObject->topic,
+        $topicObject->web, $topicObject );
 
     #use a "global var", so included topics can extract and putback
     #their verbatim blocks safetly.
-    $text = $this->renderer->takeOutBlocks( $text, 'verbatim', $verbatim );
+    my $verbatim = {};
+    $text = takeOutBlocks( $text, 'verbatim', $verbatim );
 
-    my $memW = $this->{SESSION_TAGS}{INCLUDINGWEB};
-    my $memT = $this->{SESSION_TAGS}{INCLUDINGTOPIC};
-    $this->{SESSION_TAGS}{INCLUDINGWEB}   = $theWeb;
-    $this->{SESSION_TAGS}{INCLUDINGTOPIC} = $theTopic;
+    # take out dirty areas
+    my $dirtyAreas = {};
+    $text = takeOutBlocks( $text, 'dirtyarea', $dirtyAreas )
+      if $Foswiki::cfg{Cache}{Enabled};
 
-    expandAllTags( $this, \$text, $theTopic, $theWeb, $meta );
+    # Require defaults for plugin handlers :-(
+    my $webContext   = $topicObject->web   || $this->{webName};
+    my $topicContext = $topicObject->topic || $this->{topicName};
 
-    $text = $this->renderer->takeOutBlocks( $text, 'verbatim', $verbatim );
+    my $memW = $this->{prefs}->getPreference('INCLUDINGWEB');
+    my $memT = $this->{prefs}->getPreference('INCLUDINGTOPIC');
+    $this->{prefs}->setInternalPreferences(
+        INCLUDINGWEB   => $webContext,
+        INCLUDINGTOPIC => $topicContext
+    );
+
+    $this->innerExpandMacros( \$text, $topicObject );
+
+    $text = takeOutBlocks( $text, 'verbatim', $verbatim );
 
     # Plugin Hook
     $this->{plugins}
-      ->dispatch( 'commonTagsHandler', $text, $theTopic, $theWeb, 0, $meta );
+      ->dispatch( 'commonTagsHandler', $text, $topicContext, $webContext, 0,
+        $topicObject );
 
     # process tags again because plugin hook may have added more in
-    expandAllTags( $this, \$text, $theTopic, $theWeb, $meta );
+    $this->innerExpandMacros( \$text, $topicObject );
 
-    $this->{SESSION_TAGS}{INCLUDINGWEB}   = $memW;
-    $this->{SESSION_TAGS}{INCLUDINGTOPIC} = $memT;
+    $this->{prefs}->setInternalPreferences(
+        INCLUDINGWEB   => $memW,
+        INCLUDINGTOPIC => $memT
+    );
 
     # 'Special plugin tag' TOC hack, must be done after all other expansions
     # are complete, and has to reprocess the entire topic.
 
-   # We need to keep track of the 'TOC topics' here in order to ensure that each
-   # of these topics is only processed once (this is due to the fact that the
-   # renaming of ambiguous anchors has to work context-less and cannot recognize
-   # whether a particular heading has been converted before)--alternatively, we
-   # could just clear the 'anchorname memory' and keep reprocessing topics
-   # (the latter solution is slower if th same TOC is included multiple times)
-   # current solution: let _TOC() clear the hash which holds the anchornames
-    $text =~ s/%TOC(?:{(.*?)})?%/$this->_TOC($text, $theTopic, $theWeb, $1)/ge;
+    if ( $text =~ /%TOC(?:{.*})?%/ ) {
+        require Foswiki::Macros::TOC;
+        $text =~ s/%TOC(?:{(.*?)})?%/$this->TOC($text, $topicObject, $1)/ge;
+    }
 
     # Codev.FormattedSearchWithConditionalOutput: remove <nop> lines,
     # possibly introduced by SEARCHes with conditional CALC. This needs
@@ -3084,113 +3235,139 @@ sub handleCommonTags {
     # table rows properly
     $text =~ s/^<nop>\r?\n//gm;
 
-    $this->renderer->putBackBlocks( \$text, $verbatim, 'verbatim' );
+    # restore dirty areas
+    putBackBlocks( \$text, $dirtyAreas, 'dirtyarea' )
+      if $Foswiki::cfg{Cache}{Enabled};
+
+    putBackBlocks( \$text, $verbatim, 'verbatim' );
 
     # Foswiki Plugin Hook (for cache Plugins only)
     $this->{plugins}
-      ->dispatch( 'afterCommonTagsHandler', $text, $theTopic, $theWeb, $meta );
+      ->dispatch( 'afterCommonTagsHandler', $text, $topicContext, $webContext,
+        $topicObject );
 
     return $text;
 }
 
 =begin TML
 
----++ ObjectMethod ADDTOHEAD( $args )
+---++ ObjectMethod addToZone($zone, $id, $data, $requires)
 
-Add =$html= to the HEAD tag of the page currently being generated.
+Add =$data= identified as =$id= to =$zone=, which will later be expanded (with
+renderZone() - implements =%<nop>RENDERZONE%=). =$ids= are unique within
+the zone that they are added - dependencies between =$ids= in different zones 
+will not be resolved, except for the special case of =head= and =script= zones
+when ={MergeHeadAndScriptZones}= is enabled.
 
-Note that macros may be used in the HEAD. They will be expanded
-according to normal variable expansion rules.
+In this case, they are treated as separate zones when adding to them, but as
+one merged zone when rendering, i.e. a call to render either =head= or =script=
+zones will actually render both zones in this one call. Both zones are undef'd
+afterward to avoid double rendering of content from either zone, to support
+proper behaviour when =head= and =script= are rendered with separate calls even
+when ={MergeHeadAndScriptZones}= is set. See ZoneTests/explicit_RENDERZONE*.
 
----+++ =%<nop>ADDTOHEAD%=
-You can write =%ADDTOHEAD{...}%= in a topic or template. This variable accepts the following parameters:
-   * =_DEFAULT= optional, id of the head block. Used to generate a comment in the output HTML.
-   * =text= optional, text to use for the head block. Mutually exclusive with =topic=.
-   * =topic= optional, full Foswiki path name of a topic that contains the full text to use for the head block. Mutually exclusive with =text=. Example: =topic="%WEB%.MyTopic"=.
-   * =requires= optional, comma-separated list of id's of other head blocks this one depends on.
-=%<nop>ADDTOHEAD%= expands in-place to the empty string, unless there is an error in which case the variable expands to an error string.
+This behaviour allows an addToZone('head') call to require an id that has been
+added to =script= only.
 
-Use =%<nop>RENDERHEAD%= to generate the sorted head tags.
+   * =$zone=      - name of the zone
+   * =$id=        - unique identifier
+   * =$data=      - content
+   * =$requires=  - optional, comma-separated string of =$id= identifiers
+                    that should precede the content
+
+<blockquote class="foswikiHelp">%X%
+*Note:* Read the developer supplement at Foswiki:Development.AddToZoneFromPluginHandlers if you
+are calling =addToZone()= from a rendering or macro/tag-related plugin handler
+</blockquote>
+
+Implements =%<nop>ADDTOZONE%=.
 
 =cut
 
-sub ADDTOHEAD {
-    my ( $this, $args, $topic, $web ) = @_;
-
-    my $_DEFAULT = $args->{_DEFAULT};
-    my $text     = $args->{text};
-    $topic = $args->{topic};
-    my $requires = $args->{requires};
-    if ( defined $topic ) {
-        ( $web, $topic ) = $this->normalizeWebTopicName( $web, $topic );
-
-        # prevent deep recursion
-        $web =~ s/\//\./g;
-        unless ($this->{_addedToHEAD}{"$web.$topic"}) {
-          my $dummy = undef;
-          ( $dummy, $text ) =
-            $this->{store}->readTopic( $this->{user}, $web, $topic );
-          $this->{_addedToHEAD}{"$web.$topic"} = 1;
-        }
-    }
-    $text = $_DEFAULT unless defined $text;
-    $text = ''        unless defined $text;
-
-    $this->addToHEAD( $_DEFAULT, $text, $requires );
-    return '';
-}
-
-sub addToHEAD {
-    my ( $this, $tag, $header, $requires ) = @_;
-
-    # Expand macros in the header
-    $header =
-      $this->handleCommonTags( $header, $this->{webName}, $this->{topicName} );
-
-    $this->{_SORTEDHEADS} ||= {};
-    $tag ||= '';
+sub addToZone {
+    my ( $this, $zone, $id, $data, $requires ) = @_;
 
     $requires ||= '';
-    my $debug = '';
 
-    # Resolve to references to build DAG
+    # get a random one
+    unless ($id) {
+        $id = int( rand(10000) ) + 1;
+    }
+
+    # get zone, or create record
+    my $thisZone = $this->{_zones}{$zone};
+    unless ( defined $thisZone ) {
+        $this->{_zones}{$zone} = $thisZone = {};
+    }
+
     my @requires;
-    foreach my $req ( split( /,\s*/, $requires ) ) {
-        unless ( $this->{_SORTEDHEADS}->{$req} ) {
-            $this->{_SORTEDHEADS}->{$req} = {
-                tag      => $req,
-                requires => [],
-                header   => '',
+    foreach my $req ( split( /\s*,\s*/, $requires ) ) {
+        unless ( $thisZone->{$req} ) {
+            $thisZone->{$req} = {
+                id              => $req,
+                zone            => $zone,
+                requires        => [],
+                missingrequires => [],
+                text            => '',
+                populated       => 0
             };
         }
-        push( @requires, $this->{_SORTEDHEADS}->{$req} );
+        push( @requires, $thisZone->{$req} );
     }
-    my $record = $this->{_SORTEDHEADS}->{$tag};
-    unless ($record) {
-        $record = { tag => $tag };
-        $this->{_SORTEDHEADS}->{$tag} = $record;
-    }
-    $record->{requires} = \@requires;
-    $record->{header}   = $header;
 
-    # Temporary, for compatibility until %RENDERHEAD% is embedded
-    # in the skins
-    $this->{_HTMLHEADERS}{GENERATED_HEADERS} = _genHeaders($this);
+    # store record within zone
+    my $zoneID = $thisZone->{$id};
+    unless ($zoneID) {
+        $zoneID = { id => $id };
+        $thisZone->{$id} = $zoneID;
+    }
+
+    # override previous properties
+    $zoneID->{zone}            = $zone;
+    $zoneID->{requires}        = \@requires;
+    $zoneID->{missingrequires} = [];
+    $zoneID->{text}            = $data;
+    $zoneID->{populated}       = 1;
+
+    return;
 }
 
-sub _visit {
-    my ( $v, $visited, $list ) = @_;
-    return if $visited->{$v};
-    $visited->{$v} = 1;
-    foreach my $r ( @{ $v->{requires} } ) {
-        _visit( $r, $visited, $list );
-    }
-    push( @$list, $v );
+sub _renderZoneById {
+    my $this = shift;
+    my $id   = shift;
+
+    return '' unless defined $id;
+
+    my $renderZone = $this->{_renderZonePlaceholder}{$id};
+
+    return '' unless defined $renderZone;
+
+    my $params      = $renderZone->{params};
+    my $topicObject = $renderZone->{topicObject};
+    my $zone        = $params->{_DEFAULT} || $params->{zone};
+
+    return _renderZone( $this, $zone, $params, $topicObject );
 }
 
-sub _genHeaders {
-    my ($this) = @_;
-    return '' unless $this->{_SORTEDHEADS};
+# This private function is used in ZoneTests
+sub _renderZone {
+    my ( $this, $zone, $params, $topicObject ) = @_;
+
+    # Check the zone is defined and has not already been rendered
+    return '' unless $zone && $this->{_zones}{$zone};
+
+    $params->{header} ||= '';
+    $params->{footer} ||= '';
+    $params->{chomp}  ||= 'off';
+    $params->{missingformat} = '$id: requires= missing ids: $missingids';
+    $params->{format}        = '$item<!--<literal>$missing</literal>-->'
+      unless defined $params->{format};
+    $params->{separator} = '$n()' unless defined $params->{separator};
+
+    unless ( defined $topicObject ) {
+        $topicObject =
+          Foswiki::Meta->new( $this, $this->{webName}, $this->{topicName} );
+    }
 
     # Loop through the vertices of the graph, in any order, initiating
     # a depth-first search for any vertex that has not already been
@@ -3203,76 +3380,155 @@ sub _genHeaders {
     # algorithm runs in linear time.
     my %visited;
     my @total;
-    foreach my $v ( values %{ $this->{_SORTEDHEADS} } ) {
-        _visit( $v, \%visited, \@total );
+
+    # When {MergeHeadAndScriptZones} is set, try to treat head and script
+    # zones as merged for compatibility with ADDTOHEAD usage where requirements
+    # have been moved to the script zone. See ZoneTests/Item9317
+    if ( $Foswiki::cfg{MergeHeadAndScriptZones}
+        and ( ( $zone eq 'head' ) or ( $zone eq 'script' ) ) )
+    {
+        my @zoneIDs = (
+            values %{ $this->{_zones}{head} },
+            values %{ $this->{_zones}{script} }
+        );
+
+        foreach my $zoneID (@zoneIDs) {
+            $this->_visitZoneID( $zoneID, \%visited, \@total );
+        }
+        undef $this->{_zones}{head};
+        undef $this->{_zones}{script};
+    }
+    else {
+        my @zoneIDs = values %{ $this->{_zones}{$zone} };
+
+        foreach my $zoneID (@zoneIDs) {
+            $this->_visitZoneID( $zoneID, \%visited, \@total );
+        }
+
+        # kill a zone once it has been rendered, to prevent it being
+        # added twice (e.g. by duplicate %RENDERZONEs or by automatic
+        # zone expansion in the head or script)
+        undef $this->{_zones}{$zone};
     }
 
-    return join( "\n", map { "<!-- $_->{tag} --> $_->{header}" } @total );
+    # nothing rendered for a zone with no ADDTOZONE calls
+    return '' unless scalar(@total) > 0;
+
+    my @result        = ();
+    my $missingformat = $params->{missingformat};
+    foreach my $item (@total) {
+        my $text       = $item->{text};
+        my @missingids = @{ $item->{missingrequires} };
+        my $missingformat =
+          ( scalar(@missingids) ) ? $params->{missingformat} : '';
+
+        if ( $params->{'chomp'} ) {
+            $text =~ s/^\s+//g;
+            $text =~ s/\s+$//g;
+        }
+
+        # ASSERT($text, "No content for zone id $item->{id} in zone $zone")
+        # if DEBUG;
+
+        next unless $text;
+        my $id = $item->{id} || '';
+        my $line = $params->{format};
+        if ( scalar(@missingids) ) {
+            $line =~ s/\$missing\b/$missingformat/g;
+            $line =~ s/\$missingids\b/join(', ', @missingids)/ge;
+        }
+        else {
+            $line =~ s/\$missing\b/\$id/g;
+        }
+        $line =~ s/\$item\b/$text/g;
+        $line =~ s/\$id\b/$id/g;
+        $line =~ s/\$zone\b/$item->{zone}/g;
+        push @result, $line if $line;
+    }
+    my $result =
+      expandStandardEscapes( $params->{header}
+          . join( $params->{separator}, @result )
+          . $params->{footer} );
+
+    # delay rendering the zone until now
+    $result = $topicObject->expandMacros($result);
+    $result = $topicObject->renderTML($result);
+
+    return $result;
 }
 
-=begin TML
+sub _visitZoneID {
+    my ( $this, $zoneID, $visited, $list ) = @_;
 
----+++ %<nop}RENDERHEAD%
-=%RENDERHEAD%= should be written where you want the sorted head tags to be generated. This will normally be in a template. The variable expands to a sorted list of the head blocks added up to the point the RENDERHEAD variable is expanded. Each expanded head block is preceded by an HTML comment that records the ID of the head block.
+    return if $visited->{$zoneID};
 
-Head blocks are sorted to satisfy all their =requires= constraints.
-The output order of blocks with no =requires= value is undefined. If cycles
-exist in the dependency order, the cycles will be broken but the resulting
-order of blocks in the cycle is undefined.
+    $visited->{$zoneID} = 1;
 
-=cut
+    foreach my $requiredZoneID ( @{ $zoneID->{requires} } ) {
+        my $zoneIDToVisit;
 
-sub RENDERHEAD {
-    my $this = shift;
-    return _genHeaders($this);
+        if ( $Foswiki::cfg{MergeHeadAndScriptZones}
+            and not $requiredZoneID->{populated} )
+        {
+
+            # Compatibility mode, where we are trying to treat head and script
+            # zones as merged, and a required ZoneID isn't populated. Try
+            # opposite zone to see if it exists there instead. Item9317
+            if ( $requiredZoneID->{zone} eq 'head' ) {
+                $zoneIDToVisit =
+                  $this->{_zones}{script}{ $requiredZoneID->{id} };
+            }
+            else {
+                $zoneIDToVisit = $this->{_zones}{head}{ $requiredZoneID->{id} };
+            }
+            if ( not $zoneIDToVisit->{populated} ) {
+
+                # Oops, the required ZoneID doesn't exist there either; reset
+                $zoneIDToVisit = $requiredZoneID;
+            }
+        }
+        else {
+            $zoneIDToVisit = $requiredZoneID;
+        }
+        $this->_visitZoneID( $zoneIDToVisit, $visited, $list );
+
+        if ( not $zoneIDToVisit->{populated} ) {
+
+            # Finally, we got to here and the required ZoneID just cannot be
+            # found in either head or script (or other) zones, so record it for
+            # diagnostic purposes ($missingids format token)
+            push( @{ $zoneID->{missingrequires} }, $zoneIDToVisit->{id} );
+        }
+    }
+    push( @{$list}, $zoneID );
+
+    return;
 }
 
-=begin TML
+# This private function is used in ZoneTests
+sub _renderZones {
+    my ( $this, $text ) = @_;
 
----++ StaticMethod initialize( $pathInfo, $remoteUser, $topic, $url, $query ) -> ($topicName, $webName, $scriptUrlPath, $userName, $dataDir)
+    # Render zones that were pulled out by Foswiki/Macros/RENDERZONE.pm
+    # NOTE: once a zone has been rendered it is cleared, so cannot
+    # be rendered again.
 
-Return value: ( $topicName, $webName, $Foswiki::cfg{ScriptUrlPath}, $userName, $Foswiki::cfg{DataDir} )
+    $text =~ s/${RENDERZONE_MARKER}RENDERZONE{(.*?)}${RENDERZONE_MARKER}/
+      _renderZoneById($this, $1)/geo;
 
-Static method to construct a new singleton session instance.
-It creates a new Foswiki and sets the Plugins $SESSION variable to
-point to it, so that Foswiki::Func methods will work.
+    # get the head zone and insert it at the end of the </head>
+    # *if it has not already been rendered*
+    my $headZone = _renderZone( $this, 'head', { chomp => "on" } );
+    $text =~ s!(</head>)!$headZone\n$1!i if $headZone;
 
-This method is *DEPRECATED* but is maintained for script compatibility.
+  # SMELL: Item9480 - can't trust that _renderzone(head) above has truly
+  # flushed both script and head zones empty when {MergeHeadAndScriptZones} = 1.
+    my $scriptZone = _renderZone( $this, 'script', { chomp => "on" } );
+    $text =~ s!(</head>)!$scriptZone\n$1!i if $scriptZone;
 
-Note that $theUrl, if specified, must be identical to $query->url()
+    chomp($text);
 
-=cut
-
-sub initialize {
-    my ( $pathInfo, $theRemoteUser, $topic, $theUrl, $query ) = @_;
-
-    if ( !$query ) {
-        $query = new Foswiki::Request( {} );
-    }
-    if ( $query->path_info() ne $pathInfo ) {
-        $query->path_info( "/$0/" . $pathInfo );
-    }
-    if ($topic) {
-        $query->param( -name => 'topic', -value => '' );
-    }
-
-    # can't do much if $theUrl is specified and it is inconsistent with
-    # the query. We are trying to get to all parameters passed in the
-    # query.
-    if ( $theUrl && $theUrl ne $query->url() ) {
-        die
-'Sorry, this version of Foswiki does not support the url parameter to Foswiki::initialize being different to the url in the query';
-    }
-    my $session = new Foswiki( $theRemoteUser, $query );
-
-    # Force the new session into the plugins context.
-    $Foswiki::Plugins::SESSION = $session;
-
-    return (
-        $session->{topicName},     $session->{webName},
-        $session->{scriptUrlPath}, $session->{userName},
-        $Foswiki::cfg{DataDir}
-    );
+    return $text;
 }
 
 =begin TML
@@ -3290,10 +3546,11 @@ used *only* if there is *absolutely no alternative*.
 
 sub readFile {
     my $name = shift;
-    open( IN_FILE, "<$name" ) || return '';
+    my $IN_FILE;
+    open( $IN_FILE, "<$name" ) || return '';
     local $/ = undef;
-    my $data = <IN_FILE>;
-    close(IN_FILE);
+    my $data = <$IN_FILE>;
+    close($IN_FILE);
     $data = '' unless ( defined($data) );
     return $data;
 }
@@ -3302,1187 +3559,144 @@ sub readFile {
 
 ---++ StaticMethod expandStandardEscapes($str) -> $unescapedStr
 
-Expands standard escapes used in parameter values to block evaluation. The following escapes
-are handled:
-
-| *Escape:* | *Expands To:* |
-| =$n= or =$n()= | New line. Use =$n()= if followed by alphanumeric character, e.g. write =Foo$n()Bar= instead of =Foo$nBar= |
-| =$nop= or =$nop()= | Is a "no operation". |
-| =$quot= | Double quote (="=) |
-| =$percnt= | Percent sign (=%=) |
-| =$dollar= | Dollar sign (=$=) |
+Expands standard escapes used in parameter values to block evaluation. See
+System.FormatTokens for a full list of supported tokens.
 
 =cut
 
 sub expandStandardEscapes {
     my $text = shift;
-    $text =~ s/\$n\(\)/\n/gos;    # expand '$n()' to new line
-    $text =~ s/\$n([^$regex{mixedAlpha}]|$)/\n$1/gos;  # expand '$n' to new line
-    $text =~ s/\$nop(\(\))?//gos;      # remove filler, useful for nested search
-    $text =~ s/\$quot(\(\))?/\"/gos;   # expand double quote
-    $text =~ s/\$percnt(\(\))?/\%/gos; # expand percent
-    $text =~ s/\$dollar(\(\))?/\$/gos; # expand dollar
-    $text =~ s/\$lt(\(\))?/\</gos;     # expand less than
-    $text =~ s/\$gt(\(\))?/\>/gos;     # expand greater than
-    $text =~ s/\$amp(\(\))?/\&/gos;    # expand ampersand
-    return $text;
-}
 
-# generate an include warning
-# SMELL: varying number of parameters idiotic to handle for customized $warn
-sub _includeWarning {
-    my $this    = shift;
-    my $warn    = shift;
-    my $message = shift;
+    # expand '$n()' and $n! to new line
+    $text =~ s/\$n\(\)/\n/gs;
+    $text =~ s/\$n(?=[^$regex{mixedAlpha}]|$)/\n/gos;
 
-    if ( $warn eq 'on' ) {
-        return $this->inlineAlert( 'alerts', $message, @_ );
-    }
-    elsif ( isTrue($warn) ) {
+    # filler, useful for nested search
+    $text =~ s/\$nop(\(\))?//gs;
 
-        # different inlineAlerts need different argument counts
-        my $argument = '';
-        if ( $message eq 'topic_not_found' ) {
-            my ( $web, $topic ) = @_;
-            $argument = "$web.$topic";
-        }
-        else {
-            $argument = shift;
-        }
-        $warn =~ s/\$topic/$argument/go if $argument;
-        return $warn;
-    }    # else fail silently
-    return '';
-}
+    # $quot -> "
+    $text =~ s/\$quot(\(\))?/\"/gs;
 
-#-------------------------------------------------------------------
-# Tag Handlers
-#-------------------------------------------------------------------
+    # $comma -> ,
+    $text =~ s/\$comma(\(\))?/,/gs;
 
-sub FORMFIELD {
-    my ( $this, $params, $topic, $web ) = @_;
-    my $cgiQuery = $this->{request};
-    $params->{rev} = $cgiQuery->param('rev') if ($cgiQuery);
-    return $this->renderer->renderFORMFIELD( $params, $topic, $web );
-}
+    # $percent -> %
+    $text =~ s/\$perce?nt(\(\))?/\%/gs;
 
-sub TMPLP {
-    my ( $this, $params ) = @_;
-    return $this->templates->tmplP($params);
-}
+    # $lt -> <
+    $text =~ s/\$lt(\(\))?/\</gs;
 
-sub VAR {
-    my ( $this, $params, $topic, $inweb ) = @_;
-    my $key = $params->{_DEFAULT};
-    return '' unless $key;
-    my $web = $params->{web} || $inweb;
+    # $gt -> >
+    $text =~ s/\$gt(\(\))?/\>/gs;
 
-    # handle %USERSWEB%-type cases
-    ( $web, $topic ) = $this->normalizeWebTopicName( $web, $topic );
+    # $amp -> &
+    $text =~ s/\$amp(\(\))?/\&/gs;
 
-    # always return a value, even when the key isn't defined
-    return $this->{prefs}->getWebPreferencesValue( $key, $web ) || '';
-}
-
-sub PLUGINVERSION {
-    my ( $this, $params ) = @_;
-    $this->{plugins}->getPluginVersion( $params->{_DEFAULT} );
-}
-
-sub IF {
-    my ( $this, $params, $topic, $web, $meta ) = @_;
-
-    unless ($ifParser) {
-        require Foswiki::If::Parser;
-        $ifParser = new Foswiki::If::Parser();
-    }
-
-    my $texpr = $params->{_DEFAULT};
-    my $expr;
-    my $result;
-
-    # Recursion block.
-    $this->{evaluating_if} ||= {};
-
-    # Block after 5 levels.
-    if (   $this->{evaluating_if}->{$texpr}
-        && $this->{evaluating_if}->{$texpr} > 5 )
-    {
-        delete $this->{evaluating_if}->{$texpr};
-        return '';
-    }
-    $this->{evaluating_if}->{$texpr}++;
-
-    try {
-        $expr = $ifParser->parse($texpr);
-        unless ($meta) {
-            require Foswiki::Meta;
-            $meta = new Foswiki::Meta( $this, $web, $topic );
-        }
-        if ( $expr->evaluate( tom => $meta, data => $meta ) ) {
-            $params->{then} = '' unless defined $params->{then};
-            $result = expandStandardEscapes( $params->{then} );
-        }
-        else {
-            $params->{else} = '' unless defined $params->{else};
-            $result = expandStandardEscapes( $params->{else} );
-        }
-    }
-    catch Foswiki::Infix::Error with {
-        my $e = shift;
-        $result =
-          $this->inlineAlert( 'alerts', 'generic', 'IF{', $params->stringify(),
-            '}:', $e->{-text} );
-    }
-    finally {
-        delete $this->{evaluating_if}->{$texpr};
-    };
-    return $result;
-}
-
-# Processes a specific instance %<nop>INCLUDE{...}% syntax.
-# Returns the text to be inserted in place of the INCLUDE command.
-# $topic and $web should be for the immediate parent topic in the
-# include hierarchy. Works for both URLs and absolute server paths.
-sub INCLUDE {
-    my ( $this, $params, $includingTopic, $includingWeb ) = @_;
-
-    # remember args for the key before mangling the params
-    my $args = $params->stringify();
-
-    # Remove params, so they don't get expanded in the included page
-    my %control;
-    for my $p qw(_DEFAULT pattern rev section raw warn) {
-        $control{$p} = $params->remove($p);
-    }
-
-    $control{warn} ||= $this->{prefs}->getPreferencesValue('INCLUDEWARNING');
-
-    # make sure we have something to include. If we don't do this, then
-    # normalizeWebTopicName will default to WebHome. TWikibug:Item2209.
-    unless ( $control{_DEFAULT} ) {
-        return _includeWarning( $this, $control{warn}, 'bad_include_path', '' );
-    }
-
-    # Filter out '..' from path to prevent includes of '../../file'
-    if ( $Foswiki::cfg{DenyDotDotInclude} && $control{_DEFAULT} =~ /\.\./ ) {
-        return _includeWarning( $this, $control{warn}, 'bad_include_path',
-            $control{_DEFAULT} );
-    }
-
-    # no sense in considering an empty string as an unfindable section
-    delete $control{section}
-      if ( defined( $control{section} ) && $control{section} eq '' );
-    $control{raw} ||= '';
-    $control{inWeb}   = $includingWeb;
-    $control{inTopic} = $includingTopic;
-    if ( $control{_DEFAULT} =~ /^([a-z]+):/ ) {
-        my $handler = $1;
-        eval 'use Foswiki::IncludeHandlers::' . $handler;
-        die $@ if ($@);
-        unless ($@) {
-            $handler = 'Foswiki::IncludeHandlers::' . $handler;
-            return $handler->INCLUDE( $this, \%control, $params );
-        }
-    }
-
-    # No protocol handler; must be a topic reference
-
-    my $text = '';
-    my $meta = '';
-    my $includedWeb;
-    my $includedTopic = $control{_DEFAULT};
-    $includedTopic =~ s/\.txt$//;    # strip optional (undocumented) .txt
-
-    ( $includedWeb, $includedTopic ) =
-      $this->normalizeWebTopicName( $includingWeb, $includedTopic );
-
-    # See Codev.FailedIncludeWarning for the history.
-    unless ( $this->{store}->topicExists( $includedWeb, $includedTopic ) ) {
-        return _includeWarning( $this, $control{warn}, 'topic_not_found',
-            $includedWeb, $includedTopic );
-    }
-
-    # prevent recursive includes. Note that the inclusion of a topic into
-    # itself is not blocked; however subsequent attempts to include the
-    # topic will fail. There is a hard block of 99 on any recursive include.
-    my $key = $includingWeb . '.' . $includingTopic;
-    my $count = grep( $key, keys %{ $this->{_INCLUDES} } );
-    $key .= $args;
-    if ( $this->{_INCLUDES}->{$key} || $count > 99 ) {
-        return _includeWarning( $this, $control{warn}, 'already_included',
-            "$includedWeb.$includedTopic", '' );
-    }
-
-    my %saveTags  = %{ $this->{SESSION_TAGS} };
-    my $prefsMark = $this->{prefs}->mark();
-
-    $this->{_INCLUDES}->{$key}            = 1;
-    $this->{SESSION_TAGS}{INCLUDINGWEB}   = $includingWeb;
-    $this->{SESSION_TAGS}{INCLUDINGTOPIC} = $includingTopic;
-
-    # copy params into session tags
-    foreach my $k ( keys %$params ) {
-        $this->{SESSION_TAGS}{$k} = $params->{$k};
-    }
-
-    ( $meta, $text ) =
-      $this->{store}
-      ->readTopic( undef, $includedWeb, $includedTopic, $control{rev} );
-
-    # Simplify leading, and remove trailing, newlines. If we don't remove
-    # trailing, it becomes impossible to %INCLUDE a topic into a table.
-    $text =~ s/^[\r\n]+/\n/;
-    $text =~ s/[\r\n]+$//;
-
-    unless (
-        $this->security->checkAccessPermission(
-            'VIEW', $this->{user},  $text,
-            $meta,  $includedTopic, $includedWeb
-        )
-      )
-    {
-        if ( isTrue( $control{warn} ) ) {
-            return $this->inlineAlert( 'alerts', 'access_denied',
-                "[[$includedWeb.$includedTopic]]" );
-        }    # else fail silently
-        return '';
-    }
-
-    # remove everything before and after the default include block unless
-    # a section is explicitly defined
-    if ( !$control{section} ) {
-        $text =~ s/.*?%STARTINCLUDE%//s;
-        $text =~ s/%STOPINCLUDE%.*//s;
-    }
-
-    # handle sections
-    my ( $ntext, $sections ) = parseSections($text);
-
-    my $interesting = ( defined $control{section} );
-    if ( $interesting || scalar(@$sections) ) {
-
-        # Rebuild the text from the interesting sections
-        $text = '';
-        foreach my $s (@$sections) {
-            if (   $control{section}
-                && $s->{type} eq 'section'
-                && $s->{name} eq $control{section} )
-            {
-                $text .= substr( $ntext, $s->{start}, $s->{end} - $s->{start} );
-                $interesting = 1;
-                last;
-            }
-            elsif ( $s->{type} eq 'include' && !$control{section} ) {
-                $text .= substr( $ntext, $s->{start}, $s->{end} - $s->{start} );
-                $interesting = 1;
-            }
-        }
-    }
-
-    if ( $interesting and ( length($text) eq 0 ) ) {
-        return _includeWarning( $this, $control{warn},
-            'topic_section_not_found', $includedWeb, $includedTopic,
-            $control{section} );
-    }
-
-    # If there were no interesting sections, restore the whole text
-    $text = $ntext unless $interesting;
-
-    $text = applyPatternToIncludedText( $text, $control{pattern} )
-      if ( $control{pattern} );
-
-    # Do not show TOC in included topic if TOC_HIDE_IF_INCLUDED
-    # preference has been set
-    if ( isTrue( $this->{prefs}->getPreferencesValue('TOC_HIDE_IF_INCLUDED') ) )
-    {
-        $text =~ s/%TOC(?:{(.*?)})?%//g;
-    }
-
-    expandAllTags( $this, \$text, $includedTopic, $includedWeb, $meta );
-
-    # 4th parameter tells plugin that its called for an included file
-    $this->{plugins}
-      ->dispatch( 'commonTagsHandler', $text, $includedTopic, $includedWeb, 1,
-        $meta );
-
-   # We have to expand tags again, because a plugin may have inserted additional
-   # tags.
-    expandAllTags( $this, \$text, $includedTopic, $includedWeb, $meta );
-
-    # If needed, fix all 'TopicNames' to 'Web.TopicNames' to get the
-    # right context so that links continue to work properly
-    if ( $includedWeb ne $includingWeb ) {
-        my $removed = {};
-
-        $text = $this->renderer->forEachLine(
-            $text,
-            \&_fixupIncludedTopic,
-            {
-                web        => $includedWeb,
-                pre        => 1,
-                noautolink => 1
-            }
-        );
-
-        # handle tags again because of plugin hook
-        expandAllTags( $this, \$text, $includedTopic, $includedWeb, $meta );
-    }
-
-    # restore the tags
-    delete $this->{_INCLUDES}->{$key};
-    %{ $this->{SESSION_TAGS} } = %saveTags;
-
-    $this->{prefs}->restore($prefsMark);
+    # $dollar -> $, done last to avoid creating the above tokens
+    $text =~ s/\$dollar(\(\))?/\$/gs;
 
     return $text;
 }
 
-sub HTTP {
-    my ( $this, $params ) = @_;
-    my $res;
-    if ( $params->{_DEFAULT} ) {
-        $res = $this->{request}->http( $params->{_DEFAULT} );
-    }
-    $res = '' unless defined($res);
-    return $res;
+=begin TML
+
+---++ ObjectMethod webExists( $web ) -> $boolean
+
+Test if web exists
+   * =$web= - Web name, required, e.g. ='Sandbox'=
+
+A web _has_ to have a preferences topic to be a web.
+
+=cut
+
+sub webExists {
+    my ( $this, $web ) = @_;
+
+    ASSERT( UNTAINTED($web), 'web is tainted' ) if DEBUG;
+    return $this->{store}->webExists($web);
 }
 
-sub HTTPS {
-    my ( $this, $params ) = @_;
-    my $res;
-    if ( $params->{_DEFAULT} ) {
-        $res = $this->{request}->https( $params->{_DEFAULT} );
-    }
-    $res = '' unless defined($res);
-    return $res;
+=begin TML
+
+---++ ObjectMethod topicExists( $web, $topic ) -> $boolean
+
+Test if topic exists
+   * =$web= - Web name, optional, e.g. ='Main'=
+   * =$topic= - Topic name, required, e.g. ='TokyoOffice'=, or ="Main.TokyoOffice"=
+
+=cut
+
+sub topicExists {
+    my ( $this, $web, $topic ) = @_;
+    ASSERT( UNTAINTED($web),   'web is tainted' )   if DEBUG;
+    ASSERT( UNTAINTED($topic), 'topic is tainted' ) if DEBUG;
+    return $this->{store}->topicExists( $web, $topic );
 }
 
-#deprecated functionality, now implemented using %ENV%
-#move to compatibility plugin in Foswiki 2.0
-sub HTTP_HOST_deprecated {
-    return $_[0]->{request}->header('Host') || '';
+=begin TML
+
+---+++ ObjectMethod getWorkArea( $key ) -> $directorypath
+
+Gets a private directory uniquely identified by $key. The directory is
+intended as a work area for plugins etc. The directory will exist.
+
+=cut
+
+sub getWorkArea {
+    my ( $this, $key ) = @_;
+    return $this->{store}->getWorkArea($key);
 }
 
-#deprecated functionality, now implemented using %ENV%
-#move to compatibility plugin in Foswiki 2.0
-sub REMOTE_ADDR_deprecated {
-    return $_[0]->{request}->remoteAddress() || '';
-}
+=begin TML
 
-#deprecated functionality, now implemented using %ENV%
-#move to compatibility plugin in Foswiki 2.0
-sub REMOTE_PORT_deprecated {
+---++ ObjectMethod getApproxRevTime (  $web, $topic  ) -> $epochSecs
 
-    # CGI/1.1 (RFC 3875) doesn't specify REMOTE_PORT,
-    # but some webservers implement it. However, since
-    # it's not RFC compliant, Foswiki should not rely on
-    # it. So we get more portability.
-    return '';
-}
+Get an approximate rev time for the latest rev of the topic. This method
+is used to optimise searching. Needs to be as fast as possible.
 
-#deprecated functionality, now implemented using %ENV%
-#move to compatibility plugin in Foswiki
-sub REMOTE_USER_deprecated {
-    return $_[0]->{request}->remoteUser() || '';
-}
+SMELL: is there a reason this is in Foswiki.pm, and not in Search?
 
-# Only does simple search for topicmoved at present, can be expanded when required
-# SMELL: this violates encapsulation of Store and Meta, by exporting
-# the assumption that meta-data is stored embedded inside topic
-# text.
-sub METASEARCH {
-    my ( $this, $params ) = @_;
+=cut
 
-    return $this->{store}->searchMetaData($params);
-}
+sub getApproxRevTime {
+    my ( $this, $web, $topic ) = @_;
 
-sub DATE {
-    my $this = shift;
-    return Foswiki::Time::formatTime(
-        time(),
-        $Foswiki::cfg{DefaultDateFormat},
-        $Foswiki::cfg{DisplayTimeValues}
-    );
-}
+    my $metacache = $this->search->metacache;
+    if ( $metacache->hasCached( $web, $topic ) ) {
 
-sub GMTIME {
-    my ( $this, $params ) = @_;
-    return Foswiki::Time::formatTime( time(), $params->{_DEFAULT} || '',
-        'gmtime' );
-}
-
-sub SERVERTIME {
-    my ( $this, $params ) = @_;
-    return Foswiki::Time::formatTime( time(), $params->{_DEFAULT} || '',
-        'servertime' );
-}
-
-sub DISPLAYTIME {
-    my ( $this, $params ) = @_;
-    return Foswiki::Time::formatTime(
-        time(),
-        $params->{_DEFAULT} || '',
-        $Foswiki::cfg{DisplayTimeValues}
-    );
-}
-
-#| $web | web and  |
-#| $topic | topic to display the name for |
-#| $formatString | format string (like in search) |
-sub REVINFO {
-    my ( $this, $params, $theTopic, $theWeb ) = @_;
-    my $format = $params->{_DEFAULT} || $params->{format};
-    my $web    = $params->{web}      || $theWeb;
-    my $topic  = $params->{topic}    || $theTopic;
-    my $cgiQuery = $this->{request};
-    my $cgiRev   = '';
-    $cgiRev = $cgiQuery->param('rev') if ($cgiQuery);
-    my $rev = $params->{rev} || $cgiRev || '';
-
-    ( $web, $topic ) = $this->normalizeWebTopicName( $web, $topic );
-    if ( $web ne $theWeb || $topic ne $theTopic ) {
-        unless (
-            $this->security->checkAccessPermission(
-                'VIEW', $this->{user}, undef, undef, $topic, $web
-            )
-          )
-        {
-            return $this->inlineAlert( 'alerts', 'access_denied', $web,
-                $topic );
-        }
+        #don't kill me - this should become a property on Meta
+        return $metacache->get( $web, $topic )->{modified};
     }
 
-    return $this->renderer->renderRevisionInfo( $web, $topic, undef, $rev,
-        $format );
-}
-
-sub REVTITLE {
-    my ( $this, $params, $theTopic, $theWeb ) = @_;
-    my $request = $this->{request};
-    my $out     = '';
-    if ($request) {
-        my $rev = $request->param('rev');
-        $out = '(r' . $rev . ')' if ($rev);
-    }
-    return $out;
-}
-
-sub REVARG {
-    my ( $this, $params, $theTopic, $theWeb ) = @_;
-    my $request = $this->{request};
-    my $out     = '';
-    if ($request) {
-        my $rev = $request->param('rev');
-        $out = '&rev=' . $rev if ($rev);
-    }
-    return $out;
-}
-
-sub ENCODE {
-    my ( $this, $params ) = @_;
-    my $type = $params->{type} || 'url';
-
-    # Value 0 can be valid input so we cannot use simple = || ''
-    my $text = defined( $params->{_DEFAULT} ) ? $params->{_DEFAULT} : '';
-    return _encode( $type, $text );
-}
-
-sub _encode {
-    my ( $type, $text ) = @_;
-
-    if ( $type =~ /^entit(y|ies)$/i ) {
-        return entityEncode($text);
-    }
-    elsif ( $type =~ /^html$/i ) {
-        return entityEncode( $text, "\n\r" );
-    }
-    elsif ( $type =~ /^quotes?$/i ) {
-
-        # escape quotes with backslash (Bugs:Item3383 fix)
-        $text =~ s/\"/\\"/go;
-        return $text;
-    }
-    elsif ( $type =~ /^url$/i ) {
-        $text =~ s/\r*\n\r*/<br \/>/;    # Legacy.
-        return urlEncode($text);
-    }
-    elsif ( $type =~ /^(off|none)$/i ) {
-
-        # no encoding
-        return $text;
-    }
-    else {                               # safe or default
-                                         # entity encode ' " < > and %
-        $text =~ s/([<>%'"])/'&#'.ord($1).';'/ge;
-        return $text;
-    }
-}
-
-sub ENV {
-    my ( $this, $params ) = @_;
-
-    my $key = $params->{_DEFAULT};
-    return ''
-      unless $key
-          && defined $Foswiki::cfg{AccessibleENV}
-          && $key =~ /$Foswiki::cfg{AccessibleENV}/o;
-    my $val;
-    if ( $key =~ /^HTTPS?_(\w+)/ ) {
-        $val = $this->{request}->header($1);
-    }
-    elsif ( $key eq 'REQUEST_METHOD' ) {
-        $val = $this->{request}->method;
-    }
-    elsif ( $key eq 'REMOTE_USER' ) {
-        $val = $this->{request}->remoteUser;
-    }
-    elsif ( $key eq 'REMOTE_ADDR' ) {
-        $val = $this->{request}->remoteAddress;
-    }
-    else {
-
-        # TSA SMELL: Foswiki::Request doesn't support
-        # SERVER_\w+, REMOTE_HOST and REMOTE_IDENT.
-        # Use %ENV as fallback, but for ones above
-        # wil probably not behave as expected if
-        # running with non-CGI engine.
-        $val = $ENV{$key};
-    }
-    return defined $val ? $val : 'not set';
-}
-
-sub SEARCH {
-    my ( $this, $params, $topic, $web ) = @_;
-
-    # pass on all attrs, and add some more
-    #$params->{_callback} = undef;
-    $params->{inline}    = 1;
-    $params->{baseweb}   = $web;
-    $params->{basetopic} = $topic;
-    $params->{search}    = $params->{_DEFAULT} if defined $params->{_DEFAULT};
-    $params->{type} =
-      $this->{prefs}->getPreferencesValue('SEARCHVARDEFAULTTYPE')
-      unless ( $params->{type} );
-    my $s;
-    try {
-        $s = $this->search->searchWeb(%$params);
-    }
-    catch Error::Simple with {
-        my $message = (DEBUG) ? shift->stringify() : shift->{-text};
-
-        # Block recursions kicked off by the text being repeated in the
-        # error message
-        $message =~ s/%([A-Z]*[{%])/%<nop>$1/g;
-        $s = $this->inlineAlert( 'alerts', 'bad_search', $message );
-    };
-    return $s;
-}
-
-sub WEBLIST {
-    my ( $this, $params ) = @_;
-    my $format = $params->{_DEFAULT} || $params->{'format'} || '$name';
-    $format ||= '$name';
-    my $separator = $params->{separator} || "\n";
-    $separator =~ s/\$n/\n/;
-    my $web       = $params->{web}       || '';
-    my $webs      = $params->{webs}      || 'public';
-    my $selection = $params->{selection} || '';
-    my $showWeb   = $params->{subwebs}   || '';
-    $selection =~ s/\,/ /g;
-    $selection = " $selection ";
-    my $marker = $params->{marker} || 'selected="selected"';
-    $web =~ s#\.#/#go;
-
-    my @list = ();
-    my @webslist = split( /,\s*/, $webs );
-    foreach my $aweb (@webslist) {
-        if ( $aweb eq 'public' ) {
-            push( @list,
-                $this->{store}->getListOfWebs( 'user,public,allowed', $showWeb )
-            );
-        }
-        elsif ( $aweb eq 'webtemplate' ) {
-            push( @list,
-                $this->{store}->getListOfWebs( 'template,allowed', $showWeb ) );
-        }
-        else {
-            push( @list, $aweb ) if ( $this->{store}->webExists($aweb) );
-        }
-    }
-
-    my @items;
-    my $indent = CGI::span( { class => 'foswikiWebIndent' }, '' );
-    foreach my $item (@list) {
-        my $line = $format;
-        $line =~ s/\$web\b/$web/g;
-        $line =~ s/\$name\b/$item/g;
-        $line =~ s/\$qname/"$item"/g;
-        my $indenteditem = $item;
-        $indenteditem =~ s#/$##g;
-        $indenteditem =~ s#\w+/#$indent#g;
-        $line         =~ s/\$indentedname/$indenteditem/g;
-        my $mark = ( $selection =~ / \Q$item\E / ) ? $marker : '';
-        $line =~ s/\$marker/$mark/g;
-        push( @items, $line );
-    }
-    return join( $separator, @items );
-}
-
-sub TOPICLIST {
-    my ( $this, $params ) = @_;
-    my $format = $params->{_DEFAULT} || $params->{'format'} || '$topic';
-    my $separator = $params->{separator} || "\n";
-    $separator =~ s/\$n/\n/;
-    my $web       = $params->{web}       || $this->{webName};
-    my $selection = $params->{selection} || '';
-    $selection =~ s/\,/ /g;
-    $selection = " $selection ";
-    my $marker = $params->{marker} || 'selected="selected"';
-    $web =~ s#\.#/#go;
-
-    return ''
-      if $web ne $this->{webName}
-          && $this->{prefs}->getWebPreferencesValue( 'NOSEARCHALL', $web );
-
-    my @items;
-    foreach my $item ( $this->{store}->getTopicNames($web) ) {
-        my $line = $format;
-        $line =~ s/\$web\b/$web/g;
-        $line =~ s/\$topic\b/$item/g;
-        $line =~ s/\$name\b/$item/g;     # Undocumented, DO NOT REMOVE
-        $line =~ s/\$qname/"$item"/g;    # Undocumented, DO NOT REMOVE
-        my $mark = ( $selection =~ / \Q$item\E / ) ? $marker : '';
-        $line =~ s/\$marker/$mark/g;
-        $line = expandStandardEscapes($line);
-        push( @items, $line );
-    }
-    return join( $separator, @items );
-}
-
-sub QUERYSTRING {
-    my $this = shift;
-    return $this->{request}->queryString();
-}
-
-sub QUERYPARAMS {
-    my ( $this, $params ) = @_;
-    return '' unless $this->{request};
-    my $format =
-      defined $params->{format}
-      ? $params->{format}
-      : '$name=$value';
-    my $separator = defined $params->{separator} ? $params->{separator} : "\n";
-    my $encoding = $params->{encoding} || 'safe';
-
-    my @list;
-    foreach my $name ( $this->{request}->param() ) {
-
-        # Issues multi-valued parameters as separate hiddens
-        my $value = $this->{request}->param($name);
-        $value = '' unless defined $value;
-        $name  = _encode( $encoding, $name );
-        $value = _encode( $encoding, $value );
-
-        my $entry = $format;
-        $entry =~ s/\$name/$name/g;
-        $entry =~ s/\$value/$value/;
-        push( @list, $entry );
-    }
-    return join( $separator, @list );
-}
-
-sub URLPARAM {
-    my ( $this, $params ) = @_;
-    my $param     = $params->{_DEFAULT} || '';
-    my $newLine   = $params->{newline};
-    my $encode    = $params->{encode} || 'safe';
-    my $multiple  = $params->{multiple};
-    my $separator = $params->{separator};
-    $separator = "\n" unless ( defined $separator );
-
-    my $value;
-    if ( $this->{request} ) {
-        if ( Foswiki::isTrue($multiple) ) {
-            my @valueArray = $this->{request}->param($param);
-            if (@valueArray) {
-
-                # join multiple values properly
-                unless ( $multiple =~ m/^on$/i ) {
-                    my $item = '';
-                    @valueArray = map {
-                        $item = $_;
-                        $_    = $multiple;
-                        $_ .= $item unless (s/\$item/$item/go);
-                        $_
-                    } @valueArray;
-                }
-                $value = join( $separator, @valueArray );
-            }
-        }
-        else {
-            $value = $this->{request}->param($param);
-        }
-    }
-    if ( defined $value ) {
-        $value =~ s/\r?\n/$newLine/go if ( defined $newLine );
-        if ( $encode =~ /^entit(y|ies)$/i ) {
-            $value = entityEncode($value);
-        }
-        elsif ( $encode =~ /^quotes?$/i ) {
-            $value =~
-              s/\"/\\"/go;    # escape quotes with backslash (Bugs:Item3383 fix)
-        }
-        elsif ( $encode =~ /^(off|none)$/i ) {
-
-            # no encoding
-        }
-        elsif ( $encode =~ /^url$/i ) {
-            $value =~ s/\r*\n\r*/<br \/>/;    # Legacy
-            $value = urlEncode($value);
-        }
-        else {                                # safe or default
-                                              # entity encode ' " < > and %
-            $value =~ s/([<>%'"])/'&#'.ord($1).';'/ge;
-        }
-    }
-    unless ( defined $value ) {
-        $value = $params->{default};
-        $value = '' unless defined $value;
-    }
-
-    # Block expansion of %URLPARAM in the value to prevent recursion
-    $value =~ s/%URLPARAM{/%<nop>URLPARAM{/g;
-    return $value;
-}
-
-# This routine was introduced to URL encode Mozilla UTF-8 POST URLs in the
-# TWiki Feb2003 release - encoding is no longer needed since UTF-URLs are now
-# directly supported, but it is provided for backward compatibility with
-# skins that may still be using the deprecated %INTURLENCODE%.
-sub INTURLENCODE_deprecated {
-    my ( $this, $params ) = @_;
-
-    # Just strip double quotes, no URL encoding - Mozilla UTF-8 URLs
-    # directly supported now
-    return $params->{_DEFAULT} || '';
-}
-
-# This routine is deprecated as of DakarRelease,
-# and is maintained only for backward compatibility.
-# Spacing of WikiWords is now done with %SPACEOUT%
-# (and the private routine _SPACEOUT).
-# Move to compatibility module in Foswiki 2.0
-sub SPACEDTOPIC_deprecated {
-    my ( $this, $params, $theTopic ) = @_;
-    my $topic = spaceOutWikiWord($theTopic);
-    $topic =~ s/ / */g;
-    return urlEncode($topic);
-}
-
-sub SPACEOUT {
-    my ( $this, $params ) = @_;
-    my $spaceOutTopic = $params->{_DEFAULT};
-    my $sep           = $params->{'separator'};
-    $spaceOutTopic = spaceOutWikiWord( $spaceOutTopic, $sep );
-    return $spaceOutTopic;
-}
-
-sub ICON {
-    my ( $this, $params ) = @_;
-    my $file = $params->{_DEFAULT} || '';
-
-    # Try to map the file name to see if there is a matching filetype image
-    # If no mapping could be found, use the file name that was passed
-    my $iconFileName = $this->mapToIconFileName( $file, $file );
-    return CGI::img(
-        {
-            src    => $this->getIconUrl( 0, $iconFileName ),
-            width  => 16,
-            height => 16,
-            align  => 'top',
-            alt    => $iconFileName,
-            border => 0
-        }
-    );
-}
-
-sub ICONURL {
-    my ( $this, $params ) = @_;
-    my $file = ( $params->{_DEFAULT} || '' );
-
-    return $this->getIconUrl( 1, $file );
-}
-
-sub ICONURLPATH {
-    my ( $this, $params ) = @_;
-    my $file = ( $params->{_DEFAULT} || '' );
-
-    return $this->getIconUrl( 0, $file );
-}
-
-sub RELATIVETOPICPATH {
-    my ( $this, $params, $theTopic, $web ) = @_;
-    my $topic = $params->{_DEFAULT};
-
-    return '' unless $topic;
-
-    my $theRelativePath;
-
-    # if there is no dot in $topic, no web has been specified
-    if ( index( $topic, '.' ) == -1 ) {
-
-        # add local web
-        $theRelativePath = $web . '/' . $topic;
-    }
-    else {
-        $theRelativePath = $topic;    #including dot
-    }
-
-    # replace dot by slash is not necessary; System.MyTopic is a valid url
-    # add ../ if not already present to make a relative file reference
-    if ( $theRelativePath !~ m!^../! ) {
-        $theRelativePath = "../$theRelativePath";
-    }
-    return $theRelativePath;
-}
-
-sub ATTACHURLPATH {
-    my ( $this, $params, $topic, $web ) = @_;
-    return $this->getPubUrl( 0, $web, $topic );
-}
-
-sub ATTACHURL {
-    my ( $this, $params, $topic, $web ) = @_;
-    return $this->getPubUrl( 1, $web, $topic );
-}
-
-sub LANGUAGE {
-    my $this = shift;
-    return $this->i18n->language();
-}
-
-sub LANGUAGES {
-    my ( $this, $params ) = @_;
-    my $format    = $params->{format}    || "   * \$langname";
-    my $separator = $params->{separator} || "\n";
-    $separator =~ s/\\n/\n/g;
-    my $selection = $params->{selection} || '';
-    $selection =~ s/\,/ /g;
-    $selection = " $selection ";
-    my $marker = $params->{marker} || 'selected="selected"';
-
-    # $languages is a hash reference:
-    my $languages = $this->i18n->enabled_languages();
-
-    my @tags = sort( keys( %{$languages} ) );
-
-    my $result = '';
-    my $i      = 0;
-    foreach my $lang (@tags) {
-        my $item = $format;
-        my $name = ${$languages}{$lang};
-        $item =~ s/\$langname/$name/g;
-        $item =~ s/\$langtag/$lang/g;
-        my $mark = ( $selection =~ / \Q$lang\E / ) ? $marker : '';
-        $item =~ s/\$marker/$mark/g;
-        $result .= $separator if $i;
-        $result .= $item;
-        $i++;
-    }
-
-    return $result;
-}
-
-sub MAKETEXT {
-    my ( $this, $params ) = @_;
-
-    my $str = $params->{_DEFAULT} || $params->{string} || "";
-    return "" unless $str;
-
-    # escape everything:
-    $str =~ s/\[/~[/g;
-    $str =~ s/\]/~]/g;
-
-    # restore already escaped stuff:
-    $str =~ s/~~\[/~[/g;
-    $str =~ s/~~\]/~]/g;
-
-    # unescape parameters and calculate highest parameter number:
-    my $max = 0;
-    $str =~ s/~\[(\_(\d+))~\]/ $max = $2 if ($2 > $max); "[$1]"/ge;
-    $str =~
-s/~\[(\*,\_(\d+),[^,]+(,([^,]+))?)~\]/ $max = $2 if ($2 > $max); "[$1]"/ge;
-
-    # get the args to be interpolated.
-    my $argsStr = $params->{args} || "";
-
-    my @args = split( /\s*,\s*/, $argsStr );
-
-    # fill omitted args with zeros
-    while ( ( scalar @args ) < $max ) {
-        push( @args, 0 );
-    }
-
-    # do the magic:
-    my $result = $this->i18n->maketext( $str, @args );
-
-    # replace accesskeys:
-    $result =~
-      s#(^|[^&])&([a-zA-Z])#$1<span class='foswikiAccessKey'>$2</span>#g;
-
-    # replace escaped amperstands:
-    $result =~ s/&&/\&/g;
-
-    return $result;
-}
-
-sub SCRIPTNAME {
-    return $_[0]->{request}->action;
-}
-
-sub SCRIPTURL {
-    my ( $this, $params, $topic, $web ) = @_;
-    my $script = $params->{_DEFAULT} || '';
-
-    return $this->getScriptUrl( 1, $script );
-}
-
-sub SCRIPTURLPATH {
-    my ( $this, $params, $topic, $web ) = @_;
-    my $script = $params->{_DEFAULT} || '';
-
-    return $this->getScriptUrl( 0, $script );
-}
-
-sub PUBURL {
-    my $this = shift;
-    return $this->getPubUrl(1);
-}
-
-sub PUBURLPATH {
-    my $this = shift;
-    return $this->getPubUrl(0);
-}
-
-sub ALLVARIABLES {
-    return shift->{prefs}->stringify();
-}
-
-sub META {
-    my ( $this, $params, $topic, $web ) = @_;
-
-    my $meta = $this->inContext('can_render_meta');
-
-    return '' unless $meta;
-
-    my $option = $params->{_DEFAULT} || '';
-
-    if ( $option eq 'form' ) {
-
-        # META:FORM and META:FIELD
-        return $meta->renderFormForDisplay( $this->templates );
-    }
-    elsif ( $option eq 'formfield' ) {
-
-        # a formfield from within topic text
-        return $meta->renderFormFieldForDisplay( $params->get('name'), '$value',
-            $params );
-    }
-    elsif ( $option eq 'attachments' ) {
-
-        # renders attachment tables
-        return $this->attach->renderMetaData( $web, $topic, $meta, $params );
-    }
-    elsif ( $option eq 'moved' ) {
-        return $this->renderer->renderMoved( $web, $topic, $meta, $params );
-    }
-    elsif ( $option eq 'parent' ) {
-
-        # Only parent parameter has the format option and should do std escapes
-        return expandStandardEscapes(
-            $this->renderer->renderParent( $web, $topic, $meta, $params ) );
-    }
-
-    # return nothing if invalid parameter
-    return '';
-}
-
-# Remove NOP tag in template topics but show content. Used in template
-# _topics_ (not templates, per se, but topics used as templates for new
-# topics)
-sub NOP {
-    my ( $this, $params, $topic, $web ) = @_;
-
-    return '<nop>' unless $params->{_RAW};
-
-    return $params->{_RAW};
-}
-
-# Shortcut to %TMPL:P{"sep"}%
-sub SEP {
-    my $this = shift;
-    return $this->templates->expandTemplate('sep');
-}
-
-#deprecated functionality, now implemented using %USERINFO%
-#move to compatibility plugin in Foswiki 2.0
-sub WIKINAME_deprecated {
-    my ( $this, $params ) = @_;
-
-    $params->{format} = $this->{prefs}->getPreferencesValue('WIKINAME')
-      || '$wikiname';
-
-    return $this->USERINFO($params);
-}
-
-#deprecated functionality, now implemented using %USERINFO%
-#move to compatibility plugin in Foswiki 2.0
-sub USERNAME_deprecated {
-    my ( $this, $params ) = @_;
-
-    $params->{format} = $this->{prefs}->getPreferencesValue('USERNAME')
-      || '$username';
-
-    return $this->USERINFO($params);
-}
-
-#deprecated functionality, now implemented using %USERINFO%
-#move to compatibility plugin in Foswiki 2.0
-sub WIKIUSERNAME_deprecated {
-    my ( $this, $params ) = @_;
-
-    $params->{format} = $this->{prefs}->getPreferencesValue('WIKIUSERNAME')
-      || '$wikiusername';
-
-    return $this->USERINFO($params);
-}
-
-sub USERINFO {
-    my ( $this, $params ) = @_;
-    my $format = $params->{format} || '$username, $wikiusername, $emails';
-
-    my $user = $this->{user};
-
-    if ( $params->{_DEFAULT} ) {
-        $user = $params->{_DEFAULT};
-        return '' if !$user;
-
-        # map wikiname to a login name
-        $user = $this->{users}->getCanonicalUserID($user);
-        return '' unless $user;
-        return ''
-          if ( $Foswiki::cfg{AntiSpam}{HideUserDetails}
-            && !$this->{users}->isAdmin( $this->{user} )
-            && $user ne $this->{user} );
-    }
-
-    return '' unless $user;
-
-    my $info = $format;
-
-    if ( $info =~ /\$username/ ) {
-        my $username = $this->{users}->getLoginName($user);
-        $username = 'unknown' unless defined $username;
-        $info =~ s/\$username/$username/g;
-    }
-    if ( $info =~ /\$wikiname/ ) {
-        my $wikiname = $this->{users}->getWikiName($user);
-        $wikiname = 'UnknownUser' unless defined $wikiname;
-        $info =~ s/\$wikiname/$wikiname/g;
-    }
-    if ( $info =~ /\$wikiusername/ ) {
-        my $wikiusername = $this->{users}->webDotWikiName($user);
-        $wikiusername = "$Foswiki::cfg{UsersWebName}.UnknownUser"
-          unless defined $wikiusername;
-        $info =~ s/\$wikiusername/$wikiusername/g;
-    }
-    if ( $info =~ /\$emails/ ) {
-        my $emails = join( ', ', $this->{users}->getEmails($user) );
-        $info =~ s/\$emails/$emails/g;
-    }
-    if ( $info =~ /\$groups/ ) {
-        my @groupNames;
-        my $it = $this->{users}->eachMembership($user);
-        while ( $it->hasNext() ) {
-            my $group = $it->next();
-            push( @groupNames, $group );
-        }
-        my $groups = join( ', ', @groupNames );
-        $info =~ s/\$groups/$groups/g;
-    }
-    if ( $info =~ /\$cUID/ ) {
-        my $cUID = $user;
-        $info =~ s/\$cUID/$cUID/g;
-    }
-    if ( $info =~ /\$admin/ ) {
-        my $admin = $this->{users}->isAdmin($user) ? 'true' : 'false';
-        $info =~ s/\$admin/$admin/g;
-    }
-
-    return $info;
-}
-
-sub GROUPS {
-    my ( $this, $params ) = @_;
-
-    my $groups = $this->{users}->eachGroup();
-    my @table;
-    while ( $groups->hasNext() ) {
-        my $group = $groups->next();
-
-        # Nop it to prevent wikiname expansion unless the topic exists.
-        my $groupLink = "<nop>$group";
-        $groupLink = '[[' . $Foswiki::cfg{UsersWebName} . ".$group][$group]]"
-          if (
-            $this->{store}->topicExists( $Foswiki::cfg{UsersWebName}, $group )
-          );
-        my $descr        = "| $groupLink |";
-        my $it           = $this->{users}->eachGroupMember($group);
-        my $limit_output = 32;
-        while ( $it->hasNext() ) {
-            my $user = $it->next();
-            $descr .= ' [['
-              . $this->{users}->webDotWikiName($user) . ']['
-              . $this->{users}->getWikiName($user) . ']]';
-            if ( $limit_output == 0 ) {
-                $descr .= '<div>%MAKETEXT{"user list truncated"}%</div>';
-                last;
-            }
-            $limit_output--;
-        }
-        push( @table, "$descr |" );
-    }
-
-    return '| *Group* | *Members* |' . "\n" . join( "\n", sort @table );
+    return $this->{store}->getApproxRevTime( $web, $topic );
 }
 
 1;
-__DATA__
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# Based on parts of Ward Cunninghams original Wiki and JosWiki.
-# Copyright (C) 1998 Markus Peter - SPiN GmbH (warpi@spin.de)
-# Some changes by Dave Harris (drh@bhresearch.co.uk) incorporated
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+Based on parts of Ward Cunninghams original Wiki and JosWiki.
+Copyright (C) 1998 Markus Peter - SPiN GmbH (warpi@spin.de)
+Some changes by Dave Harris (drh@bhresearch.co.uk) incorporated
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

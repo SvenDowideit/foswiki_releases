@@ -1,8 +1,12 @@
 %META:TOPICPARENT{name="Plugins"}%
+
+<!-- Do _not_ attempt to edit this topic; it is auto-generated. 
+Please add comments/questions/remarks to Support.TWikiCompatibilityPlugin -->
+
 ---+!! !TWikiCompatibilityPlugin
 <!--
 One line description, required for extensions repository catalog.
-   * Set SHORTDESCRIPTION = add TWiki personality to Foswiki
+   * Set SHORTDESCRIPTION = Add TWiki personality to Foswiki
 -->
 %SHORTDESCRIPTION%
 
@@ -12,18 +16,15 @@ One line description, required for extensions repository catalog.
 Automatically maps requests for legacy TWiki web topics to Foswiki free topics as per
 [[http://foswiki.org/Development/TopicNameMappingTable][TopicNameMappingTable]].
 
-Map TWIKIWEB to SYSTEMWEB and MAINWEB to USERSWEB - no Preference settings required.
+Map TWIKIWEB to SYSTEMWEB - no Preference setting required.
 
-to add similar auto-compatibility for attachments, add (or uncomment) the following ErrorDocument handeling to
+to add similar auto-compatibility for attachments, add (or uncomment) the following !ErrorDocument handling to
 your Apache configuration _in the =pub= section_
 
 <verbatim>
     #for TWikiCompatibility
     ErrorDocument 404 /foswiki/bin/viewfile
 </verbatim>
-
----+++ TODO:
-   1 pub file redirection - will probably have to be a final regex in postRendering
 
 ---++ Installation Instructions
 
@@ -42,13 +43,15 @@ Many thanks to the following sponsors for supporting this work:
 |  Plugin Author(s): | Sven Dowideit, Michael Daum, Crawford Currie |
 |  Copyright: | &copy; SvenDowideit@fosiki.com |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL3 (Gnu General Public License)]] |
-|  Plugin Version: | 6017 (2010-01-11) |
+|  Version: | 8378 (2010-07-31) |
+|  Release: | 1.1.1 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  1.1.1 | Foswikitask:Item9415 - Documentation updates |
+|  1.1 | Foswikitask:Item8669 - MAINWEB mapping removed. It has instead been added to !DefaultPreferences in Foswiki 1.1 and forward so that upgraders do not have to enable this plugin just to map MAINWEB to USERSWEB. Many upgraders will not need any other function and would rather not have the code overhead of this plugin |
+|  1.0 | Version shipped with Foswiki 1.0.X |
 |  Dependencies: | None |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |
 |  Support: | http://foswiki.org/Support/%TOPIC% |
 
 ---
 *Related Topics:* [[%SYSTEMWEB%.Plugins][Plugins]], %SYSTEMWEB%.DeveloperDocumentationCategory, %SYSTEMWEB%.AdminDocumentationCategory, %SYSTEMWEB%.DefaultPreferences, %USERSWEB%.SitePreferences
-
-<!-- Do _not_ attempt to edit this topic; it is auto-generated. Please add comments/questions/remarks to the feedback topic on twiki.org instead. -->

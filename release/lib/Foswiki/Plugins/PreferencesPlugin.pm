@@ -1,3 +1,4 @@
+# See bottom of file for license and copyright information
 # Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
 # Copyright (C) 2005-2009  Foswiki Contributors.
@@ -24,13 +25,14 @@
 package Foswiki::Plugins::PreferencesPlugin;
 
 use strict;
+use warnings;
 
 use Foswiki::Func    ();    # The plugins API
 use Foswiki::Plugins ();    # For the API version
 
 use vars qw( @shelter );
 
-our $VERSION = '$Rev: 5037 (2009-09-20) $';
+our $VERSION = '$Rev: 8086 (2010-07-09) $';
 our $RELEASE = '20 Sep 2009';
 our $SHORTDESCRIPTION =
   'Allows editing of preferences using fields predefined in a form';
@@ -77,7 +79,7 @@ sub beforeCommonTagsHandler {
 
     my $query = Foswiki::Func::getCgiQuery();
 
-    my $action = lc( $query->param('prefsaction') );
+    my $action = lc( $query->param('prefsaction') || '' );
     $query->Delete('prefsaction');
     $action =~ s/\s.*$//;
 
@@ -85,19 +87,27 @@ sub beforeCommonTagsHandler {
         Foswiki::Func::setTopicEditLock( $web, $topic, 1 );
 
         # Replace setting values by form fields but not inside comments Item4816
+        # and also not inside verbatim blocks Item1117
         my $outtext       = '';
         my $insidecomment = 0;
-        foreach my $token ( split /(<!--|-->)/, $_[0] ) {
-            if ( $token =~ /<!--/ ) {
+        my $insideverbatim = 0;
+        foreach my $token ( split /(<!--|-->|<\/?verbatim\b[^>]*>)/, $_[0] ) {
+            if ( !$insideverbatim and $token =~ /<!--/ ) {
                 $insidecomment++;
             }
-            elsif ( $token =~ /-->/ ) {
+            elsif ( !$insideverbatim and $token =~ /-->/ ) {
                 $insidecomment-- if ( $insidecomment > 0 );
             }
-            elsif ( !$insidecomment ) {
+            elsif ( $token =~ /<verbatim/ ) {
+                $insideverbatim++;
+            }
+            elsif ( $token =~ /<\/verbatim/ ) {
+                $insideverbatim-- if ( $insideverbatim > 0 );
+            }
+            elsif ( !$insidecomment and !$insideverbatim) {
                 $token =~
-s(^((?:\t|   )+\*\s(Set|Local)\s*)(\w+)\s*\=(.*$(\n[ \t]+[^\s*].*$)*))
-                           ($1._generateEditField($web, $topic, $3, $4, $formDef))gem;
+s/^($Foswiki::regex{setRegex})($Foswiki::regex{tagNameRegex})\s*\=(.*$(?:\n[ \t]+[^\s*].*$)*)/
+                           $1._generateEditField($web, $topic, $3, $4, $formDef)/gem;
             }
             $outtext .= $token;
         }
@@ -134,8 +144,10 @@ s(^((?:\t|   )+\*\s(Set|Local)\s*)(\w+)\s*\=(.*$(\n[ \t]+[^\s*].*$)*))
             my ( $meta, $text ) = Foswiki::Func::readTopic( $web, $topic );
 
             # SMELL: unchecked implicit untaint of value?
-            $text =~ s(^((?:\t|   )+\*\s(Set|Local)\s)(\w+)\s\=\s(.*)$)
-              ($1._saveSet($query, $web, $topic, $3, $4, $formDef))mgeo;
+            # $text =~ s/($Foswiki::regex{setVarRegex})/
+                $text =~
+s/^($Foswiki::regex{setRegex})($Foswiki::regex{tagNameRegex})\s*\=(.*$(?:\n[ \t]+[^\s*].*$)*)/
+                 $1._saveSet($query, $web, $topic, $3, $4, $formDef)/mgeo;
             Foswiki::Func::saveTopic( $web, $topic, $meta, $text );
         }
         Foswiki::Func::setTopicEditLock( $web, $topic, 0 );
@@ -179,42 +191,36 @@ sub _generateEditField {
     my ( $extras, $html );
 
     if ($formDef) {
-        my $fieldDef;
-        if ( defined(&Foswiki::Form::getField) ) {
-
-            # TWiki 4.2 and later
-            $fieldDef = $formDef->getField($name);
-        }
-        else {
-
-            # TWiki < 4.2
-            $fieldDef = _getField( $formDef, $name );
-        }
+        my $fieldDef = $formDef->getField($name);
         if ($fieldDef) {
-            if ( defined(&Foswiki::Form::renderFieldForEdit) ) {
-
-                # TWiki < 4.2 SMELL: use of unpublished core function
-                ( $extras, $html ) =
-                  $formDef->renderFieldForEdit( $fieldDef, $web, $topic,
-                    $value );
-            }
-            else {
-
-                # TWiki 4.2 and later SMELL: use of unpublished core function
-                ( $extras, $html ) =
-                  $fieldDef->renderForEdit( $web, $topic, $value );
-            }
+            my $topicObject =
+              Foswiki::Meta->new( $Foswiki::Plugins::SESSION, $web, $topic );
+            ( $extras, $html ) =
+              $fieldDef->renderForEdit( $topicObject, $value );
         }
     }
     unless ($html) {
 
-        # No form definition, default to text field.
-        $html = CGI::textfield(
-            -class => 'foswikiAlert foswikiInputField',
-            -name  => $name,
-            -size  => 80,
-            -value => $value
-        );
+        if ($value =~ /\n/) {
+            my $rows = 1;
+            $rows++ while $value =~ /\n/g;
+            # No form definition and there are newlines, default to textarea
+            $html = CGI::textarea(
+                -class   => 'foswikiAlert foswikiInputField',
+                -name    => $name,
+                -cols    => 80,
+                -rows    => $rows,
+                -default => $value);
+        }
+        else {
+            # No form definition and no newlines, default to text field.
+            $html = CGI::textfield(
+                -class => 'foswikiAlert foswikiInputField',
+                -name  => $name,
+                -size  => 80,
+                -value => $value
+            );
+        }
     }
 
     push( @shelter, $html );
@@ -283,7 +289,11 @@ sub _generateControlButtons {
 sub _saveSet {
     my ( $query, $web, $topic, $name, $value, $formDef ) = @_;
 
-    my $newValue = $query->param($name) || $value;
+    my $newValue = $query->param($name);
+    if (not defined $newValue) {
+        $newValue = $value;
+        $newValue =~ s/^\s+//; # strip leading whitespace
+    }
 
     if ($formDef) {
         my $fieldDef = _getField( $formDef, $name );
@@ -313,3 +323,21 @@ sub _saveSet {
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

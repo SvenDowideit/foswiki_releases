@@ -8,15 +8,13 @@ A singleton object of this class is used to deal with attachments to topics.
 
 =cut
 
-# Note: Meta-data is stored in topics fo performance. You need to use the
-# official API to manipulate attachments. Dropping files into the
-# attachments directory works only if the {AutoAttachPubFiles} configure
-# setting is enabled.
-
 package Foswiki::Attach;
 
 use strict;
+use warnings;
 use Assert;
+
+our $MARKER = "\0";
 
 =begin TML
 
@@ -50,27 +48,25 @@ sub finish {
 
 =begin TML
 
----++ ObjectMethod renderMetaData( $web, $topic, $meta, $args ) -> $text
+---++ ObjectMethod renderMetaData( $topicObject, $args ) -> $text
 
 Generate a table of attachments suitable for the bottom of a topic
 view, using templates for the header, footer and each row.
-   * =$web= the web
-   * =$topic= the topic
-   * =$meta= meta-data hash for the topic
+   * =$topicObject= the topic
    * =$args= hash of attachment arguments
 
 =cut
 
 sub renderMetaData {
-    my ( $this, $web, $topic, $meta, $attrs ) = @_;
+    my ( $this, $topicObject, $attrs ) = @_;
 
-    my $showAll  = $attrs->{all};
-    my $showAttr = $showAll ? 'h' : '';
+    my $showAll = $attrs->{all} || '';
+    my $showAttr = $showAll    ? 'h'  : '';
     my $A        = ($showAttr) ? ':A' : '';
-    my $title    = $attrs->{title} || '';
+    my $title    = $attrs->{title}    || '';
     my $tmplname = $attrs->{template} || 'attachtables';
 
-    my @attachments = $meta->find('FILEATTACHMENT');
+    my @attachments = $topicObject->find('FILEATTACHMENT');
     return '' unless @attachments;
 
     my $templates = $this->{session}->templates;
@@ -85,7 +81,7 @@ sub renderMetaData {
         my $attrAttr = $attachment->{attr};
 
         if ( !$attrAttr || ( $showAttr && $attrAttr =~ /^[$showAttr]*$/ ) ) {
-            $rows .= _formatRow( $this, $web, $topic, $attachment, $row );
+            $rows .= _formatRow( $this, $topicObject, $attachment, $row );
         }
     }
 
@@ -102,21 +98,24 @@ sub renderMetaData {
 
 =begin TML
 
----++ ObjectMethod formatVersions ( $web, $topic, $attrs ) -> $text
+---++ ObjectMethod formatVersions ( $topicObject, $attrs ) -> $text
 
 Generate a version history table for a single attachment
-   * =$web= - the web
-   * =$topic= - the topic
+   * =$topicObject= - the topic
    * =$attrs= - Hash of meta-data attributes
 
 =cut
 
 sub formatVersions {
-    my ( $this, $web, $topic, %attrs ) = @_;
+    my ( $this, $topicObject, %attrs ) = @_;
 
-    my $store     = $this->{session}->{store};
-    my $users     = $this->{session}->{users};
-    my $latestRev = $store->getRevisionNumber( $web, $topic, $attrs{name} );
+    my $users = $this->{session}->{users};
+
+    $attrs{name} =
+      Foswiki::Sandbox::untaint( $attrs{name},
+        \&Foswiki::Sandbox::validateAttachmentName );
+
+    my $revIt = $topicObject->getRevisionHistory( $attrs{name} );
 
     my $templates = $this->{session}->templates;
     $templates->readTemplate('attachtables');
@@ -125,28 +124,20 @@ sub formatVersions {
     my $footer = $templates->expandTemplate('ATTACH:versions:footer');
     my $row    = $templates->expandTemplate('ATTACH:versions:row');
 
-    my $rows = '';
+    my @rows;
 
-    for ( my $rev = $latestRev ; $rev >= 1 ; $rev-- ) {
-        my ( $date, $user, $minorRev, $comment ) =
-          $store->getRevisionInfo( $web, $topic, $rev, $attrs{name} );
+    while ( $revIt->hasNext() ) {
+        my $rev = $revIt->next();
+        my $info =
+          $topicObject->getAttachmentRevisionInfo( $attrs{name}, $rev );
+        $info->{name} = $attrs{name};
+        $info->{attr} = $attrs{attr};
+        $info->{size} = $attrs{size};
 
-        $rows .= _formatRow(
-            $this, $web, $topic,
-            {
-                name    => $attrs{name},
-                version => $rev,
-                date    => $date,
-                user    => $user,
-                comment => $comment,
-                attr    => $attrs{attr},
-                size    => $attrs{size}
-            },
-            $row
-        );
+        push( @rows, _formatRow( $this, $topicObject, $info, $row ) );
     }
 
-    return "$header$rows$footer";
+    return $header . join( '', @rows ) . $footer;
 }
 
 #Format a single row in an attachment table by expanding a template.
@@ -155,19 +146,19 @@ sub formatVersions {
 #| =$info= | hash containing fields name, user (user (not wikiname) who uploaded this revision), date (date of _this revision_ of the attachment), command and version  (the required revision; required to be a full (major.minor) revision number) |
 #| =$tmpl= | The template of a row |
 sub _formatRow {
-    my ( $this, $web, $topic, $info, $tmpl ) = @_;
+    my ( $this, $topicObject, $info, $tmpl ) = @_;
 
     my $row = $tmpl;
 
-    $row =~ s/%A_(\w+)%/_expandAttrs( $this,$1,$web,$topic,$info)/ge;
-    $row =~ s/$Foswiki::TranslationToken/%/go;
+    $row =~ s/%A_(\w+)%/_expandAttrs( $this, $1, $topicObject, $info)/ge;
+    $row =~ s/$MARKER/%/go;
 
     return $row;
 }
 
 sub _expandAttrs {
-    my ( $this, $attr, $web, $topic, $info ) = @_;
-    my $file  = $info->{name} || '';
+    my ( $this, $attr, $topicObject, $info ) = @_;
+    my $file = $info->{name} || '';
     my $users = $this->{session}->{users};
 
     require Foswiki::Time;
@@ -176,21 +167,7 @@ sub _expandAttrs {
         return $info->{version};
     }
     elsif ( $attr eq 'ICON' ) {
-        my $picked = $this->{session}->mapToIconFileName($file);
-        if (!defined($picked) || ($picked eq '')) {
-            return '';
-        }
-        my $url = $this->{session}->getIconUrl( 0, $picked );
-        return CGI::img(
-            {
-                src    => $url,
-                width  => 16,
-                height => 16,
-                align  => 'top',
-                alt    => $picked || '',
-                border => 0
-            }
-        );
+        return '%ICON{"' . $file . '" default="else"}%';
     }
     elsif ( $attr eq 'EXT' ) {
 
@@ -201,7 +178,7 @@ sub _expandAttrs {
     }
     elsif ( $attr eq 'URL' ) {
         return $this->{session}->getScriptUrl(
-            0, 'viewfile', $web, $topic,
+            0, 'viewfile', $topicObject->web, $topicObject->topic,
             rev => $info->{version} || undef,
             filename => $file
         );
@@ -238,7 +215,11 @@ sub _expandAttrs {
         return Foswiki::Time::formatTime( $info->{date} || 0 );
     }
     elsif ( $attr eq 'USER' ) {
-        my $user = $info->{user} || 'UnknownUser';
+
+        # Must be able to expand either user or author, depending on whether
+        # info came from attachment meta-data (user), or
+        # revision info (author)
+        my $user = $info->{author} || $info->{user} || 'UnknownUser';
         my $cUID;
         if ($user) {
             $cUID = $users->getCanonicalUserID($user);
@@ -253,36 +234,31 @@ sub _expandAttrs {
         return $users->webDotWikiName($cUID);
     }
     else {
-        return $Foswiki::TranslationToken . 'A_' . $attr
-          . $Foswiki::TranslationToken;
+        return $MARKER . 'A_' . $attr . $MARKER;
     }
 }
 
 =begin TML
 
----++ ObjectMethod getAttachmentLink( $user, $web, $topic, $name, $meta ) -> $html
+---++ ObjectMethod getAttachmentLink( $topicObject, $name ) -> $html
 
-   * =$user= - User doing the reading
-   * =$web= - Name of the web
-   * =$topic= - Name of the topic
+   * =$topicObject= - The topic
    * =$name= - Name of the attachment
-   * =$meta= - Meta object that contains the meta info
 
 Build a link to the attachment, suitable for insertion in the topic.
 
 =cut
 
 sub getAttachmentLink {
-    my ( $this, $user, $web, $topic, $attName, $meta ) = @_;
+    my ( $this, $topicObject, $attName ) = @_;
 
-    my $att = $meta->get( 'FILEATTACHMENT', $attName );
+    my $att = $topicObject->get( 'FILEATTACHMENT', $attName );
     my $fileComment = $att->{comment};
     $fileComment = $attName unless ($fileComment);
 
     my $fileLink = '';
     my $imgSize  = '';
     my $prefs    = $this->{session}->{prefs};
-    my $store    = $this->{session}->{store};
 
     # I18N: URL-encode the attachment filename
     my $fileURL = Foswiki::urlEncodeAttachment($attName);
@@ -297,27 +273,28 @@ sub getAttachmentLink {
         # downloaded. When you upload an image to Foswiki and checkmark
         # the link checkbox, Foswiki will generate the width and height
         # img parameters, speeding up the page rendering.
-        my $stream =
-          $store->getAttachmentStream( $user, $web, $topic, $attName );
-        my ( $nx, $ny ) = &_imgsize( $stream, $attName );
-        my @attrs;
+        my $stream = $topicObject->openAttachment( $attName, '<' );
+        my ( $nx, $ny ) = _imgsize( $stream, $attName );
+        $stream->close();
+        my %attrs;
 
         if ( $nx > 0 && $ny > 0 ) {
-            push( @attrs, width => $nx, height => $ny );
-            $imgSize = "width='$nx' height='$ny'";
+            $attrs{width}  = $nx;
+            $attrs{height} = $ny;
+            $imgSize       = "width='$nx' height='$ny'";
         }
 
-        $fileLink = $prefs->getPreferencesValue('ATTACHEDIMAGEFORMAT');
+        $fileLink = $prefs->getPreference('ATTACHEDIMAGEFORMAT');
         unless ($fileLink) {
-            push( @attrs, src => "%ATTACHURLPATH%/$fileURL" );
-            push( @attrs, alt => $attName );
-            return "   * $fileComment: " . CGI::br() . CGI::img( {@attrs} );
+            $attrs{src} = "%ATTACHURLPATH%/$fileURL";
+            $attrs{alt} = $attName;
+            return "   * $fileComment: " . CGI::br() . CGI::img( \%attrs );
         }
     }
     else {
 
         # normal attached file
-        $fileLink = $prefs->getPreferencesValue('ATTACHEDFILELINKFORMAT');
+        $fileLink = $prefs->getPreference('ATTACHEDFILELINKFORMAT');
         unless ($fileLink) {
             return "   * [[%ATTACHURL%/$fileURL][$attName]]: $fileComment";
         }
@@ -325,10 +302,13 @@ sub getAttachmentLink {
 
     # I18N: Site specified %ATTACHEDIMAGEFORMAT% or %ATTACHEDFILELINKFORMAT%,
     # ensure that filename is URL encoded - first $name must be URL.
-    $fileLink =~ s/\$name/$fileURL/;
-    $fileLink =~ s/\$name/$attName/;
+    $fileLink =~ s/\$name/$fileURL/;        # deprecated
+    $fileLink =~ s/\$name/$attName/;        # deprecated, see Item1814
+    $fileLink =~ s/\$filename/$attName/g;
+    $fileLink =~ s/\$fileurl/$fileURL/g;
 
-# Expand \t and \n early (only in the format, not in the comment) - Bugs:Item4581
+    # Expand \t and \n early (only in the format, not
+    # in the comment) - TWikibug:Item4581
     $fileLink =~ s/\\t/\t/go;
     $fileLink =~ s/\\n/\n/go;
     $fileLink =~ s/\$comment/$fileComment/g;
@@ -371,10 +351,10 @@ sub _imgsize {
             elsif ($a == 0xFF
                 && $b == 0xD8
                 && $c == 0xFF
-                && $d == 0xE0 )
+                && ($d == 0xE0 || $d == 0xE1) )
             {
 
-                #  JPG ff d8 ff e0
+                #  JPG ff d8 ff e0/e1
                 ( $x, $y ) = _jpegsize($file);
             }
         }
@@ -587,28 +567,28 @@ sub _pngsize {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

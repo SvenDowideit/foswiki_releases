@@ -16,7 +16,6 @@
 */
 
 // Top level setup for tiny MCE editor. Requires tiny_mce.js and foswiki_tiny.js
-
 FoswikiTiny.install();
 
 // Setup the standard edit screen for use with TMCE
@@ -26,7 +25,7 @@ var IFRAME_ID = 'mce_editor_0';
    Overrides changeEditBox in foswiki_edit.js.
 */
 function changeEditBox(inDirection) {
-	return false;
+    return false;
 }
 
 /**
@@ -40,23 +39,22 @@ function setEditBoxHeight(inRowCount) {}
 function initTextAreaStyles() {
     var iframe = document.getElementById(IFRAME_ID);
     if (iframe == null) return;
-    
+
     // walk up to the table
     var node = iframe.parentNode;
     var counter = 0;
     while (node != document) {
         if (node.nodeName == 'TABLE') {
             node.style.height = 'auto';
-           
+
             // get select boxes
             var selectboxes = node.getElementsByTagName('SELECT');
             var i, ilen = selectboxes.length;
-            for (i=0; i<ilen; ++i) {
-                selectboxes[i].style.marginLeft =
-                    selectboxes[i].style.marginRight = '2px';
+            for (i = 0; i < ilen; ++i) {
+                selectboxes[i].style.marginLeft = selectboxes[i].style.marginRight = '2px';
                 selectboxes[i].style.fontSize = '94%';
             }
-            
+
             break;
         }
         node = node.parentNode;
@@ -64,21 +62,22 @@ function initTextAreaStyles() {
 }
 
 /**
-Disables the use of ESCAPE in the edit box, because some browsers will interpret this as cancel and will remove all changes.
-Copied from %SYSTEMWEB%.JavascriptFiles/foswiki_edit.js because it is used in
-pickaxe mode.
+Disables the use of ESCAPE in the edit box, because some browsers will
+interpret this as cancel and will remove all changes. Copied from 
+%SYSTEMWEB%.JavascriptFiles/foswiki_edit.js because it is used in pickaxe mode.
 */
 function handleKeyDown(e) {
-	if (!e) e = window.event;
-	var code;
-	if (e.keyCode) code = e.keyCode;
-	if (code==27) return false;
-	return true;
+    if (!e) e = window.event;
+    var code;
+    if (e.keyCode) code = e.keyCode;
+    if (code == 27) return false;
+    return true;
 }
 
 /**
 Provided for use by editors that need to validate form elements before
-navigating away. Duplicated from JavascriptFiles/foswiki_edit.js to resolve Item5514
+navigating away. Duplicated from JavascriptFiles/foswiki_edit.js to resolve
+Item5514
 */
 function validateMandatoryFields(event) {
     if (foswiki.Pref.validateSuppressed) {
@@ -95,8 +94,7 @@ function validateMandatoryFields(event) {
             }
         }
         if (!one) {
-            alert("The required form field '" + els[j].name +
-                  "' has no value.");
+            alert("The required form field '" + els[j].name + "' has no value.");
             ok = false;
         }
     }
@@ -105,8 +103,7 @@ function validateMandatoryFields(event) {
         els = foswiki.getElementsByClassName(document, 'foswikiMandatory', taglist[i]);
         for (var j = 0; j < els.length; j++) {
             if (els[j].value == null || els[j].value.length == 0) {
-                alert("The required form field '" + els[j].name +
-                      "' has no value.");
+                alert("The required form field '" + els[j].name + "' has no value.");
                 ok = false;
             }
         }

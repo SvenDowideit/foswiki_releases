@@ -1,12 +1,11 @@
 %META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
-%META:TOPICPARENT{name="StartingPoints"}%
+%META:TOPICPARENT{name="UsersGuide"}%
 This page provides online help for new users of Foswiki when editing a page.  If there's some formatting that your contributors use often, you can customize this for your site's particular needs.
 
-Keeping this help text short and simple is important since this page is aimed at new users.  It does include pop-up links for more detailed help.
+Keeping this help text short and simple is important since this page is aimed at new users. It does include pop-up links for more detailed help.
 
 ---
-%STARTINCLUDE%
-%MAKETEXT{"*Formatting help:*"}%
+%STARTINCLUDE%%MAKETEXT{"*Formatting help:*"}%
    * %MAKETEXT{"*bold* put word/phrase in asterisks: =<nop>*your phrase*="}%
    * %MAKETEXT{"*bullet list* 3 spaces, asterisk, 1 space: =&&nbsp;&&nbsp;&&nbsp;*&&nbsp;your text="}%
    * %MAKETEXT{"*headings* 3 dashes, 1 to 6 pluses, 1 space: =---++&&nbsp;Your Heading="}%
@@ -15,6 +14,6 @@ Keeping this help text short and simple is important since this page is aimed at
    * %MAKETEXT{"*external links* =http://yahoo.com= or =~[<nop>~[http://yahoo.com/~]~[link to Yahoo~]~]="}%
    * %MAKETEXT{"*monospaced* put word/phrase in equal signs: =<nop>=your words=="}%
    * %MAKETEXT{"*paragraphs* separate with blank line"}%
-   * <a target="TextFormattingRules" class="foswikiPopUp" href="%SCRIPTURLPATH{"view"}%/%SYSTEMWEB%/TextFormattingRules">%MAKETEXT{"More formatting help"}%</a> %MAKETEXT{"and"}% <a target="GoodStyle" class="foswikiPopUp" href="%SCRIPTURLPATH{"view"}%/%SYSTEMWEB%/GoodStyle">%MAKETEXT{"hints on good style"}%</a>
+   * %POPUPWINDOW{"%SYSTEMWEB%.TextFormattingRules" label="%MAKETEXT{"More formatting help"}%"}% %MAKETEXT{"and"}% %POPUPWINDOW{"%SYSTEMWEB%.GoodStyle" label="%MAKETEXT{"hints on good style"}%"}%   
 %STOPINCLUDE%
 ---

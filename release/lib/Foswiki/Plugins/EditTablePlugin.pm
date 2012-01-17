@@ -1,32 +1,17 @@
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Arthur Clemens, arthur@visiblearea.com and Foswiki contributors
-# Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and TWiki
-# Contributors.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 #
 # This is the EditTablePlugin used to edit tables in place.
 
 package Foswiki::Plugins::EditTablePlugin;
 
 use strict;
+use warnings;
 
-our $VERSION = '$Rev: 5854 (2009-12-23) $';
+our $VERSION = '$Rev: 8912 (2010-09-05) $';
 
 # Please note that the second is now two digit.
 # Someone increased 4.22 to 4.3 which is not correct.
-our $RELEASE = '4.34';
+our $RELEASE = '4.36';
 
 our $pluginName        = 'EditTablePlugin';
 our $ENCODE_START      = '--EditTableEncodeStart--';
@@ -175,21 +160,6 @@ sub decodeValue {
     return $theText;
 }
 
-=pod
-
-=cut
-
-sub decodeFormatTokens {
-    return if ( !$_[0] );
-    $_[0] =~ s/\$n\(\)/\n/gos;               # expand '$n()' to new line
-    my $alpha = Foswiki::Func::getRegularExpression('mixedAlpha');
-    $_[0] =~ s/\$n([^$alpha]|$)/\n$1/gos;    # expand '$n' to new line
-    $_[0] =~ s/\$nop(\(\))?//gos;      # remove filler, useful for nested search
-    $_[0] =~ s/\$quot(\(\))?/\"/gos;   # expand double quote
-    $_[0] =~ s/\$percnt(\(\))?/\%/gos; # expand percent
-    $_[0] =~ s/\$dollar(\(\))?/\$/gos; # expand dollar
-}
-
 =begin TML
 
 Style sheet for table in view mode
@@ -206,7 +176,8 @@ sub addViewModeHeadersToHead {
 @import url("%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.css");
 </style>
 EOF
-    Foswiki::Func::addToHEAD( 'EDITTABLEPLUGIN', $header );
+    Foswiki::Func::addToZone(
+        'head', 'EditTablePlugin/edittable.css', $header );
 }
 
 =begin TML
@@ -221,9 +192,6 @@ sub addEditModeHeadersToHead {
     return
       if !$usesJavascriptInterface && ( $paramJavascriptInterface ne 'on' );
 
-    require Foswiki::Contrib::BehaviourContrib;
-    Foswiki::Contrib::BehaviourContrib::addHEAD();
-
     $editModeHeaderDone = 1;
 
     my $formName = "edittable$tableNr";
@@ -233,14 +201,13 @@ sub addEditModeHeadersToHead {
     $header .= "\n"
       . '<meta name="EDITTABLEPLUGIN_EditTableUrl" content="'
       . $ASSET_URL . '" />';
-    $header .= <<'EOF';
-<style type="text/css" media="all">
-@import url("%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.css");
-</style>
-<script type="text/javascript" src="%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.js"></script>
-EOF
 
-    Foswiki::Func::addToHEAD( 'EDITTABLEPLUGIN', $header );
+    Foswiki::Func::addToZone(
+        'head', 'EditTablePlugin/Meta', $header );
+    addViewModeHeadersToHead();
+    Foswiki::Func::addToZone( 'script', 'EditTablePlugin/edittable.js', <<JS);
+<script type="text/javascript" src="%PUBURL%/%SYSTEMWEB%/EditTablePlugin/edittable.js"></script>
+JS
 }
 
 =begin TML
@@ -258,8 +225,34 @@ sub addJavaScriptInterfaceDisabledToHead {
 '<meta name="EDITTABLEPLUGIN_NO_JAVASCRIPTINTERFACE_EditTableId" content="'
       . $tableId . '" />';
     $header .= "\n";
-    Foswiki::Func::addToHEAD( 'EDITTABLEPLUGIN_NO_JAVASCRIPTINTERFACE',
+    Foswiki::Func::addToZone( 'head', 'EDITTABLEPLUGIN_NO_JAVASCRIPTINTERFACE',
         $header );
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2008-2009 Arthur Clemens, arthur@visiblearea.com
+and Foswiki contributors
+Copyright (C) 2002-2007 Peter Thoeny, peter@thoeny.org and TWiki
+Contributors.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

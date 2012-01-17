@@ -16,43 +16,33 @@ simply returns the recognized settings in the order it sees them in.
 package Foswiki::Prefs::Parser;
 
 use strict;
+use warnings;
 use Assert;
 
-require Foswiki;
-
-my $settingPrefPrefix = 'PREFERENCE_';
+use Foswiki ();
 
 =begin TML
 
----++ ClassMethod new() -> topic parser object
+---++ StaticFunction parse( $topicObject, $prefs )
 
-Construct a new parser object.
-
-=cut
-
-sub new {
-    return bless {}, $_[0];
-}
-
-=begin TML
-
----++ ObjectMethod parseText( $text, $prefs )
-
-Parse settings from text and add them to the preferences in $prefs
+Parse settings from the topic and add them to the preferences in $prefs
 
 =cut
 
-sub parseText {
-    my ( $this, $text, $prefs, $keyPrefix ) = @_;
+sub parse {
+    my ( $topicObject, $prefs ) = @_;
 
-    $text =~ tr/\r//d;
+    # Process text first
     my $key   = '';
     my $value = '';
     my $type;
+    my $text = $topicObject->text();
+    $text = '' unless defined $text;
+
     foreach ( split( "\n", $text ) ) {
         if (m/$Foswiki::regex{setVarRegex}/os) {
             if ( defined $type ) {
-                $prefs->insert( $type, $keyPrefix . $key, $value );
+                $prefs->insert( $type, $key, $value );
             }
             $type  = $1;
             $key   = $2;
@@ -65,52 +55,30 @@ sub parseText {
                 $value .= "\n" . $_;
             }
             else {
-                $prefs->insert( $type, $keyPrefix . $key, $value );
+                $prefs->insert( $type, $key, $value );
                 undef $type;
             }
         }
     }
     if ( defined $type ) {
-        $prefs->insert( $type, $keyPrefix . $key, $value );
+        $prefs->insert( $type, $key, $value );
     }
-}
 
-=begin TML
-
----++ ObjectMethod parseMeta( $metaObject, $prefs )
-
-Traverses through all PREFERENCE attributes of the meta object, creating one 
-setting named with $settingPrefPrefix . 'title' for each.  It also 
-creates an entry named with the field 'name', which is a cleaned-up, 
-space-removed version of the title.
-
-Settings are added to the $prefs passed.
-
-=cut
-
-sub parseMeta {
-    my ( $this, $meta, $prefs, $keyPrefix ) = @_;
-
-    my @fields = $meta->find('PREFERENCE');
+    # Now process PREFERENCEs
+    my @fields = $topicObject->find('PREFERENCE');
     foreach my $field (@fields) {
-        my $title         = $field->{title};
-        my $prefixedTitle = $settingPrefPrefix . $title;
-        my $value         = $field->{value};
-        my $type          = $field->{type} || 'Set';
-        $prefs->insert( $type, $prefixedTitle, $value );
-
-        #SMELL: Why do we insert both based on title and name?
-        my $name = $field->{name};
-        $prefs->insert( $type, $keyPrefix . $name, $value );
+        my $type  = $field->{type} || 'Set';
+        my $value = $field->{value};
+        my $name  = $field->{name};
+        $prefs->insert( $type, $name, $value );
     }
 
     # Note that the use of the "S" attribute to support settings in
     # form fields has been deprecated.
-    my $form = $meta->get('FORM');
+    my $form = $topicObject->get('FORM');
     if ($form) {
-        my @fields = $meta->find('FIELD');
+        my @fields = $topicObject->find('FIELD');
         foreach my $field (@fields) {
-            my $title      = $field->{title};
             my $attributes = $field->{attributes};
             if ( $attributes && $attributes =~ /S/o ) {
                 my $value = $field->{value};
@@ -123,28 +91,28 @@ sub parseMeta {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

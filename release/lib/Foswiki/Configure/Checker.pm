@@ -1,19 +1,62 @@
 # See bottom of file for license and copyright information
 
+=begin TML
+
+---+ package Foswiki::Configure::Checker;
+
+Base class of all checkers. Checkers give checking and guessing support
+for configuration values. Most of the methods of this class are intended
+to be protected i.e. only available to subclasses.
+
+=cut
+
 package Foswiki::Configure::Checker;
-use base qw(Foswiki::Configure::UI);
 
 use strict;
+use warnings;
 
-require File::Spec;
-require CGI;
+use Foswiki::Configure::UI ();
+our @ISA = ('Foswiki::Configure::UI');
+
+use File::Spec ();
+use CGI        ();
+
+=begin TML
+
+---++ ObjectMethod check($value) -> $html
+   * $value - Value object for the thing being checked
+
+Entry point for the value check. Overridden by subclasses.
+
+Returns html formatted by $this->ERROR(), WARN(), NOTE(), or
+hand made _OR_ an empty string. The output of a checker will normally
+be included in an HTML table, so don't get too carried away.
+
+=cut
+
+sub check {
+    my ( $this, $value ) = @_;
+
+    # default behaviour; see no evil, hear no evil, speak no evil
+    return '';
+}
+
+=begin TML
+
+---++ PROTECTED ObjectMethod guessed($status) -> $html
+
+A checker can either check the sanity of the previously saved value,
+or guess a one if none exists. If the checker guesses, it should call
+=$this->guessed(0)= (passing 1 if the guess was an error).
+
+=cut
 
 sub guessed {
     my ( $this, $error ) = @_;
 
     my $mess = <<'HERE';
 I guessed this setting. You are advised to confirm this setting (and any
-other guessed settings) and hit 'Next' to save before changing any other
+other guessed settings) and hit 'Save changes' to save before changing any other
 settings.
 HERE
 
@@ -25,6 +68,15 @@ HERE
     }
 }
 
+=begin TML
+
+---++ PROTECTED ObjectMethod warnAboutWindowsBackSlashes($path) -> $html
+
+Generate a warning if the supplied pathname includes windows-style
+path separators.
+
+=cut
+
 sub warnAboutWindowsBackSlashes {
     my ( $this, $path ) = @_;
     if ( $path =~ /\\/ ) {
@@ -34,6 +86,15 @@ sub warnAboutWindowsBackSlashes {
               . '"' );
     }
 }
+
+=begin TML
+
+---++ PROTECTED ObjectMethod guessMajorDir($cfg, $dir, $silent) -> $html
+
+Try and guess the path of one of the major directories, by looking relative
+to the absolute pathname of the dir where configure is being run.
+
+=cut
 
 sub guessMajorDir {
     my ( $this, $cfg, $dir, $silent ) = @_;
@@ -53,45 +114,197 @@ sub guessMajorDir {
     return $msg;
 }
 
+=begin TML
+
+---++ PROTECTED ObjectMethod checkTreePerms($path, $perms, $filter) -> $html
+
+Perform a recursive check of the specified path.  The recursive check 
+is limited to the configured "PathCheckLimit".  This prevents excessive
+delay on installations with large data or pub directories.  The
+count of files checked is available in the class method $this->{fileCount}
+
+$perms is a string of permissions to check:
+
+Basic checks:
+   * r - File or directory is readable 
+   * w - File or directory is writable
+   * x - File is executable.
+
+All failures of the basic checks are reported back to the caller.
+
+Enhanced checks:
+   * d - Directory permission matches the permissions in {RCS}{dirPermission}
+   * f - File permission matches the permission in {RCS}{filePermission}  (FUTURE)
+   * p - Verify that a WebPreferences exists for each web
+
+If > 20 enhanced errors are encountered, reporting is stopped to avoid excessive
+errors to the administrator.   The count of enhanced errors is reported back 
+to the caller by the object variable:  $this->{fileErrors}
+
+In addition to the basic and enhanced checks specified in the $perms string, 
+Directories are always checked to determine if they have the 'x' permission.
+
+$filter is a regular expression.  Files matching the supplied regex if present
+will not be checked.  This is used to skip rcs,v  or .txt files because they
+have different permission requirements.
+
+Note that the enhanced checks are important especially on hosted sites. In some
+environments, the Foswiki perl scripts run under a different user/group than 
+the web server.  Basic checks will pass, but the server may still be unable
+to access the file.  The enhanced checks will detect this condition.
+
+Callers of this checker should reset $this->{fileCount} and $this->{fileErrors} 
+to zero before calling this routine.
+
+=cut
+
 sub checkTreePerms {
     my ( $this, $path, $perms, $filter ) = @_;
 
-    return '' if ( defined($filter) && $path !~ $filter && !-d $path );
+    return '' if ( defined($filter) && $path =~ $filter && !-d $path );
+
+    $this->{fileErrors}  = 0 unless ( defined $this->{fileErrors} );
+    $this->{missingFile}  = 0 unless ( defined $this->{missingFile} );
+    $this->{excessPerms} = 0 unless ( defined $this->{excessPerms} );
 
     #let's ignore Subversion directories
-    return '' if ( $path !~ /_svn/ );
-    return '' if ( $path !~ /.svn/ );
+    return '' if ( $path eq '_svn' );
+    return '' if ( $path eq '.svn' );
 
+    # Okay to increment count once filtered files are ignored.
+    $this->{filecount}++;
+
+    my $errs      = '';
+    my $permErrs  = '';
+    my $rwxString = buildRWXMessageString( $perms, $path );
+
+    return $path . ' cannot be found' . CGI::br()
+      unless ( -e $path || -l $path );
+
+    if ( $perms =~ /d/ && -d $path ) {
+        my $mode = ( stat($path) )[2] & oct(7777);
+        if ( $mode != $Foswiki::cfg{RCS}{dirPermission} ) {
+            my $omode = sprintf( '%04o', $mode );
+            my $operm = sprintf( '%04o', $Foswiki::cfg{RCS}{dirPermission} );
+            if ( ( $mode & $Foswiki::cfg{RCS}{dirPermission} ) ==
+                $Foswiki::cfg{RCS}{dirPermission} )
+            {
+                $permErrs .= $this->getEmptyStringUnlessUnderLimit(
+                    'excessPerms',
+"$path - directory permission $omode exceeds requested $operm"
+                );
+            }
+            else {
+                $permErrs .= $this->getEmptyStringUnlessUnderLimit(
+                    'fileErrors',
+"$path - directory insufficient permission: $omode should be $operm"
+                );
+            }
+        }
+    }
+
+    if ( $perms =~ /f/ && -f $path ) {
+        my $mode = ( stat($path) )[2] & oct(7777);
+        if ( $mode != $Foswiki::cfg{RCS}{filePermission} ) {
+            my $omode = sprintf( '%04o', $mode );
+            my $operm = sprintf( '%04o', $Foswiki::cfg{RCS}{filePermission} );
+            if ( ( $mode & $Foswiki::cfg{RCS}{filePermission} ) ==
+                $Foswiki::cfg{RCS}{filePermission} )
+            {
+                $permErrs .=
+                  $this->getEmptyStringUnlessUnderLimit( 'excessPerms',
+                    "$path - file permission $omode exceeds requested $operm" );
+            }
+            else {
+                $permErrs .= $this->getEmptyStringUnlessUnderLimit(
+                    'fileErrors',
+"$path - file insufficient permission: $omode should be $operm"
+                );
+            }
+        }
+    }
+
+    if ( $perms =~ /p/ && $path =~ /data\/(.+)$/ && -d $path ) {
+        unless ( -e "$path/$Foswiki::cfg{WebPrefsTopicName}.txt") {
+        $permErrs .= " $path missing $Foswiki::cfg{WebPrefsTopicName} Topic" . CGI::br();
+        $this->{missingFile}++;
+        }
+    }
+
+    if ($rwxString) {
+        $errs .=
+          $this->getEmptyStringUnlessUnderLimit( 'fileErrors', $rwxString );
+    }
+
+    return $permErrs . $path . $errs . CGI::br() if $errs;
+
+    return $permErrs unless -d $path;
+
+    return
+        $permErrs 
+      . $path
+      . ' directory is missing \'x\' permission - not readable'
+      . CGI::br()
+      if ( -d $path && !-x $path );
+
+    opendir( my $Dfh, $path )
+      or return 'Directory ' . $path . ' is not readable.' . CGI::br();
+
+    foreach my $e ( grep { !/^\./ } readdir($Dfh) ) {
+        my $p = $path . '/' . $e;
+        $errs .= checkTreePerms( $this, $p, $perms, $filter );
+        last if ( $this->{filecount} >= $Foswiki::cfg{PathCheckLimit} );
+
+    }
+    closedir($Dfh);
+
+    return $permErrs . $errs;
+}
+
+sub getEmptyStringUnlessUnderLimit {
+    my ( $this, $type, $message ) = @_;
     my $errs = '';
 
-    return $path . ' cannot be found' . CGI::br() unless ( -e $path );
+    $this->{$type}++;
+    if ( $this->{$type} < 10 ) {
+        if ($message) {
+            $errs = $message . CGI::br();
+        }
+    }
+
+    return $errs;
+}
+
+sub buildRWXMessageString {
+    my ( $perms, $path ) = @_;
+    my $message = '';
 
     if ( $perms =~ /r/ && !-r $path ) {
-        $errs .= ' readable';
+        $message .= ' not readable';
     }
 
     if ( $perms =~ /w/ && !-d $path && !-w $path ) {
-        $errs .= ' writable';
+        $message .= ' not writable';
     }
 
     if ( $perms =~ /x/ && !-x $path ) {
-        $errs .= ' executable';
+        $message .= ' not executable';
     }
 
-    return $path . ' is not ' . $errs . CGI::br() if $errs;
-
-    return '' unless -d $path;
-
-    opendir( D, $path )
-      || return 'Directory ' . $path . ' is not readable.' . CGI::br();
-
-    foreach my $e ( grep { !/^\./ } readdir(D) ) {
-        my $p = $path . '/' . $e;
-        $errs .= checkTreePerms( $p, $perms, $filter );
-    }
-    closedir(D);
-    return $errs;
+    return $message;
 }
+
+=begin TML
+
+---++ PROTECTED ObjectMethod checkCanCreateFile($path) -> $html
+
+Check that the given path can be created (or, if it already exists,
+can be written). If the existing path is a directory, recursively
+check for rw permissions using =checkTreePerms=.
+
+Returns a message or the empty string if the check passed.
+
+=cut
 
 sub checkCanCreateFile {
     my ( $this, $name ) = @_;
@@ -109,14 +322,14 @@ sub checkCanCreateFile {
         return File::Spec->catfile( @path, '' ) . ' is not writable';
     }
     my $txt1 = "test 1 2 3";
-    open( FILE, ">$name" )
+    open my $fh, '>', $name
       || return 'Could not create test file ' . $name . ':' . $!;
-    print FILE $txt1;
-    close(FILE);
-    open( IN_FILE, "<$name" )
+    print $fh $txt1;
+    close($fh);
+    open my $in_file, '<', $name
       || return 'Could not read test file ' . $name . ':' . $!;
-    my $txt2 = <IN_FILE>;
-    close(IN_FILE);
+    my $txt2 = <$in_file>;
+    close($in_file);
     unlink $name if ( -e $name );
 
     unless ( $txt2 eq $txt1 ) {
@@ -125,11 +338,20 @@ sub checkCanCreateFile {
     return '';
 }
 
-# Since Windows (without Cygwin) makes it hard to capture stderr
-# ('2>&1' works only on Win2000 or higher), and Windows will usually have
-# GNU tools in any case (installed for Foswiki since there's no built-in
-# diff, grep, patch, etc), we only check for these tools on Unix/Linux
-# and Cygwin.
+=begin TML
+
+---++ PROTECTED ObjectMethod checkGnuProgram($prog) -> $html
+
+Check for the availability of a GNU program.
+
+Since Windows (without Cygwin) makes it hard to capture stderr
+('2>&1' works only on Win2000 or higher), and Windows will usually have
+GNU tools in any case (installed for Foswiki since there's no built-in
+diff, grep, patch, etc), we only check for these tools on Unix/Linux
+and Cygwin.
+
+=cut
+
 sub checkGnuProgram {
     my ( $this, $prog ) = @_;
     my $mess = '';
@@ -161,86 +383,30 @@ sub checkGnuProgram {
             #$mess = "($prog is version $1).";
         }
     }
+    elsif ( $Foswiki::cfg{OS} eq 'WINDOWS' ) {
+
+        #real windows - using GnuWin32 tools
+    }
 
     return $mess;
 }
 
-# Return a string of settingBlocks giving the status of various
-# required modules.
-# Either takes an array of hashes, or parameters in a hash.
-# Each module hash needs:
-# name - e.g. Car::Wreck
-# usage - description of what it's for
-# dispostion - 'required', 'recommended'
-# minimumVersion - lowest acceptable $Module::VERSION
-#
-sub checkPerlModules {
-    my $this = shift;
-    my $mods;
-    if ( ref( $_[0] ) eq 'ARRAY' ) {
-        $mods = $_[0];
-    }
-    else {
-        $mods = [ {@_} ];
-    }
+=begin TML
 
-    my $e = '';
-    foreach my $mod (@$mods) {
-        $mod->{minimumVersion} ||= 0;
-        $mod->{disposition}    ||= '';
-        my $n = '';
-        my $mod_version;
+---++ PROTECTED ObjectMethod checkRE($keys) -> $html
+Check that the configuration item identified by the given keys represents
+a compilable perl regular expression.
 
-        # require instead of use = see Bugs:Item4585
-        eval 'require ' . $mod->{name};
-        if ($@) {
-            $n = 'Not installed. ' . $mod->{usage};
-        }
-        else {
-            no strict 'refs';
-            eval '$mod_version = $' . $mod->{name} . '::VERSION';
-            $mod_version ||= 0;
-            $mod_version =~ s/(\d+(\.\d*)?).*/$1/;    # keep 99.99 style only
-            use strict 'refs';
-            if ( $mod_version < $mod->{minimumVersion} ) {
-                $n = $mod_version || 'Unknown version';
-                $n .=
-                    ' installed. Version '
-                  . $mod->{minimumVersion} . ' '
-                  . $mod->{disposition};
-                $n .= ' ' . $mod->{usage} if $mod->{usage};
-            }
-        }
-        if ($n) {
-            if ( $mod->{disposition} eq 'required' ) {
-                $n = $this->ERROR($n);
-            }
-            elsif ( $mod->{disposition} eq 'recommended' ) {
-                $n = $this->WARN($n);
-            }
-            else {
-                $n = $this->NOTE($n);
-            }
-        }
-        else {
-            $mod_version ||= 'Unknown version';
-            $n = $this->NOTE( $mod_version . ' installed' );
-            $n .= ' Desc: ' . $mod->{usage} if $mod->{usage};
-        }
-        $e .= $this->setting( $mod->{name}, $n );
-    }
-    return $e;
-}
+=cut
 
-# Check for a compilable RE
 sub checkRE {
     my ( $this, $keys ) = @_;
     my $str;
-    eval '$str = $Foswiki::cfg' . $keys;
+    eval { $str = $Foswiki::cfg . $keys; };
     return '' unless defined $str;
-    eval "qr/$str/";
+    eval { qr/$str/ };
     if ($@) {
-        return $this->ERROR(<<MESS);
+        return $this->ERROR(<<"MESS");
 Invalid regular expression: $@ <p />
 See <a href="http://www.perl.com/doc/manual/html/pod/perlre.html">perl.com</a> for help with Perl regular expressions.
 MESS
@@ -248,52 +414,21 @@ MESS
     return '';
 }
 
-# Entry point for the value check. Overridden by subclasses.
-sub check {
-    my ( $this, $value ) = @_;
-
-    # default behaviour; do nothing
-    return '';
-}
-
-sub copytree {
-    my ( $this, $from, $to ) = @_;
-    my $e = '';
-
-    if ( -d $from ) {
-        if ( !-e $to ) {
-            mkdir($to) || return "Failed to mkdir $to: $!<br />";
-        }
-        elsif ( !-d $to ) {
-            return "Existing $to is in the way<br />";
-        }
-
-        my $d;
-        return "Failed to copy $from: $!<br />" unless opendir( $d, $from );
-        foreach my $f ( grep { !/^\./ } readdir $d ) {
-            $f =~ /(.*)/;
-            $f = $1;    # untaint
-            $e .= $this->copytree( "$from/$f", "$to/$f" );
-        }
-        closedir($d);
-    }
-
-    if ( !$e && !-e $to ) {
-        require File::Copy;
-        if ( !File::Copy::copy( $from, $to ) ) {
-            $e = "Failed to copy $from to $to: $!<br />";
-        }
-    }
-    return $e;
-}
-
 my $rcsverRequired = 5.7;
+
+=begin TML
+
+---++ PROTECTED ObjectMethod checkRCSProgram($prog) -> $html
+Specific to RCS, this method checks that the given program is available.
+Check is only activated when the selected store implementation is RcsWrap.
+
+=cut
 
 sub checkRCSProgram {
     my ( $this, $key ) = @_;
 
     return 'NOT USED IN THIS CONFIGURATION'
-      unless $Foswiki::cfg{StoreImpl} eq 'RcsWrap';
+      unless $Foswiki::cfg{Store}{Implementation} eq 'Foswiki::Store::RcsWrap';
 
     my $mess = '';
     my $err  = '';
@@ -306,11 +441,15 @@ sub checkRCSProgram {
     }
     else {
         my $version = `$prog -V` || '';
-        if ($version !~ /Can't exec/
-              # "Can't exec" has been observed on some systems,
-              # despite perlop saying `` returns undef if the prog
-              # can't be run. See Foswikitask:Item1011
-              && $version =~ /(\d+(\.\d+)+)/ ) {
+        if (
+            $version !~ /Can't exec/
+
+            # "Can't exec" has been observed on some systems,
+            # despite perlop saying `` returns undef if the prog
+            # can't be run. See Foswikitask:Item1011
+            && $version =~ /(\d+(\.\d+)+)/
+          )
+        {
             $version = $1;
         }
         else {
@@ -329,44 +468,45 @@ sub checkRCSProgram {
     }
     if ($err) {
         $mess .= $this->ERROR(
-            $err . <<HERE
+            $err . <<'HERE'
 Foswiki will probably not work with this RCS setup. Either correct the setup, or
 switch to RcsLite. To enable RCSLite you need to change the setting of
-{StoreImpl} to 'RcsLite'.
+{Store}{Implementation} to 'Foswiki::Store::RcsLite'.
 HERE
         );
     }
     return $mess;
 }
 
+sub getValueObject { return; }
+
+sub getSectionObject { return; }
+
+sub visit { return 1; }
+
 1;
-__DATA__
-#
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
-# A checker is a special case of a UI tailored to perform checks
-# on setup.
-#
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

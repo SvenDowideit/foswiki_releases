@@ -1,4 +1,5 @@
 # See bottom of file for license and copyright information
+
 =begin TML
 
 ---+ package Foswiki::UserMapping
@@ -31,8 +32,10 @@ __Note:__ in all the following documentation, =$cUID= refers to a
 
 package Foswiki::UserMapping;
 
+use strict;
+use warnings;
 use Assert;
-use Error;
+use Error ();
 
 =begin TML
 
@@ -228,10 +231,10 @@ sub userExists {
 
 =begin TML
 
----++ ObjectMethod eachUser () -> Foswiki::ListIterator of cUIDs
+---++ ObjectMethod eachUser () -> $iterator
 
-Get an iterator over the list of all the registered users *not* including
-groups.
+Get an iterator over the list of all cUIDs of the registered
+users *not* including groups.
 
 Subclasses *must* implement this method.
 
@@ -243,7 +246,7 @@ sub eachUser {
 
 =begin TML
 
----++ ObjectMethod eachGroupMember ($group) ->  Foswiki::ListIterator of cUIDs
+---++ ObjectMethod eachGroupMember ($group) -> $iterator
 
 Return a iterator over the canonical user ids of users that are members
 of this group. Should only be called on groups.
@@ -278,9 +281,9 @@ sub isGroup {
 
 =begin TML
 
----++ ObjectMethod eachGroup () -> Foswiki::ListIterator of groupnames
+---++ ObjectMethod eachGroup () -> $iterator
 
-Get an iterator over the list of all the groups.
+Get an iterator over the list of all the group names.
 
 Subclasses *must* implement this method.
 
@@ -292,7 +295,7 @@ sub eachGroup {
 
 =begin TML
 
----++ ObjectMethod eachMembership($cUID) -> Foswiki::ListIterator of groups this user is in
+---++ ObjectMethod eachMembership($cUID) -> $iterator
 
 Return an iterator over the names of groups that $cUID is a member of.
 
@@ -302,6 +305,52 @@ Subclasses *must* implement this method.
 
 sub eachMembership {
     ASSERT(0);
+}
+
+=begin TML
+
+---++ ObjectMethod groupAllowsView($group) -> boolean
+
+returns 1 if the group is able to be viewed by the current logged in user
+
+=cut
+
+sub groupAllowsView {
+    return 1;
+}
+
+=begin TML
+
+---++ ObjectMethod groupAllowsChange($group) -> boolean
+
+returns 1 if the group is able to be modified by the current logged in user
+
+=cut
+
+sub groupAllowsChange {
+    return 0;
+}
+
+=begin TML
+
+---++ ObjectMethod addToGroup( $cuid, $group, $create ) -> $boolean
+adds the user specified by the cuid to the group.
+If the group does not exist, it will return false and do nothing, unless the create flag is set.
+
+=cut
+
+sub addUserToGroup {
+    return 0;
+}
+
+=begin TML
+
+---++ ObjectMethod removeFromGroup( $cuid, $group ) -> $boolean
+
+=cut
+
+sub removeUserFromGroup {
+    return 0;
 }
 
 =begin TML
@@ -438,7 +487,7 @@ Default behaviour is to fail.
 =cut
 
 sub setPassword {
-    return undef;
+    return;
 }
 
 =begin TML
@@ -453,32 +502,32 @@ returns undef if no error (the default)
 =cut
 
 sub passwordError {
-    return undef;
+    return;
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

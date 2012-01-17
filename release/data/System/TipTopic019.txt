@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1107571231" format="1.1" version="$Rev$"}%
+%META:TOPICINFO{author="ProjectContributor" date="1107571231" format="1.0" version="$Rev$"}%
 %META:TOPICPARENT{name="TipsOfTheDay"}%
 ---+ Commenting with hidden text
 
@@ -9,12 +9,12 @@ Example comment within a sentence:
 =Visible &lt;!--- and hidden ---&gt; text=
 
 Example spanning multiple lines:
-<verbatim>
+<verbatim class="tml">
 <!--
    * Useful to hide settings:
       * Set EXAMPLE = This is hidden
 -->
 </verbatim>
-
+<!-- %JQREQUIRE{"chili"}% -->
 
 [[TipsOfTheDay][See More Tips...]]

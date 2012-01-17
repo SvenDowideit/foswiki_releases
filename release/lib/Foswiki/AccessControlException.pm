@@ -18,7 +18,7 @@ The exception may be thrown by plugins. If a plugin throws the exception, it
 will normally be caught and the browser redirected to a login screen (if the
 user is not logged in) or reported (if they are and just don't have access).
 
-API version $Date: 2009-05-16 12:36:23 +0200 (Sat, 16 May 2009) $ (revision $Rev: 8969 (2010-09-08) $)
+API version $Date: 2010-05-18 10:51:30 +0200 (Tue, 18 May 2010) $ (revision $Rev: 9498 (2010-10-04) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -43,12 +43,14 @@ the function or parameter.
 # AND ENSURE ALL POD DOCUMENTATION IS COMPLETE AND ACCURATE.
 
 package Foswiki::AccessControlException;
-use Error ();
-@Foswiki::AccessControlException::ISA = ( 'Error' );
 
 use strict;
+use warnings;
 
-our $VERSION = '$Rev: 8969 (2010-09-08) $';
+use Error ();
+our @ISA = ('Error');    # base class
+
+our $VERSION = '$Rev: 9498 (2010-10-04) $';
 
 =begin TML
 
@@ -92,28 +94,28 @@ sub stringify {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

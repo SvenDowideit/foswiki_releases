@@ -2,6 +2,7 @@
 package Foswiki::Validation;
 
 use strict;
+use warnings;
 
 use Assert;
 
@@ -49,8 +50,8 @@ object.
 
 =cut
 
-# Done as a sub to help perl optimise it away
-sub TRACE { 0 }
+# Set to 1 to trace validation steps in STDERR
+use constant TRACE => 0;
 
 # Define cookie name only once
 # WARNING: If you change this, be sure to also change the javascript
@@ -86,10 +87,11 @@ sub addValidationKey {
         # This has to be consistent with the algorithm in strikeone.js
         my $secret = _getSecret($cgis);
         $action = Digest::MD5::md5_hex( $nonce, $secret );
-        print STDERR "V: STRIKEONE $nonce + $secret = $action\n" if TRACE;
+
+        #print STDERR "V: STRIKEONE $nonce + $secret = $action\n" if TRACE;
     }
     my $timeout = time() + $Foswiki::cfg{Validation}{ValidForTime};
-    print STDERR "V: ADD $action"
+    print STDERR "V: ADD KEY $action"
       . ( $nonce ne $action ? "($nonce)" : '' ) . ' = '
       . $timeout . "\n"
       if TRACE && !defined $actions->{$action};
@@ -106,7 +108,7 @@ sub addValidationKey {
 
 ---++ StaticMethod addOnSubmit( $form ) -> $form
 
-Add a =foswikiStrikeOne= double submission onsubmit handler to a form.
+Add a double submission onsubmit handler to a form.
    * =$form= - the opening tag of a form, ie. &lt;form ...&gt;=
 The handler will be added to an existing on submit, or by adding a new
 onsubmit in the form tag.
@@ -116,9 +118,10 @@ onsubmit in the form tag.
 sub addOnSubmit {
     my ($form) = @_;
     unless ( $form =~
-        s/\bonsubmit=(["'])((?:\s*javascript:)?)(.*)\1/onsubmit=${1}${2}foswikiStrikeOne(this);$3$1/i )
+s/\bonsubmit=(["'])((?:\s*javascript:)?)(.*)\1/onsubmit=${1}${2}StrikeOne.submit(this);$3$1/i
+      )
     {
-        $form =~ s/>$/ onsubmit="foswikiStrikeOne(this)">/;
+        $form =~ s/>$/ onsubmit="StrikeOne.submit(this)">/;
     }
     return $form;
 }
@@ -166,9 +169,10 @@ sub isValidNonce {
     return 1 if ( $Foswiki::cfg{Validation}{Method} eq 'none' );
     return 0 unless defined $nonce;
     $nonce =~ s/^\?// if ( $Foswiki::cfg{Validation}{Method} ne 'strikeone' );
-    print STDERR "V: CHECK: $nonce\n" if TRACE;
     my $actions = $cgis->param('VALID_ACTIONS');
     return 0 unless ref($actions) eq 'HASH';
+    print STDERR "V: CHECK $nonce -> " . ( $actions->{$nonce} ? 1 : 0 ) . "\n"
+      if TRACE;
     return $actions->{$nonce};
 }
 
@@ -238,45 +242,31 @@ sub validate {
     my $topic     = $session->{topicName};
     my $cgis      = $session->getCGISession();
 
-    my $origurl = $query->param('origurl');
-    $query->delete('origurl');
-    my $context = $query->param('context');
-    $query->delete('context');
-
-    # If a special context was requested, enter it. This will normally
-    # be the name of the script that invoked the original save operation.
-    $session->enterContext($context, 1) if $context;
-
-    my $tmpl =
-      $session->templates->readTemplate( 'validate', $session->getSkin() );
+    my $tmpl = $session->templates->readTemplate( 'validate' );
 
     if ( $query->param('response') ) {
+        my $cacheUID = $query->param('foswikioriginalquery');
+        $query->delete('foswikioriginalquery');
         my $url;
         if ( $query->param('response') eq 'OK'
             && isValidNonce( $cgis, $query->param('validation_key') ) )
         {
-            if ( !$origurl || $origurl eq $query->url() ) {
+            if ( !$cacheUID ) {
                 $url = $session->getScriptUrl( 0, 'view', $web, $topic );
             }
             else {
-                $url = $origurl;
 
-                # SMELL: do we ever need this?
-                ASSERT( $url !~ /#/ ) if DEBUG;
-
-                # Unpack params encoded in the origurl and restore them
-                # to the query. If they were left in the query string they
-                # would be lost when we redirect with passthrough
-                if ( $url =~ s/\?(.*)$// ) {
-                    foreach my $pair ( split( /[&;]/, $1 ) ) {
-                        if ( $pair =~ /(.*?)=(.*)/ ) {
-                            $query->param( $1, TAINT($2) );
-                        }
-                    }
-                }
+                # Reload the cached original query over the current query.
+                # When the redirect is validated it should pass, because
+                # it will now be using the validation code from the
+                # confirmation screen that brought us here.
+                require Foswiki::Request::Cache;
+                Foswiki::Request::Cache->new()->load( $cacheUID, $query );
+                $url = $query->url();
             }
 
-            # Redirect with passthrough (302)
+            # Complete the query by passing the query on
+            # with passthrough
             print STDERR "WV: CONFIRMED; POST to $url\n" if TRACE;
             $session->redirect( $url, 1 );
         }
@@ -289,17 +279,27 @@ sub validate {
         }
     }
     else {
-        print STDERR "V: PROMPT FOR CONFIRMATION\n" if TRACE;
 
-        # prompt for user verification - code 419 chosen by foswiki devs
+        print STDERR "V: PROMPTING FOR CONFIRMATION " . $query->uri() . "\n"
+          if TRACE;
+
+        # Prompt for user verification - code 419 chosen by foswiki devs.
+        # None of the defined HTTP codes describe what is really happening,
+        # which is why we chose a "new" code. The confirmation page
+        # isn't a conflict, not a security issue, and we cannot use 403
+        # because there is a high probability this would get caught by
+        # Apache to send back the Registation page. We didn't want any
+        # installation to catch the HTTP return code we were sending back,
+        # as we need this page to arrive intact to the user, otherwise
+        # they won't be able to do anything. 419 is a placebo, and if it
+        # is ever defined can be replaced by any other undefined 4xx code.
         $session->{response}->status(419);
 
-        $session->{prefs}->pushPreferenceValues( 'SESSION',
-            { ORIGURL => Foswiki::_encode( 'entity', $origurl || '' ), } );
-
-        $tmpl = $session->handleCommonTags( $tmpl, $web, $topic );
-        $tmpl = $session->renderer->getRenderedVersion( $tmpl, '' );
+        my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
+        $tmpl = $topicObject->expandMacros($tmpl);
+        $tmpl = $topicObject->renderTML($tmpl);
         $tmpl =~ s/<nop>//g;
+
         $session->writeCompletePage($tmpl);
     }
 }
@@ -319,20 +319,20 @@ sub _getSecret {
 
 1;
 __END__
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2009 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

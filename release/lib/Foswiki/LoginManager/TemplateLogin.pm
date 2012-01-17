@@ -15,10 +15,13 @@ methods of this class.
 =cut
 
 package Foswiki::LoginManager::TemplateLogin;
-use base 'Foswiki::LoginManager';
 
 use strict;
+use warnings;
 use Assert;
+
+use Foswiki::LoginManager ();
+our @ISA = ('Foswiki::LoginManager');
 
 =begin TML
 
@@ -41,9 +44,31 @@ sub new {
     return $this;
 }
 
+# Pack key request parameters into a single value
+# Used for passing meta-information about the request
+# through a URL (without requiring passthrough)
+sub _packRequest {
+    my ( $uri, $method, $action ) = @_;
+    return '' unless $uri;
+    if ( ref($uri) ) {    # first parameter is a $session
+        my $r = $uri->{request};
+        $uri    = $r->uri();
+        $method = $r->method() || 'UNDEFINED';
+        $action = $r->action();
+    }
+    return "$method,$action,$uri";
+}
+
+# Unpack single value to key request parameters
+sub _unpackRequest {
+    my $packed = shift || '';
+    my ( $method, $action, $uri ) = split( ',', $packed, 3 );
+    return ( $uri, $method, $action );
+}
+
 =begin TML
 
----++ ObjectMethod forceAuthentication () -> boolean
+---++ ObjectMethod forceAuthentication () -> $boolean
 
 method called when authentication is required - redirects to (...|view)auth
 Triggered on auth fail
@@ -58,23 +83,29 @@ sub forceAuthentication {
         my $query = $session->{request};
 
         # Redirect with passthrough so we don't lose the original query params
-        my $session = $this->{session};
-        my $topic   = $session->{topicName};
-        my $web     = $session->{webName};
-        my $url     = $session->getScriptUrl( 0, 'login', $web, $topic );
-        $query->param( -name => 'origurl', -value => $session->{request}->uri );
+
+        my $url = $session->getScriptUrl( 0, 'login' );
+
+        # We use the query here to ensure the original path_info
+        # from the request gets through to the login form. See also
+        # PATH_INFO below.
+        $url .= Foswiki::urlEncode( $query->path_info() );
+
+        $query->param(
+            -name  => 'foswiki_origin',
+            -value => _packRequest($session)
+        );
         $session->redirect( $url, 1 );    # with passthrough
         return 1;
     }
-    return undef;
+    return 0;
 }
 
 =begin TML
 
 ---++ ObjectMethod loginUrl () -> $loginUrl
 
-TODO: why is this not used internally? When is it called, and why
-Content of a login link
+Overrides LoginManager. Content of a login link.
 
 =cut
 
@@ -84,7 +115,7 @@ sub loginUrl {
     my $topic   = $session->{topicName};
     my $web     = $session->{webName};
     return $session->getScriptUrl( 0, 'login', $web, $topic,
-        origurl => $session->{request}->uri );
+        foswiki_origin => _packRequest($session) );
 }
 
 =begin TML
@@ -113,18 +144,19 @@ sub login {
     my ( $this, $query, $session ) = @_;
     my $users = $session->{users};
 
-    my $origurl   = $query->param('origurl');
+    my $origin = $query->param('foswiki_origin');
+    my ( $origurl, $origmethod, $origaction ) = _unpackRequest($origin);
     my $loginName = $query->param('username');
     my $loginPass = $query->param('password');
     my $remember  = $query->param('remember');
 
     # Eat these so there's no risk of accidental passthrough
-    $query->delete( 'origurl', 'username', 'password' );
+    $query->delete( 'foswiki_origin', 'username', 'password' );
 
     # UserMappings can over-ride where the login template is defined
     my $loginTemplate = $users->loginTemplateName();    #defaults to login.tmpl
     my $tmpl =
-      $session->templates->readTemplate( $loginTemplate, $session->getSkin() );
+      $session->templates->readTemplate( $loginTemplate );
 
     my $banner = $session->templates->expandTemplate('LOG_IN_BANNER');
     my $note   = '';
@@ -151,9 +183,17 @@ sub login {
 
         if ($validation) {
 
-            # SUCCESS our user is authenticated..
+            # SUCCESS our user is authenticated. Note that we may already
+            # have been logged in by the userLoggedIn call in loadSession,
+            # becuase the username-password URL params are the same as
+            # the params passed to this script, and they will be used
+            # in loadSession if no other user info is available.
             $this->userLoggedIn($loginName);
-            $session->logEvent( 'login', $web . '.' . $topic, "AUTHENTICATION SUCCESS - $loginName - " );
+            $session->logEvent(
+                'login',
+                $web . '.' . $topic,
+                "AUTHENTICATION SUCCESS - $loginName - "
+            );
 
             # remove the sudo param - its only to tell TemplateLogin
             # that we're using BaseMapper..
@@ -167,7 +207,7 @@ sub login {
 
                 # Unpack params encoded in the origurl and restore them
                 # to the query. If they were left in the query string they
-                # would be lost when we redirect with passthrough
+                # would be lost if we redirect with passthrough.
                 if ( $origurl =~ s/\?(.*)// ) {
                     foreach my $pair ( split( /[&;]/, $1 ) ) {
                         if ( $pair =~ /(.*?)=(.*)/ ) {
@@ -175,79 +215,99 @@ sub login {
                         }
                     }
                 }
+
+                # Restore the action too
+                $query->action($origaction) if $origaction;
             }
 
-            # Redirect with passthrough
-            $session->redirect( $origurl, 1 );    # with passthrough
+            # Restore the method used on origUrl so if it was a GET, we
+            # get another GET.
+            $query->method($origmethod);
+            $session->redirect( $origurl, 1 );
             return;
         }
         else {
-            # Tasks:Item1029  After much discussion, the 403 code is not used for authentication failures.
-            # RFC states: "Authorization will not help and the request SHOULD NOT be repeated" which is not
-            # the situation here.  
+
+            # Tasks:Item1029  After much discussion, the 403 code is not
+            # used for authentication failures. RFC states: "Authorization
+            # will not help and the request SHOULD NOT be repeated" which
+            # is not the situation here.
             $session->{response}->status(200);
-            $session->logEvent( 'login', $web . '.' . $topic, "AUTHENTICATION FAILURE - $loginName - " );
+            $session->logEvent(
+                'login',
+                $web . '.' . $topic,
+                "AUTHENTICATION FAILURE - $loginName - "
+            );
             $banner = $session->templates->expandTemplate('UNRECOGNISED_USER');
         }
     }
     else {
-        #if the loginName is unset, then the request was likely a perfectly valid GET call to http://foswiki/bin/login
-        #additionally, 400 cannot be a correct status, as we desire the user to retry the same URL with a different login/password
+
+        # If the loginName is unset, then the request was likely a perfectly
+        # valid GET call to http://foswiki/bin/login
+        # 4xx cannot be a correct status, as we want the user to retry the
+        # same URL with a different login/password
         $session->{response}->status(200);
     }
 
-    # Remove the validation_key from the passed through params. It isn't
+    # Remove the validation_key from the *passed through* params. It isn't
     # required, because the form will have a new validation key, and
     # giving the parameter twice will confuse the strikeone Javascript.
     $session->{request}->delete('validation_key');
 
-   # set the usernamestep value so it can be re-displayed if we are here due
-   # to a failed authentication attempt.
-   $query->param( -name => 'usernamestep', -value => $loginName );
+    # set the usernamestep value so it can be re-displayed if we are here due
+    # to a failed authentication attempt.
+    $query->param( -name => 'usernamestep', -value => $loginName );
 
     # TODO: add JavaScript password encryption in the template
-    # to use a template)
     $origurl ||= '';
-    $session->{prefs}->pushPreferenceValues(
-        'SESSION',
-        {
-            ORIGURL => Foswiki::_encode( 'entity', $origurl ),
-            BANNER  => $banner,
-            NOTE    => $note,
-            ERROR   => $error
-        }
+
+    # Set session preferences that will be expanded when the login
+    # template is instantiated
+    $session->{prefs}->setSessionPreferences(
+        FOSWIKI_ORIGIN => Foswiki::entityEncode(
+            _packRequest( $origurl, $origmethod, $origaction )
+        ),
+
+        # Path to be used in the login form action.
+        # Could have used %ENV{PATH_INFO} (after extending {AccessibleENV})
+        # but decided against it as the path_info might have been rewritten
+        # from the original env var.
+        PATH_INFO => $query->path_info(),
+        BANNER    => $banner,
+        NOTE      => $note,
+        ERROR     => $error
     );
 
-    $tmpl = $session->handleCommonTags( $tmpl, $web, $topic );
-    $tmpl = $session->renderer->getRenderedVersion( $tmpl, '' );
+    my $topicObject = Foswiki::Meta->new( $session, $web, $topic );
+    $tmpl = $topicObject->expandMacros($tmpl);
+    $tmpl = $topicObject->renderTML($tmpl);
     $tmpl =~ s/<nop>//g;
     $session->writeCompletePage($tmpl);
 }
 
 1;
 __DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2005-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-# Copyright (C) 2005 Greg Abbas, twiki@abbas.org
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. All Rights Reserved.
+Foswiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2005-2006 TWiki Contributors. All Rights Reserved.
+Copyright (C) 2005 Greg Abbas, twiki@abbas.org
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

@@ -14,14 +14,15 @@ Refer to Foswiki::Engine documentation for explanation about methos below.
 package Foswiki::Engine::CLI;
 
 use strict;
+use warnings;
 use Assert;
 
-use Foswiki::Engine;
-our @ISA = qw( Foswiki::Engine );
+use Foswiki::Engine ();
+our @ISA = ('Foswiki::Engine');
 
-use Foswiki::Request;
-use Foswiki::Request::Upload;
-use Foswiki::Response;
+use Foswiki::Request         ();
+use Foswiki::Request::Upload ();
+use Foswiki::Response        ();
 
 sub run {
     my $this = shift;
@@ -29,12 +30,13 @@ sub run {
     while ( scalar @args ) {
         my $name;
         my $arg = shift @args;
-        if ( $arg =~ /^-([a-z0-9_]+)/) {
-            ($name, $arg) = (TAINT($1), shift( @args ));
-        } elsif ( $arg =~ /([a-z0-9_]+)=(.*)$/i ) {
-            ($name, $arg) = (TAINT($1), TAINT($2));
+        if ( $arg =~ /^-?([a-z0-9_]+)=(.*)$/i ) {
+            ( $name, $arg ) = ( TAINT($1), TAINT($2) );
         }
-        if ($name && $name eq 'user' ) {
+        elsif ( $arg =~ /^-([a-z0-9_]+)/ ) {
+            ( $name, $arg ) = ( TAINT($1), shift(@args) );
+        }
+        if ( $name && $name eq 'user' ) {
             $this->{user} = $arg;
         }
         elsif ($name) {
@@ -43,7 +45,7 @@ sub run {
             push @{ $this->{params}->{$name} }, $arg;
         }
         else {
-            $this->{path_info} = $arg; # keep it tainted
+            $this->{path_info} = $arg;    # keep it tainted
         }
     }
     my $req = $this->prepare;
@@ -56,6 +58,7 @@ sub run {
 sub prepareConnection {
     my ( $this, $req ) = @_;
     $req->remoteAddress('127.0.0.1');
+    $req->method( $ENV{FOSWIKI_ACTION} );
 }
 
 sub prepareQueryParameters {
@@ -74,7 +77,7 @@ sub prepareHeaders {
         delete $this->{user};
     }
     else {
-        $req->remoteUser( $Foswiki::cfg{SuperAdminGroup} );
+        $req->remoteUser( $Foswiki::cfg{AdminUserWikiName} );
     }
 }
 
@@ -103,34 +106,32 @@ sub write {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. TWiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This module is based/inspired on Catalyst framework. Refer to
-#
-# http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm
-#
-# for credits and liscence details.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 1999-2007 Peter Thoeny, peter@thoeny.org
+and TWiki Contributors. All Rights Reserved. TWiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This module is based/inspired on Catalyst framework. Refer to
+http://search.cpan.org/~mramberg/Catalyst-Runtime-5.7010/lib/Catalyst.pm
+for credits and license details.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

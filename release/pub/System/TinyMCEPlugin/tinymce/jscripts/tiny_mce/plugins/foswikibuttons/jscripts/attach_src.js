@@ -17,18 +17,30 @@
 var AttachDlg = {
 
     preInit: function() {
-		tinyMCEPopup.requireLangPack();
+        tinyMCEPopup.requireLangPack();
     },
 
     // invoked on load from the body of the dialog
     init: function(ed) {
         FoswikiTiny.getListOfAttachments(
-            function(atts) {
-                var select = document.getElementById("attachments_select");
+        function(atts) {
+            var select = document.getElementById("attachments_select");
+            if (atts.length > 0) {
                 for (var i = 0; i < atts.length; i++) {
                     select.options[i] = new Option(atts[i].name, atts[i].name);
                 }
-            });
+            } else {
+                /* There are no attachments, so select upload tab. NB: JQuery
+                ** not available in popup iframes, and TinyMCE's dom utils
+                ** won't be able to select an element by id string by itself
+                ** because the activeEditor seems to only scan its own
+                ** document, so we pass the iframe's dom element explicitly */
+                ed.dom.removeClass(document.getElementById('general_tab'), 'current');
+                ed.dom.removeClass(document.getElementById('general_panel'), 'current');
+                ed.dom.addClass(document.getElementById('upload_tab'), 'current');
+                ed.dom.addClass(document.getElementById('upload_panel'), 'current');
+            }
+        });
 
         // Write the correct action into the form in attach.htm
         var el = document.getElementById('upload_form');
@@ -45,12 +57,12 @@ var AttachDlg = {
         var filename = select.value;
         var url = FoswikiTiny.getFoswikiVar("ATTACHURL") + '/' + filename;
         var tmp = filename.lastIndexOf(".");
-        if (tmp >= 0)
-            tmp = filename.substring(tmp + 1, filename.length).toLowerCase();
+        if (tmp >= 0) tmp = 
+            filename.substring(tmp + 1, filename.length).toLowerCase();
 
         var html;
         if (tmp == "jpg" || tmp == "gif" || tmp == "jpeg" ||
-            tmp == "png" || tmp == "bmp") {
+                tmp == "png" || tmp == "bmp") {
             html = "<img src='" + url + "' alt='" + filename + "'>";
         } else {
             html = "<a href='" + url + "'>" + filename + "</a>";

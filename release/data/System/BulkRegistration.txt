@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1111929255" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1111929255" format="1.0" version="$Rev$"}%
 %META:TOPICPARENT{name="ManagingUsers"}%
 ---+ Bulk Registration
 
@@ -35,7 +35,7 @@ This table is a template for user data that will be written to the new user topi
 
 ---+++ Example format
 The following should be inserted into your %REGISTERTOPIC% as a table. This is the most simple format:
-<verbatim>
+<verbatim class="tml">
 <noautolink>
 %EDITTABLE{}%
 | FirstName | LastName | Email | WikiName |
@@ -68,7 +68,7 @@ If you use the %SYSTEMWEB%.UserForm then ensure that it contains all the fields 
 
 ---++++ Customized table example
 Make sure that the extra fields also appear on the %SYSTEMWEB%.UserForm.
-<verbatim>
+<verbatim class="tml">
 <noautolink>
 %EDITTABLE{}%
 | FirstName | LastName | Email | WikiName | CustomFieldThis | SomeOtherRandomField | WhateverYouLike |
@@ -84,6 +84,7 @@ Make sure that the extra fields also appear on the %SYSTEMWEB%.UserForm.
 }%
 <!--
       * Set NOTMODIFYABLE = %IF{"context passwords_modifyable" then="" else="DISABLED"}%
+%JQREQUIRE{"chili"}%
 -->
 <form name="bulkRegister" action="%SCRIPTURLPATH{"manage"}%/%REGISTERTOPIC%" method="post">
 <input type="hidden" name="action" value="bulkRegister" />&nbsp;

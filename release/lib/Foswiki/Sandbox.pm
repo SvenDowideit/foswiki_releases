@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2009-04-21 03:53:50 +0200 (Tue, 21 Apr 2009) $ (revision $Rev: 8969 (2010-09-08) $)
+API version $Date: 2010-08-20 00:35:39 +0200 (Fri, 20 Aug 2010) $ (revision $Rev: 9498 (2010-10-04) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -31,20 +31,22 @@ the function or parameter.
 package Foswiki::Sandbox;
 
 use strict;
+use warnings;
 use Assert;
 use Error qw( :try );
 
-require File::Spec;
+use File::Spec ();
 
-require Foswiki;
+use Foswiki ();
 
-# Set to 1 to trace commands to STDERR
-sub TRACE { 0 }
+# Set to 1 to trace commands to STDERR, and redirect STDERR from
+# the command subprocesses to /tmp/foswiki_sandbox.log
+use constant TRACE => 0;
 
 our $REAL_SAFE_PIPE_OPEN;
 our $EMULATED_SAFE_PIPE_OPEN;
 our $SAFE;
-our $CMDQUOTE; # leave undef until _assessPipeSupport has run
+our $CMDQUOTE;    # leave undef until _assessPipeSupport has run
 
 # TODO: Sandbox module should probably use custom 'die' handler so that
 # output goes only to web server error log - otherwise it might give
@@ -56,10 +58,10 @@ sub _assessPipeSupport {
 
     # filter the support based on what platforms are proven not to work.
 
-    $REAL_SAFE_PIPE_OPEN = 1;
+    $REAL_SAFE_PIPE_OPEN     = 1;
     $EMULATED_SAFE_PIPE_OPEN = 1;
 
-    # Detect ActiveState and Strawberry perl.   (Cygwin perl returns "cygwin" for $^O) 
+# Detect ActiveState and Strawberry perl.   (Cygwin perl returns "cygwin" for $^O)
     if ( $^O eq 'MSWin32' ) {
         $REAL_SAFE_PIPE_OPEN     = 0;
         $EMULATED_SAFE_PIPE_OPEN = 0;
@@ -70,9 +72,12 @@ sub _assessPipeSupport {
     $SAFE = ( $REAL_SAFE_PIPE_OPEN || $EMULATED_SAFE_PIPE_OPEN ) ? 1 : 0;
 
     # Shell quoting - shell used only on non-safe platforms
-    if ( $Foswiki::cfg{OS} eq 'UNIX'
-           || ( $Foswiki::cfg{OS} eq 'WINDOWS'
-                  && $Foswiki::cfg{DetailedOS} eq 'cygwin' ) ) {
+    if (
+        $Foswiki::cfg{OS} eq 'UNIX'
+        || (   $Foswiki::cfg{OS} eq 'WINDOWS'
+            && $Foswiki::cfg{DetailedOS} eq 'cygwin' )
+      )
+    {
         $CMDQUOTE = "'";
     }
     else {
@@ -100,7 +105,7 @@ sub untaintUnchecked {
     if ( defined($string) && $string =~ /^(.*)$/ ) {
         return $1;
     }
-    return $string;    # Can't happen.
+    return $string;
 }
 
 =begin TML
@@ -117,16 +122,14 @@ the untaint function to return undef.
 =cut
 
 sub untaint {
-    my $datum = shift;
+    my $datum  = shift;
     my $method = shift;
-    ASSERT(ref($method)) if DEBUG;
-    $datum = &$method($datum, @_);
+    ASSERT( ref($method) ) if DEBUG;
+    return $datum unless defined $datum;
 
-    if ( defined $datum ) {
-        $datum =~ /^(.*)$/;
-        return $1;
-    }
-    return $datum;
+    # Untaint the datum before validating it
+    return undef unless $datum =~ /^(.*)$/;
+    return &$method( $1, @_ );
 }
 
 =begin TML
@@ -140,8 +143,8 @@ validation with untaint(). Returns the name, or undef if it is invalid.
 
 sub validateWebName {
     my $web = shift;
-    return $web if Foswiki::isValidWebName($web, 1);
-    return undef;
+    return $web if Foswiki::isValidWebName( $web, 1 );
+    return;
 }
 
 =begin TML
@@ -155,25 +158,70 @@ validation with untaint(). Returns the name, or undef if it is invalid.
 
 sub validateTopicName {
     my $topic = shift;
-    return $topic if Foswiki::isValidTopicName($topic, 1);
-    return undef;
+    return $topic if Foswiki::isValidTopicName( $topic, 1 );
+    return;
 }
 
 =begin TML
 
----++ StaticMethod normalizeFileName( $string ) -> $filename
+---++ StaticMethod validateAttachmentName($name) -> $attachment
 
-Throws an exception if =$string= contains filtered characters, as
-defined by =$Foswiki::cfg{NameFilter}=
+Check that the name is valid for use as an attachment name. Method used for
+validation with untaint(). Returns the name, or undef if it is invalid.
 
-The returned string is not tainted, but it may contain shell
-metacharacters and even control characters.
+Note that the name may contain path separators. This is to permit validation
+of an attachment that is stored in a subdirectory somewhere under the
+standard Web/Topic/attachment level e.g
+Web/Topic/attachmentdir/subdir/attachment.gif. While such attachments cannot
+be created via the UI, they *can* be created manually on the server.
+
+The individual path components are filtered by $Foswiki::cfg{NameFilter}
 
 =cut
 
-sub normalizeFileName {
-    my ($string) = @_;
-    return '' unless $string;
+sub validateAttachmentName {
+    my $string = shift;
+
+    return undef unless $string;
+
+    # Attachment names are always relative to web/topic, so leading /'s
+    # are simply an expression of that root.
+    $string =~ s/^\/+//;
+
+    my @dirs = split( /\/+/, $string );
+    my @result;
+    foreach my $component (@dirs) {
+        return undef unless defined($component) && $component ne '';
+        next if $component eq '.';
+        if ( $component eq '..' ) {
+            if ( scalar(@result) ) {
+
+                # path name is relative within its own length - we can
+                # do that
+                pop(@result);
+            }
+            else {
+
+                # Illegal relative path name
+                return undef;
+            }
+        }
+        else {
+
+            # Filter nasty characters
+            $component =~ s/$Foswiki::cfg{NameFilter}//g;
+            push( @result, $component );
+        }
+    }
+
+    #SMELL: there is a proper way to do this.... File::Spec
+    return join( '/', @result );
+}
+
+# Validate, clean up and untaint filename passed to an external command
+sub _cleanUpFilePath {
+    my $string = shift;
+    return '' unless defined $string;
     my ( $volume, $dirs, $file ) = File::Spec->splitpath($string);
     my @result;
     my $first = 1;
@@ -186,9 +234,9 @@ sub normalizeFileName {
             throw Error::Simple( 'relative path in filename ' . $string );
         }
         elsif ( $component =~ /$Foswiki::cfg{NameFilter}/ ) {
-            throw Error::Simple( 'illegal characters in file name component '
+            throw Error::Simple( 'illegal characters in file name component "'
                   . $component
-                  . ' of filename '
+                  . '" of filename '
                   . $string );
         }
         push( @result, $component );
@@ -202,9 +250,28 @@ sub normalizeFileName {
     }
     $string = File::Spec->catpath( $volume, $dirs, $file );
 
-    # We need to untaint the string explicitly.
-    # FIXME: This might be a Perl bug.
+    # Validated, can safely untaint
     return untaintUnchecked($string);
+}
+
+=begin TML
+
+---++ StaticMethod normalizeFileName( $string ) -> $filename
+
+Throws an exception if =$string= contains filtered characters, as
+defined by =$Foswiki::cfg{NameFilter}=
+
+The returned string is not tainted, but it may contain shell
+metacharacters and even control characters.
+
+*DEPRECATED* - provided for compatibility only. Do not use!
+If you want to validate an attachment, use
+untaint($name, \&validateAttachmentName)
+
+=cut
+
+sub normalizeFileName {
+    return _cleanUpFilePath(@_);
 }
 
 =begin TML
@@ -214,8 +281,13 @@ sub normalizeFileName {
 Given a file name received in a query parameter, sanitise it. Returns
 the sanitised name together with the basename before sanitisation.
 
-Sanitation includes filtering illegal characters and mapping client
-file names to legal server names.
+Sanitation includes removal of all leading path components,
+filtering illegal characters and mapping client
+file names to a subset of legal server file names.
+
+Avoid using this if you can; encoding attachment names this way is badly
+broken, much better to use point-of-source validation to ensure only valid
+attachment names are ever uploaded.
 
 =cut
 
@@ -229,27 +301,22 @@ sub sanitizeAttachmentName {
     # Item2859 and Item2225 before trying again to use File::Spec functions and
     # remember to test with IE.
     $fileName =~ s{[\\/]+$}{};  # Get rid of trailing slash/backslash (unlikely)
-    $fileName =~ s!^.*[\\/]!!;  # Get rid of directory part
+    $fileName =~ s!^.*[\\/]!!;  # Get rid of leading directory components
 
     my $origName = $fileName;
 
     # Change spaces to underscore
     $fileName =~ s/ /_/go;
 
-    # Strip dots and slashes at start
-    # untaint at the same time
-    $fileName =~ s/^([\.\/\\]*)*(.*?)$/$2/go;
-
     if ( $Foswiki::cfg{UseLocale} ) {
 
-        # Filter out (less secure) only if using locales
-        # TODO: Make this use filtering in
-        $fileName =~ s/$Foswiki::cfg{NameFilter}//goi;
+        # Filter out only if using locales.
+        $fileName =~ s/$Foswiki::cfg{NameFilter}//go;
     }
     else {
 
-        # No I18N, so just filter in alphanumeric etc
-        $fileName =~ s/$Foswiki::regex{filenameInvalidCharRegex}//g;
+        # No I18N, filter out invalid chars
+        $fileName =~ s/$Foswiki::regex{filenameInvalidCharRegex}//go;
     }
 
     # Append .txt to some files
@@ -277,6 +344,7 @@ sub _buildCommandLine {
         my @targs;
         for my $t (@tmplarg) {
             if ( $t =~ /%(.*?)(?:\|([A-Z]))?%/ ) {
+
                 # implicit untaint of template OK
                 my ( $p, $flag ) = ( $1, $2 );
                 if ( !exists $params{$p} ) {
@@ -303,7 +371,8 @@ sub _buildCommandLine {
                         push @targs, untaintUnchecked($param);
                     }
                     elsif ( $flag eq 'F' ) {
-                        $param = normalizeFileName($param);
+                        $param = _cleanUpFilePath($param);
+
                         # Some command interpreters are too stupid to deal
                         # with filenames that start with a non-alphanumeric
                         $param = "./$param" if $param =~ /^[^\w\/\\]/;
@@ -380,12 +449,12 @@ sub _safeDie {
 
 =begin TML
 
----++ StaticMethod sysCommand( $class, $template, %params ) -> ( $data, $exit )
+---++ StaticMethod sysCommand( $class, $template, %params ) -> ( $data, $exit, $stderr )
 
 Invokes the program described by =$template=
 and =%params=, and returns the output of the program and an exit code.
-STDOUT is returned. STDERR is THROWN AWAY. $class is also ignored, and
-is only present for compatibility.
+STDOUT is returned. STDERR is returned *if possible* (or is undef if not).
+$class is ignored, and is only present for compatibility.
 
 The caller has to ensure that the invoked program does not react in a
 harmful way to the passed arguments. =sysCommand= merely
@@ -431,10 +500,13 @@ sub sysCommand {
     return '' unless $template;
 
     # Implicit untaint OK; $template is safe
-    $template =~ /(^.*?)\s+(.*)$/;
+    $template =~ /^(.*?)(?:\s+(.*))?$/;
     my $path  = $1;
     my $pTmpl = $2;
     my $cmd;
+    # Writing to a cache file is the only way I can find of redirecting
+    # STDERR.
+    my $stderrCache = File::Spec->tmpdir() . '/' . $$ . '.stderr';
 
     # Item5449: A random key known by both parent and child.
     # Used to make it possible that the parent detects when
@@ -447,7 +519,7 @@ sub sysCommand {
 
     # Build argument list from template
     my @args = _buildCommandLine( $pTmpl, %params );
-    if ( $REAL_SAFE_PIPE_OPEN ) {
+    if ($REAL_SAFE_PIPE_OPEN) {
 
         # Real safe pipes, open from process directly - works
         # for most Unix/Linux Perl platforms and on Cygwin.  Based on
@@ -468,15 +540,15 @@ sub sysCommand {
             close $handle;
             $exit = ( $? >> 8 );
             if ( $exit == $key && $data =~ /$key: (.*)/ ) {
-                throw Error::Simple( 'exec failed: ' . $1 );
+                throw Error::Simple("exec of $template failed: $1");
             }
         }
         else {
 
             # Child - run the command
             untie(*STDERR);
-            open( STDERR, '>', File::Spec->devnull() )
-              || die "Can't kill STDERR: '$!'";
+            open( STDERR, '>', $stderrCache )
+              || die "Can't redirect STDERR: '$!'";
 
             unless ( exec( $path, @args ) ) {
                 syswrite( STDOUT, $key . ": $!\n" );
@@ -487,7 +559,7 @@ sub sysCommand {
         }
 
     }
-    elsif ( $EMULATED_SAFE_PIPE_OPEN ) {
+    elsif ($EMULATED_SAFE_PIPE_OPEN) {
 
         # Safe pipe emulation mostly on Windows platforms
 
@@ -535,7 +607,9 @@ sub sysCommand {
 
             open( STDOUT, ">&=", fileno($writeHandle) ) or die;
 
-            open( STDERR, '>', File::Spec->devnull() );
+            open( STDERR, '>', $stderrCache )
+              || die "Can't kill STDERR: $!";
+
             unless ( exec( $path, @args ) ) {
                 syswrite( STDOUT, $key . ": $!\n" );
                 exit($key);
@@ -562,29 +636,33 @@ sub sysCommand {
             $cmd =
                 $path . ' ' 
               . $CMDQUOTE
-              . join( $CMDQUOTE . ' ' . $CMDQUOTE,
-                      map { s/$CMDQUOTE/\\$CMDQUOTE/go; $_ } @args )
-              . $CMDQUOTE;
+              . join(
+                $CMDQUOTE . ' ' . $CMDQUOTE,
+                map { s/$CMDQUOTE/\\$CMDQUOTE/go; $_ } @args
+              ) . $CMDQUOTE;
         }
 
         if (   ( $Foswiki::cfg{DetailedOS} eq 'MSWin32' )
-            && ( length($cmd) > 8192 ) )
+            && ( length($cmd) > 8191 ) )
         {
-
-      #heck, on pre WinXP its only 2048 - http://support.microsoft.com/kb/830473
+            #heck, on pre WinXP its only 2048 - http://support.microsoft.com/kb/830473
             print STDERR
               "WARNING: Sandbox::sysCommand commandline probably too long ("
               . length($cmd) . ")\n";
+            ASSERT(length($cmd) < 8191) if DEBUG;
         }
 
-        open( OLDERR, '>&STDERR' ) || die "Can't steal STDERR: $!";
-        open( STDERR, '>', File::Spec->devnull() );
+        open( my $oldStderr, '>&STDERR' ) || die "Can't steal STDERR: $!";
+
+        open( STDERR, '>', $stderrCache )
+          || die "Can't redirect STDERR: $!";
+
         $data = `$cmd`;
 
         # restore STDERR
         close(STDERR);
-        open( STDERR, '>&OLDERR' ) || die "Can't restore STDERR: $!";
-        close(OLDERR);
+        open( STDERR, '>&', $oldStderr ) || die "Can't restore STDERR: $!";
+        close($oldStderr);
 
         $exit = ( $? >> 8 );
 
@@ -593,38 +671,50 @@ sub sysCommand {
     }
 
     if (TRACE) {
-        $cmd ||= $path . ' ' . $CMDQUOTE .
-          join( $CMDQUOTE . ' ' . $CMDQUOTE, @args ) . $CMDQUOTE;
+        $cmd ||=
+            $path . ' '
+          . $CMDQUOTE
+          . join( $CMDQUOTE . ' ' . $CMDQUOTE, @args )
+          . $CMDQUOTE;
         $data ||= '';
         print STDERR $cmd, ' -> ', $data, "\n";
     }
-    return ( $data, $exit );
+
+    my $stderr;
+    if ( open( $handle, '<', $stderrCache )) {
+        local $/;
+        $stderr = <$handle>;
+        close( $handle );
+    }
+    unlink($stderrCache);
+
+    return ( $data, $exit, $stderr );
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2004-2007 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-# Copyright (C) 2004 Florian Weimer, Crawford Currie http://c-dot.co.uk
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. All Rights Reserved.
+Foswiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2004-2007 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+Copyright (C) 2004 Florian Weimer, Crawford Currie http://c-dot.co.uk
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

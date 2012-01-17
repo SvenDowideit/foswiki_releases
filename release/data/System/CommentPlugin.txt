@@ -250,7 +250,7 @@ Another great extension from the <a style="text-decoration:none" href="http://wi
 |  Copyright: | &copy; 2004, Foswiki:Main.CrawfordCurrie<br />&copy; 2004-2010 Foswiki:%SYSTEMWEB%.ProjectContributor |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
 |  Release: | 31 Jul 2010 |
-|  Version: | 8771 (2010-08-26) |
+|  Version: | 8843 (2010-09-01) |
 |  Change History: | |
 |  31 Jul 2010 | Foswikitask:Item9415 - Documentation updates |
 |  27 May 2010 | Moved example topic Sandbox.CommentPluginExamples to Sandbox web. | 

@@ -1,32 +1,72 @@
 # See bottom of file for license and copyright information
+
+=begin TML
+
+---+ package Foswiki::Configure::Checkers::BasicSanity
+
+Checker that implements the basic sanity checks that configure performs.
+
+=cut
+
 package Foswiki::Configure::Checkers::BasicSanity;
-use base 'Foswiki::Configure::Checker';
 
 use strict;
+use warnings;
+
+use Foswiki::Configure::Checker ();
+use Foswiki::Configure::Util    ();
+our @ISA = ('Foswiki::Configure::Checker');
 
 sub new {
     my ( $class, $item ) = @_;
     my $this = $class->SUPER::new($item);
     $this->{LocalSiteDotCfg} = undef;
     $this->{errors}          = 0;
+    $this->{badLSC}          = 0;
 
     return $this;
 }
 
-# return true if we have fatal errors
+=begin TML
+
+---++ ObjectMethod insane() -> $boolean
+
+Return true if we have fatal errors
+
+=cut
+
 sub insane() {
     my $this = shift;
     return $this->{errors};
 }
 
-sub ui {
+=begin TML
+
+---++ ObjectMethod lscIsBad() -> $boolean
+
+Return true if LocalSite.cfg was found to be bad.
+
+=cut
+
+sub lscIsBad() {
+    my $this = shift;
+    return $this->{badLSC};
+}
+
+# Override Foswiki::Configure::Checker
+# Perform basic sanity checks, returning a HTML condition statement.
+
+sub check {
     my $this   = shift;
     my $result = '';
-    my $badLSC = 0;
+    $this->{badLSC} = 0;
 
-    $this->{LocalSiteDotCfg} = Foswiki::findFileOnPath('LocalSite.cfg');
+    $this->{LocalSiteDotCfg} =
+      Foswiki::Configure::Util::findFileOnPath('LocalSite.cfg');
     unless ( $this->{LocalSiteDotCfg} ) {
-        $this->{LocalSiteDotCfg} = Foswiki::findFileOnPath('Foswiki.spec') || '';
+        $this->{LocalSiteDotCfg} =
+          Foswiki::Configure::Util::findFileOnPath('Foswiki.spec')
+          || '';
         $this->{LocalSiteDotCfg} =~ s/Foswiki\.spec/LocalSite.cfg/;
     }
 
@@ -46,18 +86,22 @@ Please correct this error before continuing.
 HERE
     }
     elsif ( -e $this->{LocalSiteDotCfg} ) {
-        eval { Foswiki::Configure::Load::readConfig(); };
+        eval { Foswiki::Configure::Load::readConfig(1); };
         if ($@) {
+            $this->{errors}++;
             $result .= <<HERE;
 Existing configuration file has a problem
 that is causing a Perl error - the following message(s) was generated:
 <pre>$@</pre>
-You can continue, but configure will not pick up any of the existing
-settings from this file unless you correct the perl error.
+<b>You can continue, but configure will not pick up any of the existing
+settings from this file and your previous configuration will be lost.</b>
+Manually edit and correct your <tt>$this->{LocalSiteDotCfg}</tt> file if you
+wish to preserve your prior configuration.
 HERE
-            $badLSC = 1;
+            $this->{badLSC} = 1;
         }
         elsif ( !-w $this->{LocalSiteDotCfg} ) {
+            $this->{errors}++;
             $result .= <<HERE;
 Cannot write to existing configuration file
 $this->{LocalSiteDotCfg} is not writable.
@@ -65,14 +109,17 @@ You can view the configuration, but you will not be able to save.
 Check the file permissions.
 HERE
         }
-        elsif ( (my $mess = $this->checkCfg(\%Foswiki::cfg)) ) {
+        elsif ( ( my $mess = $this->_checkCfg( \%Foswiki::cfg ) ) ) {
+            $this->{errors}++;
             $result .= <<HERE;
 The existing configuration file
 $this->{LocalSiteDotCfg} doesn't seem to contain a good configuration
 for Foswiki. The following problems were found:<br>
 $mess
-You are recommended to repair these problems manually, or delete
-$this->{LocalSiteDotCfg} and start the configuration process again.
+<b>You can continue, but configure will not pick up any of the existing
+settings from this file and your previous configuration will be lost.</b>
+Manually edit and correct your <tt>$this->{LocalSiteDotCfg}</tt> file if you
+wish to preserve your prior configuration.
 HERE
         }
 
@@ -83,25 +130,20 @@ HERE
         my $errs = $this->checkCanCreateFile( $this->{LocalSiteDotCfg} );
 
         if ($errs) {
+        $this->{errors}++;
             $result .= <<HERE;
 Configuration file $this->{LocalSiteDotCfg} does not exist, and I cannot
 write a new configuration file due to these errors:
 <pre/>$errs<pre>
 You can view the default configuration, but you will not be able to save.
 HERE
-            $badLSC = 1;
+            $this->{badLSC} = 1;
         }
         else {
             $result .= <<HERE;
 Could not find existing configuration file <code>$this->{LocalSiteDotCfg}</code>.
-<h3>Do you run configure for the first time?</h3>
-Please fill in the required paths in the
-<a rel="nofollow" href="#GeneralPathSettingslink" onclick="foldBlock('GeneralPathSettings'); return false;">
-General path settings</a> section below and click 'Next' to save before returning to configure to complete configuration.
-<h3>Did you save the configuration before?</h3>
-Please check for the existence of <code>lib/LocalSite.cfg</code>, and make sure the webserver user can read it.
 HERE
-            $badLSC = 1;
+            $this->{badLSC} = 1;
         }
     }
 
@@ -133,13 +175,13 @@ HERE
     $ENV{PATH} = $Foswiki::cfg{SafeEnvPath};
     delete @ENV{qw( IFS CDPATH ENV BASH_ENV )};
 
-    return ( $result, $badLSC );
+    return $result;
 }
 
 sub _copy {
     my $n = shift;
 
-    return undef unless defined($n);
+    return unless defined($n);
 
     if ( UNIVERSAL::isa( $n, 'ARRAY' ) ) {
         my @new;
@@ -169,55 +211,53 @@ sub _copy {
 
 # Check that an existing LocalSite.cfg doesn't contain crap.
 
-sub checkCfg {
-    my ($this, $entry, $keys) = @_;
+sub _checkCfg {
+    my ( $this, $entry, $keys ) = @_;
     $keys ||= '';
     my $mess = '';
 
-    if (ref($entry) eq 'HASH') {
-        foreach my $el (keys %$entry) {
-            $mess .= $this->checkCfg($entry->{$el}, "$keys\{$el}");
+    if ( ref($entry) eq 'HASH' ) {
+        foreach my $el ( keys %$entry ) {
+            $mess .= $this->_checkCfg( $entry->{$el}, "$keys\{$el}" );
         }
     }
-    elsif (ref($entry) eq 'ARRAY') {
-        foreach my $i (0..scalar(@$entry)) {
-            $mess .= $this->checkCfg($entry->[$i], "$keys\[$i]")
+    elsif ( ref($entry) eq 'ARRAY' ) {
+        foreach my $i ( 0 .. scalar(@$entry) ) {
+            $mess .= $this->_checkCfg( $entry->[$i], "$keys\[$i]" );
         }
     }
     else {
-        if (defined $entry && $entry =~ /NOT SET/) {
+        if ( defined $entry && $entry =~ /NOT SET/ ) {
             $mess .=
-              "<div>\$Foswiki::cfg::$keys has been guessed and may be incorrect</div>";
+"<div>\$Foswiki::cfg::$keys has been guessed and may be incorrect</div>";
         }
     }
     return $mess;
 }
 
 1;
-__DATA__
-#
-# Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008 Foswiki Contributors. All Rights Reserved.
-# Foswiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this
-# file as follows:
-#
-# Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
-# TWiki Contributors are listed in the AUTHORS file in the root
-# of this distribution. NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
-#
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this
+file as follows:
+
+Copyright (C) 2000-2006 TWiki Contributors. All Rights Reserved.
+TWiki Contributors are listed in the AUTHORS file in the root
+of this distribution. NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

@@ -1,10 +1,7 @@
+# See bottom of file for license and copyright information
 package Assert;
-use base 'Exporter';
-require 5.006;
 
 # Derived from Carp::Assert
-# Copyright 2004 Crawford Currie
-# Copyright 2002 by Michael G Schwern <schwern@pobox.com
 # Slightly simplified derived version of Assert
 # Differences are:
 #  1. ASSERT instead of assert
@@ -15,26 +12,33 @@ require 5.006;
 # Usage is as for Carp::Assert except that you have to explicitly
 # enable asserts using the environment variable ENV{FOSWIKI_ASSERTS}
 # (or ENV{TWIKI_ASSERTS})
-# add ENV{FOSWIKI_ASSERTS} = 1; to you bin/setlib.cfg or bin/LocalLib.cfg
+# add ENV{FOSWIKI_ASSERTS} = 1; to your bin/setlib.cfg or bin/LocalLib.cfg
 
 use strict;
 
-use vars qw(@ISA $VERSION %EXPORT_TAGS $DIRTY);
+use locale;    # so result of lc() is tainted
+use Exporter;
+our @ISA = ('Exporter');
 
-BEGIN {
-    $VERSION = '0.01';
-    $DIRTY = $ENV{PATH}; # Used in TAINT
+our %EXPORT_TAGS = (
+    NDEBUG => [ 'ASSERT', 'UNTAINTED', 'TAINT', 'DEBUG' ],
+    DEBUG  => [ 'ASSERT', 'UNTAINTED', 'TAINT', 'DEBUG' ],
+);
 
-    $EXPORT_TAGS{NDEBUG} = ['ASSERT', 'UNTAINTED', 'TAINT', 'DEBUG'];
-    $EXPORT_TAGS{DEBUG}  = $EXPORT_TAGS{NDEBUG};
-    Exporter::export_tags(qw(NDEBUG DEBUG));
-}
+our $VERSION = '$Rev: 9498 (2010-10-04) $';
+our $DIRTY   = lc('x');          # Used in TAINT
+
+Exporter::export_tags(qw(NDEBUG DEBUG));
 
 # constant.pm, alas, adds too much load time (yes, I benchmarked it)
-sub ASSERTS_ON  { 1 }    # CONSTANT
-sub ASSERTS_OFF { 0 }    # CONSTANT
+sub ASSERTS_ON  { 1 }            # CONSTANT
+sub ASSERTS_OFF { 0 }            # CONSTANT
 
-sub noop { return $_[0] }
+# Provides the same return value and the same context
+# for its parameters as the real TAINT and UNTAINTED
+sub noop($) { return $_[0] }
+
+our $soft = 0;
 
 # Export the proper DEBUG flag if FOSWIKI_ASSERTS is set,
 # otherwise export noop versions of our routines
@@ -42,17 +46,25 @@ sub import {
     no warnings 'redefine';
     no strict 'refs';
     if ( $ENV{FOSWIKI_ASSERTS} || $ENV{TWIKI_ASSERTS} ) {
+        $soft = 1 if $ENV{FOSWIKI_ASSERTS} and $ENV{FOSWIKI_ASSERTS} eq 'soft';
         *DEBUG = *ASSERTS_ON;
         Assert->export_to_level( 1, @_ );
     }
     else {
         my $caller = caller;
-        *{ $caller . '::ASSERT' }    = \&noop;
+        *{ $caller . '::ASSERT' }    = \&dummyASSERT;
         *{ $caller . '::TAINT' }     = \&noop;
+        *{ $caller . '::UNTAINTED' } = \&noop;
         *{ $caller . '::DEBUG' }     = \&ASSERTS_OFF;
     }
     use strict 'refs';
     use warnings 'redefine';
+}
+
+# Provides the same return value and the same context
+# for its parameters as the real ASSERT
+sub dummyASSERT($;$) {
+    return;
 }
 
 sub ASSERT ($;$) {
@@ -61,9 +73,14 @@ sub ASSERT ($;$) {
         my $msg = 'Assertion';
         $msg .= " ($_[1])" if defined $_[1];
         $msg .= " failed!\n";
-        Carp::confess($msg);
+        if ($soft) {
+            Carp::cluck($msg);
+        }
+        else {
+            Carp::confess($msg);
+        }
     }
-    return undef;
+    return;
 }
 
 # Test if a value is untainted
@@ -75,7 +92,26 @@ sub UNTAINTED($) {
 
 # Taint the datum passed and return the tainted value
 sub TAINT($) {
-    return substr($_[0].$DIRTY, 0, length($_[0]));
+    return substr( $_[0] . $DIRTY, 0, length( $_[0] ) );
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright 2002 by Michael G Schwern <schwern@pobox.com>
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

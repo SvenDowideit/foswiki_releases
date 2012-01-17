@@ -9,8 +9,9 @@
 %TMPL:DEF{"parentwebtitle"}%---+++ %MAKETEXT{"New parent web:"}%%TMPL:END%
 
 
-%TMPL:DEF{"newtopic"}%%TMPL:END%
+%TMPL:DEF{"newattachment"}%%TMPL:END%
 
+%TMPL:DEF{"newtopic"}%%TMPL:END%
 
 %TMPL:DEF{"newweb"}%%TMPL:P{"newparentweb"}%.%TMPL:P{"newsubweb"}%%TMPL:END%
 
@@ -46,7 +47,7 @@
 
 
 %TMPL:DEF{"notegethelp"}%
-   * %MAKETEXT{"Get help on <a target='ManagingWebs' class='foswikiPopUp' href='[_1]' rel='nofollow'>Renaming and moving webs</a>." args="%SCRIPTURLPATH{"view"}%/%SYSTEMWEB%/ManagingWebs"}%
+   * %POPUPWINDOW{"%SYSTEMWEB%.ManagingWebs?section=rename" label="Get help on renaming and deleting webs"}%%JQREQUIRE{"popupwindow"}%
    * Select the %TRASHWEB% Web to delete the topic.
 %TMPL:P{"notecheckmarkedtopics"}%
 %TMPL:END%

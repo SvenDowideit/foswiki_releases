@@ -41,6 +41,20 @@ current topic, these need to be generated before the =afterCommonTagsHandler=
 is run. After that point in the rendering loop we have lost the information
 that the text had been included from another topic.
 
+__NOTE:__ Not all handlers (and not all parameters passed to handlers) are
+available with all versions of Foswiki. Where a handler has been added
+the POD comment will indicate this with a "Since" line
+e.g. *Since:* Foswiki::Plugins::VERSION 1.1
+
+Deprecated handlers are still available, and can continue to be used to
+maintain compatibility with earlier releases, but will be removed at some
+point in the future. If you do implement deprecated handlers, then you can
+do no harm by simply keeping them in your code, but you are recommended to
+implement the alternative as soon as possible.
+
+See http://foswiki.org/Download/ReleaseDates for a breakdown of release
+versions.
+
 =cut
 
 # change the package name!!!
@@ -48,21 +62,28 @@ package Foswiki::Plugins::EmptyPlugin;
 
 # Always use strict to enforce variable scoping
 use strict;
+use warnings;
 
-require Foswiki::Func;    # The plugins API
-require Foswiki::Plugins; # For the API version
+use Foswiki::Func    ();    # The plugins API
+use Foswiki::Plugins ();    # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
-# *must* exist in this package.
-# This should always be $Rev: 7889 (2010-06-23) $ so that Foswiki can determine the checked-in
-# status of the plugin. It is used by the build automation tools, so
-# you should leave it alone.
-our $VERSION = '$Rev: 7889 (2010-06-23) $';
+# *must* exist in this package. This should always be in the format
+# $Rev: 8536 (2010-08-18) $ so that Foswiki can determine the checked-in status of the
+# extension.
+our $VERSION = '$Rev: 8536 (2010-08-18) $';
 
-# This is a free-form string you can use to "name" your own plugin version.
-# It is *not* used by the build automation tools, but is reported as part
-# of the version number in PLUGINDESCRIPTIONS.
-our $RELEASE = '$Date: 2010-06-23 07:12:40 +0200 (Wed, 23 Jun 2010) $';
+# $RELEASE is used in the "Find More Extensions" automation in configure.
+# It is a manually maintained string used to identify functionality steps.
+# You can use any of the following formats:
+# tuple   - a sequence of integers separated by . e.g. 1.2.3. The numbers
+#           usually refer to major.minor.patch release or similar. You can
+#           use as many numbers as you like e.g. '1' or '1.2.3.4.5'.
+# isodate - a date in ISO8601 format e.g. 2009-08-07
+# date    - a date in 1 Jun 2009 format. Three letter English month names only.
+# Note: it's important that this string is exactly the same in the extension
+# topic - if you use %$RELEASE% with BuildContrib this is done automatically.
+our $RELEASE = '1.1.1';
 
 # Short description of this plugin
 # One line description, is shown in the %SYSTEMWEB%.TextFormattingRules topic:
@@ -72,10 +93,13 @@ our $SHORTDESCRIPTION = 'Empty Plugin used as a template for new Plugins';
 # preferences set in the plugin topic. This is required for compatibility
 # with older plugins, but imposes a significant performance penalty, and
 # is not recommended. Instead, leave $NO_PREFS_IN_TOPIC at 1 and use
-# =$Foswiki::cfg= entries set in =LocalSite.cfg=, or if you want the users
+# =$Foswiki::cfg= entries, or if you want the users
 # to be able to change settings, then use standard Foswiki preferences that
 # can be defined in your %USERSWEB%.SitePreferences and overridden at the web
 # and topic level.
+#
+# %SYSTEMWEB%.DevelopingPlugins has details of how to define =$Foswiki::cfg=
+# entries so they can be used with =configure=.
 our $NO_PREFS_IN_TOPIC = 1;
 
 =begin TML
@@ -105,12 +129,12 @@ FOOBARSOMETHING. This avoids namespace issues.
 =cut
 
 sub initPlugin {
-    my( $topic, $web, $user, $installWeb ) = @_;
+    my ( $topic, $web, $user, $installWeb ) = @_;
 
     # check for Plugins.pm versions
-    if( $Foswiki::Plugins::VERSION < 2.0 ) {
+    if ( $Foswiki::Plugins::VERSION < 2.0 ) {
         Foswiki::Func::writeWarning( 'Version mismatch between ',
-                                     __PACKAGE__, ' and Plugins.pm' );
+            __PACKAGE__, ' and Plugins.pm' );
         return 0;
     }
 
@@ -120,7 +144,7 @@ sub initPlugin {
     # Set your per-installation plugin configuration in LocalSite.cfg,
     # like this:
     # $Foswiki::cfg{Plugins}{EmptyPlugin}{ExampleSetting} = 1;
-    # Optional: See %SYSTEMWEB%.DevelopingPlugins#ConfigSpec for information
+    # See %SYSTEMWEB%.DevelopingPlugins#ConfigSpec for information
     # on integrating your plugin configuration with =configure=.
 
     # Always provide a default in case the setting is not defined in
@@ -132,9 +156,9 @@ sub initPlugin {
     # seen in the topic text.
     Foswiki::Func::registerTagHandler( 'EXAMPLETAG', \&_EXAMPLETAG );
 
-    # Allow a sub to be called from the REST interface 
+    # Allow a sub to be called from the REST interface
     # using the provided alias
-    Foswiki::Func::registerRESTHandler('example', \&restExample);
+    Foswiki::Func::registerRESTHandler( 'example', \&restExample );
 
     # Plugin correctly initialized
     return 1;
@@ -146,7 +170,7 @@ sub initPlugin {
 #    my($session, $params, $theTopic, $theWeb) = @_;
 #    # $session  - a reference to the Foswiki session object
 #    #             (you probably won't need it, but documented in Foswiki.pm)
-#    # $params=  - a reference to a Foswiki::Attrs object containing
+#    # $params=  - a reference to a Foswiki::Attrs object containing 
 #    #             parameters.
 #    #             This can be used as a simple hash that maps parameter names
 #    #             to values, with _DEFAULT being the name for the default
@@ -200,10 +224,28 @@ This handler is called very early, immediately after =earlyInitPlugin=.
 
 =begin TML
 
----++ registrationHandler($web, $wikiName, $loginName )
+---++ finishPlugin()
+
+Called when Foswiki is shutting down, this handler can be used by the plugin
+to release resources - for example, shut down open database connections,
+release allocated memory etc.
+
+Note that it's important to break any cycles in memory allocated by plugins,
+or that memory will be lost when Foswiki is run in a persistent context
+e.g. mod_perl.
+
+=cut
+
+#sub finishPlugin {
+#}
+
+=begin TML
+
+---++ registrationHandler($web, $wikiName, $loginName, $data )
    * =$web= - the name of the web in the current CGI query
    * =$wikiName= - users wiki name
    * =$loginName= - users login name
+   * =$data= - a hashref containing all the formfields POSTed to the registration script
 
 Called when a new user registers with this Foswiki.
 
@@ -216,7 +258,7 @@ the user submits the activation code.
 =cut
 
 #sub registrationHandler {
-#    my ( $web, $wikiName, $loginName ) = @_;
+#    my ( $web, $wikiName, $loginName, $data ) = @_;
 #}
 
 =begin TML
@@ -246,6 +288,10 @@ removed from the text (though all other blocks such as &lt;pre> and
 
 *NOTE:* meta-data is _not_ embedded in the text passed to this
 handler. Use the =$meta= object.
+
+*NOTE:* Read the developer supplement at
+Foswiki:Development.AddToZoneFromPluginHandlers if you are calling
+=addToZone()= from this handler
 
 *Since:* $Foswiki::Plugins::VERSION 2.0
 
@@ -287,6 +333,10 @@ handler.
 
 *NOTE:* This handler is not separately called on included topics.
 
+*NOTE:* Read the developer supplement at
+Foswiki:Development.AddToZoneFromPluginHandlers if you are calling
+=addToZone()= from this handler
+
 =cut
 
 #sub beforeCommonTagsHandler {
@@ -315,6 +365,10 @@ rendering of a topic.
 
 *NOTE:* meta-data is _not_ embedded in the text passed to this
 handler.
+
+*NOTE:* Read the developer supplement at
+Foswiki:Development.AddToZoneFromPluginHandlers if you are calling
+=addToZone()= from this handler
 
 =cut
 
@@ -373,6 +427,10 @@ it may be called several times during the rendering of a topic.
 *NOTE:* meta-data is _not_ embedded in the text passed to this
 handler.
 
+*NOTE:* Read the developer supplement at
+Foswiki:Development.AddToZoneFromPluginHandlers if you are calling
+=addToZone()= from this handler
+
 Since Foswiki::Plugins::VERSION = '2.0'
 
 =cut
@@ -396,6 +454,10 @@ it may be called several times during the rendering of a topic.
 
 *NOTE:* meta-data is _not_ embedded in the text passed to this
 handler.
+
+*NOTE:* Read the developer supplement at
+Foswiki:Development.AddToZoneFromPluginHandlers if you are calling
+=addToZone()= from this handler
 
 Since Foswiki::Plugins::VERSION = '2.0'
 
@@ -543,46 +605,71 @@ This handler is called just after the rename/move/delete action of a web, topic 
 
 =begin TML
 
----++ beforeAttachmentSaveHandler(\%attrHash, $topic, $web )
+---++ beforeUploadHandler(\%attrHash, $meta )
    * =\%attrHash= - reference to hash of attachment attribute values
-   * =$topic= - the name of the topic in the current CGI query
-   * =$web= - the name of the web in the current CGI query
+   * =$meta= - the Foswiki::Meta object where the upload will happen
+
 This handler is called once when an attachment is uploaded. When this
 handler is called, the attachment has *not* been recorded in the database.
 
 The attributes hash will include at least the following attributes:
-   * =attachment= => the attachment name
-   * =comment= - the comment
-   * =user= - the user id
-   * =tmpFilename= - name of a temporary file containing the attachment data
+   * =attachment= => the attachment name - must not be modified
+   * =user= - the user id - must not be modified
+   * =comment= - the comment - may be modified
+   * =stream= - an input stream that will deliver the data for the
+     attachment. The stream can be assumed to be seekable, and the file
+     pointer will be positioned at the start. It is *not* necessary to
+     reset the file pointer to the start of the stream after you are
+     done, nor is it necessary to close the stream.
 
-*Since:* Foswiki::Plugins::VERSION = 2.0
+The handler may wish to replace the original data served by the stream
+with new data. In this case, the handler can set the ={stream}= to a
+new stream.
+
+For example:
+<verbatim>
+sub beforeUploadHandler {
+    my ( $attrs, $meta ) = @_;
+    my $fh = $attrs->{stream};
+    local $/;
+    # read the whole stream
+    my $text = <$fh>;
+    # Modify the content
+    $text =~ s/investment bank/den of thieves/gi;
+    $fh = new File::Temp();
+    print $fh $text;
+    $attrs->{stream} = $fh;
+
+}
+</verbatim>
+
+*Since:* Foswiki::Plugins::VERSION = 2.1
 
 =cut
 
-#sub beforeAttachmentSaveHandler {
+#sub beforeUploadHandler {
 #    my( $attrHashRef, $topic, $web ) = @_;
 #}
 
 =begin TML
 
----++ afterAttachmentSaveHandler(\%attrHash, $topic, $web, $error )
+---++ afterUploadHandler(\%attrHash, $meta )
    * =\%attrHash= - reference to hash of attachment attribute values
-   * =$topic= - the name of the topic in the current CGI query
-   * =$web= - the name of the web in the current CGI query
-   * =$error= - any error string generated during the save process
-This handler is called just after the save action. The attributes hash
-will include at least the following attributes:
+   * =$meta= - a Foswiki::Meta  object where the upload has happened
+
+This handler is called just after the after the attachment
+meta-data in the topic has been saved. The attributes hash
+will include at least the following attributes, all of which are read-only:
    * =attachment= => the attachment name
    * =comment= - the comment
    * =user= - the user id
 
-*Since:* Foswiki::Plugins::VERSION = 2.0
+*Since:* Foswiki::Plugins::VERSION = 2.1
 
 =cut
 
-#sub afterAttachmentSaveHandler {
-#    my( $attrHashRef, $topic, $web ) = @_;
+#sub afterUploadHandler {
+#    my( $attrHashRef, $meta ) = @_;
 #}
 
 =begin TML
@@ -658,26 +745,6 @@ using the =Foswiki::Func::addToHEAD= method.
 
 #sub modifyHeaderHandler {
 #    my ( $headers, $query ) = @_;
-#}
-
-=begin TML
-
----++ redirectCgiQueryHandler($query, $url )
-   * =$query= - the CGI query
-   * =$url= - the URL to redirect to
-
-This handler can be used to replace Foswiki's internal redirect function.
-
-If this handler is defined in more than one plugin, only the handler
-in the earliest plugin in the INSTALLEDPLUGINS list will be called. All
-the others will be ignored.
-
-*Since:* Foswiki::Plugins::VERSION 2.0
-
-=cut
-
-#sub redirectCgiQueryHandler {
-#    my ( $query, $url ) = @_;
 #}
 
 =begin TML
@@ -767,47 +834,107 @@ cache and security plugins.
 This is an example of a sub to be called by the =rest= script. The parameter is:
    * =$session= - The Foswiki object associated to this session.
 
-Additional parameters can be recovered via the query object in the $session.
+Additional parameters can be recovered via the query object in the $session, for example:
+
+my $query = $session->{request};
+my $web = $query->{param}->{web}[0];
+
+If your rest handler adds or replaces equivalent functionality to a standard script
+provided with Foswiki, it should set the appropriate context in its switchboard entry.
+A list of contexts are defined in %SYSTEMWEB%.IfStatements#Context_identifiers.
 
 For more information, check %SYSTEMWEB%.CommandAndCGIScripts#rest
 
 For information about handling error returns from REST handlers, see
-Foswiki::Support.Faq1
+Foswiki:Support.Faq1
 
 *Since:* Foswiki::Plugins::VERSION 2.0
 
 =cut
 
 #sub restExample {
-#   my ($session) = @_;
+#   my ( $session, $subject, $verb, $response ) = @_;
 #   return "This is an example of a REST invocation\n\n";
 #}
 
-1;
-__END__
-This copyright information applies to the EmptyPlugin:
+=begin TML
 
-# Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# EmptyPlugin is Copyright (C) 2008 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-# Additional copyrights apply to some or all of the code as follows:
-# Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
-# Copyright (C) 2001-2006 Peter Thoeny, peter@thoeny.org
-# and TWiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-#
-# This license applies to EmptyPlugin *and also to any derivatives*
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# For licensing info read LICENSE file in the Foswiki root.
+---++ Deprecated handlers
+
+---+++ redirectCgiQueryHandler($query, $url )
+   * =$query= - the CGI query
+   * =$url= - the URL to redirect to
+
+This handler can be used to replace Foswiki's internal redirect function.
+
+If this handler is defined in more than one plugin, only the handler
+in the earliest plugin in the INSTALLEDPLUGINS list will be called. All
+the others will be ignored.
+
+*Deprecated in:* Foswiki::Plugins::VERSION 2.1
+
+This handler was deprecated because it cannot be guaranteed to work, and
+caused a significant impediment to code improvements in the core.
+
+---+++ beforeAttachmentSaveHandler(\%attrHash, $topic, $web )
+
+   * =\%attrHash= - reference to hash of attachment attribute values
+   * =$topic= - the name of the topic in the current CGI query
+   * =$web= - the name of the web in the current CGI query
+This handler is called once when an attachment is uploaded. When this
+handler is called, the attachment has *not* been recorded in the database.
+
+The attributes hash will include at least the following attributes:
+   * =attachment= => the attachment name
+   * =comment= - the comment
+   * =user= - the user id
+   * =tmpFilename= - name of a temporary file containing the attachment data
+
+*Deprecated in:* Foswiki::Plugins::VERSION 2.1
+
+The efficiency of this handler (and therefore it's impact on performance)
+is very bad. Please use =beforeUploadHandler()= instead.
+
+=begin TML
+
+---+++ afterAttachmentSaveHandler(\%attrHash, $topic, $web )
+
+   * =\%attrHash= - reference to hash of attachment attribute values
+   * =$topic= - the name of the topic in the current CGI query
+   * =$web= - the name of the web in the current CGI query
+   * =$error= - any error string generated during the save process (always
+     undef in 2.1)
+
+This handler is called just after the save action. The attributes hash
+will include at least the following attributes:
+   * =attachment= => the attachment name
+   * =comment= - the comment
+   * =user= - the user id
+
+*Deprecated in:* Foswiki::Plugins::VERSION 2.1
+
+This handler has a number of problems including security and performance
+issues. Please use =afterUploadHandler()= instead.
+
+=cut
+
+1;
+
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

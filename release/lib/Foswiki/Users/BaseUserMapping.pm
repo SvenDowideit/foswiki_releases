@@ -4,7 +4,8 @@
 
 ---+ package Foswiki::Users::BaseUserMapping
 
-User mapping is the process by which Foswiki maps from a username (a login name)
+User mapping is the process by which Foswiki maps from a username
+(a login name)
 to a display name and back. It is also where groups are maintained.
 
 The BaseMapper provides support for a small number of predefined users.
@@ -12,11 +13,12 @@ No registration - this is a read only usermapper. It uses the mapper
 prefix 'BaseUserMapping_'.
 
 ---++ Users
-   * $Foswiki::cfg{AdminUserLogin} - WikiAdmin - uses the password that was set in Configure (IF its not null)
+   * $Foswiki::cfg{AdminUserLogin} - uses the password that
+     was set in Configure (IF its not null)
    * $Foswiki::cfg{DefaultUserLogin} - WikiGuest
    * UnknownUser
-   * ProjectContributor - 1 Jan 2005
-   * $Foswiki::cfg{Register}{RegistrationAgentWikiName} - RegistrationAgent - 1 Jan 2005
+   * ProjectContributor
+   * $Foswiki::cfg{Register}{RegistrationAgentWikiName}
 
 ---+++ Groups
    * $Foswiki::cfg{SuperAdminGroup}
@@ -25,11 +27,19 @@ prefix 'BaseUserMapping_'.
 =cut
 
 package Foswiki::Users::BaseUserMapping;
-use base 'Foswiki::UserMapping';
-
 use strict;
+use warnings;
+
+use Foswiki::UserMapping ();
+our @ISA = ('Foswiki::UserMapping');
+
 use Assert;
-use Error;
+use Error ();
+
+our $DEFAULT_USER_CUID = 'BaseUserMapping_666';
+our $UNKNOWN_USER_CUID = 'BaseUserMapping_999';
+our %BASE_USERS;
+our %BASE_GROUPS;
 
 =begin TML
 
@@ -44,55 +54,82 @@ Construct the BaseUserMapping object
 sub new {
     my ( $class, $session ) = @_;
 
+    # $DEFAULT_USER_CUID , $UNKNOWN_USER_CUID, %BASE_USERS and %BASE_GROUPS
+    # could be initialised statically, but tests have been written that rely
+    # on being able to override the $Foswiki::cfg settings that are part of
+    # them. Since it's a low cost op to re-initialise them each time this
+    # singleton is built, we will contiue to do so (at least until those
+    # tests have been revisited)
+    $DEFAULT_USER_CUID = 'BaseUserMapping_666';
+    $UNKNOWN_USER_CUID = 'BaseUserMapping_999';
+    %BASE_USERS        = (
+        BaseUserMapping_111 => {
+            login    => 'ProjectContributor',
+            wikiname => 'ProjectContributor',
+        },
+        BaseUserMapping_222 => {
+            login => $Foswiki::cfg{Register}{RegistrationAgentWikiName}
+              || 'RegistrationAgent',
+            wikiname => $Foswiki::cfg{Register}{RegistrationAgentWikiName}
+              || 'RegistrationAgent',
+        },
+        BaseUserMapping_333 => {
+            login    => $Foswiki::cfg{AdminUserLogin}    || 'admin',
+            wikiname => $Foswiki::cfg{AdminUserWikiName} || 'AdminUser',
+            email    => $Foswiki::cfg{WebMasterEmail}    || 'email not set',
+            password => $Foswiki::cfg{Password},
+        },
+        $DEFAULT_USER_CUID => {
+            login    => $Foswiki::cfg{DefaultUserLogin}    || 'guest',
+            wikiname => $Foswiki::cfg{DefaultUserWikiName} || 'WikiGuest',
+        },
+        $UNKNOWN_USER_CUID => {
+            login    => 'unknown',
+            wikiname => 'UnknownUser',
+        }
+    );
+    %BASE_GROUPS = (
+        $Foswiki::cfg{SuperAdminGroup} => [
+            'BaseUserMapping_333',
+
+# Registration agent was here so registration can still take
+# place on an otherwise locked down USERSWEB.
+# Jan2010: Sven removed it, otherwise anyone registering can add themselves as admin.
+#'BaseUserMapping_222'
+        ],
+        BaseGroup => [
+            'BaseUserMapping_333', $DEFAULT_USER_CUID,
+            $UNKNOWN_USER_CUID,    'BaseUserMapping_111',
+            'BaseUserMapping_222',
+        ],
+
+        #         RegistrationGroup => ['BaseUserMapping_222']
+    );
+
     my $this = $class->SUPER::new( $session, 'BaseUserMapping_' );
-    $Foswiki::cfg{Register}{RegistrationAgentWikiName} |= 'RegistrationAgent';
+    $Foswiki::cfg{Register}{RegistrationAgentWikiName} ||= 'RegistrationAgent';
 
     # set up our users
-    $this->{L2U} = {
-        $Foswiki::cfg{AdminUserLogin}   => $this->{mapping_id} . '333',
-        $Foswiki::cfg{DefaultUserLogin} => $this->{mapping_id} . '666',
-        unknown                       => $this->{mapping_id} . '999',
-        ProjectContributor              => $this->{mapping_id} . '111',
-        $Foswiki::cfg{Register}{RegistrationAgentWikiName}        => $this->{mapping_id} . '222'
-    };
-    $this->{U2L} = {
-        $this->{mapping_id} . '333' => $Foswiki::cfg{AdminUserLogin},
-        $this->{mapping_id} . '666' => $Foswiki::cfg{DefaultUserLogin},
-        $this->{mapping_id} . '999' => 'unknown',
-        $this->{mapping_id} . '111' => 'ProjectContributor',
-        $this->{mapping_id} . '222' => $Foswiki::cfg{Register}{RegistrationAgentWikiName}
-    };
-    $this->{U2W} = {
-        $this->{mapping_id} . '333' => $Foswiki::cfg{AdminUserWikiName},
-        $this->{mapping_id} . '666' => $Foswiki::cfg{DefaultUserWikiName},
-        $this->{mapping_id} . '999' => 'UnknownUser',
-        $this->{mapping_id} . '111' => 'ProjectContributor',
-        $this->{mapping_id} . '222' => $Foswiki::cfg{Register}{RegistrationAgentWikiName}
-    };
-    $this->{W2U} = {
-        $Foswiki::cfg{AdminUserWikiName}   => $this->{mapping_id} . '333',
-        $Foswiki::cfg{DefaultUserWikiName} => $this->{mapping_id} . '666',
-        UnknownUser                      => $this->{mapping_id} . '999',
-        ProjectContributor               => $this->{mapping_id} . '111',
-        $Foswiki::cfg{Register}{RegistrationAgentWikiName}    => $this->{mapping_id} . '222'
-    };
-    $this->{U2E} =
-      { $this->{mapping_id} . '333' => $Foswiki::cfg{WebMasterEmail} };
-    $this->{L2P} = { $Foswiki::cfg{AdminUserLogin} => $Foswiki::cfg{Password} };
+    $this->{L2U} = {};    # login 2 cUID
+    $this->{U2L} = {};    # cUID 2 login
+    $this->{W2U} = {};    # wikiname 2 cUID
+    $this->{U2W} = {};    # cUID 2 wikiname
+    $this->{U2E} = {};    # cUID 2 email
+    $this->{L2P} = {};    # login 2 password
 
-    $this->{GROUPS} = {
-        $Foswiki::cfg{SuperAdminGroup} => [
-            $this->{mapping_id} . '333',
-            $this->{mapping_id} . '222'     #so registration can still take place on an otherwise locked down USERSWEB
-        ],
-        BaseGroup               => [
-            $this->{mapping_id} . '333',
-            $this->{mapping_id} . '666',
-            $this->{mapping_id} . '999',
-            $this->{mapping_id} . '111',
-            $this->{mapping_id} . '222'
-        ],
-    };
+    while ( my ( $k, $v ) = each %BASE_USERS ) {
+        $this->{U2L}->{$k} = $v->{login};
+        $this->{U2W}->{$k} = $v->{wikiname};
+        $this->{U2E}->{$k} = $v->{email} if defined $v->{email};
+
+        $this->{L2U}->{ $v->{login} } = $k;
+        $this->{L2P}->{ $v->{login} } = $v->{password}
+          if defined $v->{password};
+
+        $this->{W2U}->{ $v->{wikiname} } = $k;
+    }
+
+    %{ $this->{GROUPS} } = %BASE_GROUPS;
 
     return $this;
 }
@@ -210,6 +247,8 @@ Determine if the user already exists or not.
 
 sub userExists {
     my ( $this, $cUID ) = @_;
+    ASSERT($cUID) if DEBUG;
+    return 0 unless defined $cUID;
     return $this->{U2L}{$cUID};
 }
 
@@ -303,6 +342,25 @@ sub eachMembership {
 
 =begin TML
 
+---++ ObjectMethod groupAllowsChange($group) -> boolean
+
+returns 0 if the group is 'owned by the BaseMapper and it wants to veto adding to that group
+
+=cut
+
+sub groupAllowsChange {
+    my $this  = shift;
+    my $group = shift;
+    ASSERT( defined $group ) if DEBUG;
+
+    return 0
+      if ( ( $group eq 'BaseGroup' )
+        or ( $group eq 'RegistrationGroup' ) );
+    return 1;
+}
+
+=begin TML
+
 ---++ ObjectMethod isAdmin( $cUID ) -> $boolean
 
 True if the user is an admin
@@ -353,10 +411,10 @@ sub findUserByWikiName {
         }
         elsif ( $this->{L2U}->{$wn} ) {
 
-            # The wikiname is also a login name for the purposes of this
-            # mapping. We have to do this because Foswiki defines access controls
-            # in terms of mapped users, and if a wikiname is *missing* from the
-            # mapping there is "no such user".
+           # The wikiname is also a login name for the purposes of this
+           # mapping. We have to do this because Foswiki defines access controls
+           # in terms of mapped users, and if a wikiname is *missing* from the
+           # mapping there is "no such user".
             push( @users, $this->{L2U}->{$wn} );
         }
     }
@@ -429,28 +487,27 @@ sub passwordError {
 }
 
 1;
-__DATA__
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 2008-2009 Foswiki Contributors. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# Additional copyrights apply to some or all of the code in this file:
-#
-# Copyright (C) 2007 Sven Dowideit, SvenDowideit@distributedINFORMATION.com
-# and TWiki Contributors. All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+Additional copyrights apply to some or all of the code in this file:
+
+Copyright (C) 2007 Sven Dowideit, SvenDowideit@distributedINFORMATION.com
+and TWiki Contributors. All Rights Reserved. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.

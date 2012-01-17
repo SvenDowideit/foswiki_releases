@@ -1,21 +1,4 @@
-# Module of Foswiki - The Free and Open Source Wiki, http://foswiki.org/
-#
-# Copyright (C) 1999-2009 Foswiki Contributors.
-# All Rights Reserved. Foswiki Contributors
-# are listed in the AUTHORS file in the root of this distribution.
-# NOTE: Please extend that file, not this notice.
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version. For
-# more details read LICENSE in the root of this distribution.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-#
-# As per the GPL, removal of this notice is prohibited.
+# See bottom of file for license and copyright information
 
 =begin TML
 
@@ -28,9 +11,11 @@ Support for strings translation and language detection.
 package Foswiki::I18N;
 
 use strict;
+use warnings;
 use Assert;
 
-use vars qw( $initialised @initErrors );
+our $initialised;
+our @initErrors;
 
 =begin TML
 
@@ -75,14 +60,15 @@ BEGIN {
     # we only need to proceed if user wants internationalisation support
     return unless $Foswiki::cfg{UserInterfaceInternationalisation};
 
-# no languages enabled is the same as disabling {UserInterfaceInternationalisation}
+    # no languages enabled is the same as disabling
+    # {UserInterfaceInternationalisation}
     my @languages = available_languages();
     return unless ( scalar(@languages) );
 
     # we first assume it's ok
     $initialised = 1;
 
-    eval "use base 'Locale::Maketext'";
+    eval "use Locale::Maketext ()";
     if ($@) {
         $initialised = 0;
         push( @initErrors,
@@ -90,6 +76,9 @@ BEGIN {
               . $@
               . "\nInstall the module or turn off {UserInterfaceInternationalisation}"
         );
+    }
+    else {
+        @Foswiki::I18N::ISA = ('Locale::Maketext');
     }
 
     unless ( $Foswiki::cfg{LocalesDir} && -e $Foswiki::cfg{LocalesDir} ) {
@@ -101,28 +90,34 @@ BEGIN {
 
     # dynamically build languages to be loaded according to admin-enabled
     # languages.
-    my $dependencies = "use Locale::Maketext::Lexicon{'en'=>['Auto'],";
+    eval "use Locale::Maketext::Lexicon{ en => [ 'Auto' ] } ;";
+    if ($@) {
+        $initialised = 0;
+        push( @initErrors,
+                "I18N - Couldn't load default English messages: $@\n"
+              . "Install Locale::Maketext::Lexicon or turn off {UserInterfaceInternationalisation}"
+        );
+    }
     foreach my $lang (@languages) {
         my $langFile = "$Foswiki::cfg{LocalesDir}/$lang.po";
         if ( -f $langFile ) {
-            $dependencies .= "'$lang'=>['Gettext'=>'$langFile' ], ";
+            unless (
+                eval {
+                    Locale::Maketext::Lexicon->import(
+                        { $lang => [ Gettext => $langFile ] } );
+                    1;
+                }
+              )
+            {
+                push( @initErrors,
+                    "I18N - Error loading language $lang: $@\n" );
+            }
         }
         else {
             push( @initErrors,
 "I18N - Ignoring enabled language $lang as $langFile does not exist.\n"
             );
         }
-    }
-    $dependencies .= '};';
-
-    eval $dependencies;
-    if ($@) {
-        $initialised = 0;
-        push( @initErrors,
-"I18N - Couldn't load required perl module Locale::Maketext::Lexicon: "
-              . $@
-              . "\nInstall the module or turn off {UserInterfaceInternationalisation}"
-        );
     }
 }
 
@@ -160,7 +155,7 @@ sub new {
     if ($initialised) {
         $session->enterContext('i18n_enabled');
         my $userLanguage = _normalize_language_tag(
-            $session->{prefs}->getPreferencesValue('LANGUAGE') );
+            $session->{prefs}->getPreference('LANGUAGE') );
         if ($userLanguage) {
             $this = Foswiki::I18N->get_handle($userLanguage);
         }
@@ -305,23 +300,28 @@ sub _discover_languages {
     my $this = shift;
 
     #use the cache, if available
-    if ( open LANGUAGE, "<$Foswiki::cfg{WorkingDir}/languages.cache" ) {
+    if ( open LANGUAGE, '<', "$Foswiki::cfg{WorkingDir}/languages.cache" ) {
         foreach my $line (<LANGUAGE>) {
             my ( $key, $name ) = split( '=', $line );
+            # Filter on enabled languages
+            next unless ($Foswiki::cfg{Languages}{$key} &&
+                           $Foswiki::cfg{Languages}{$key}{Enabled});
             chop($name);
             _add_language( $this, $key, $name );
         }
     }
     else {
-
-#TODO: if the cache file don't exist, perhaps a warning should be issued to the logs?
-        open LANGUAGE, ">$Foswiki::cfg{WorkingDir}/languages.cache";
+        # Rebuild the cache, filtering on enabled languages.
+        open LANGUAGE, '>', "$Foswiki::cfg{WorkingDir}/languages.cache";
         foreach my $tag ( available_languages() ) {
-            my $h    = Foswiki::I18N->get_handle($tag);
-            my $name = $h->maketext("_language_name");
+            my $h = Foswiki::I18N->get_handle($tag);
+            my $name = eval { $h->maketext("_language_name") } or next;
             $name = $this->toSiteCharSet($name);
-            _add_language( $this, $tag, $name );
             print LANGUAGE "$tag=$name\n";
+            # Filter on enabled languages
+            next unless ($Foswiki::cfg{Languages}{$tag} &&
+                           $Foswiki::cfg{Languages}{$tag}{Enabled});
+            _add_language( $this, $tag, $name );
         }
     }
 
@@ -385,7 +385,7 @@ sub fromSiteCharSet {
                   . $Foswiki::cfg{Site}{CharSet}
                   . '" not supported, or name not recognised - check '
                   . '"perldoc Encode::Supported"' );
-            return undef;
+            return;
         }
         else {
             my $octets =
@@ -464,7 +464,25 @@ sub toSiteCharSet {
 # private utility method: add a pair tag/language name
 sub _add_language {
     my ( $this, $tag, $name ) = @_;
-    ${ $this->{enabled_languages} }{$tag} = $name;
+    $this->{enabled_languages}->{$tag} = $name;
 }
 
 1;
+__END__
+Foswiki - The Free and Open Source Wiki, http://foswiki.org/
+
+Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+are listed in the AUTHORS file in the root of this distribution.
+NOTE: Please extend that file, not this notice.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version. For
+more details read LICENSE in the root of this distribution.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+As per the GPL, removal of this notice is prohibited.
