@@ -164,7 +164,7 @@ sub getExternalResource {
             $port = $proxyPort;
         }
 
-        '$Rev: 2613 (23 Feb 2009) $' =~ /([0-9]+)/;
+        '$Rev: 2710 (25 Feb 2009) $' =~ /([0-9]+)/;
         my $revstr = $1;
 
         $req .= 'User-Agent: Foswiki::Net/' . $revstr . "\r\n";
@@ -223,7 +223,7 @@ sub _GETUsingLWP {
     my $request;
     require HTTP::Request;
     $request = HTTP::Request->new( GET => $url );
-    '$Rev: 2613 (23 Feb 2009) $' =~ /([0-9]+)/;
+    '$Rev: 2710 (25 Feb 2009) $' =~ /([0-9]+)/;
     my $revstr = $1;
     $request->header( 'User-Agent' => 'Foswiki::Net/'
           . $revstr
@@ -260,7 +260,7 @@ sub _installMailHandler {
             require Net::SMTP;
         };
         if ($@) {
-            $this->{session}->writeWarning("SMTP not available: $@")
+            $this->{session}->logger->log('warning', "SMTP not available: $@")
               if ( $this->{session} );
         }
         else {
@@ -332,7 +332,7 @@ sub sendEmail {
         }
         catch Error::Simple with {
             my $e = shift->stringify();
-            $this->{session}->writeWarning($e);
+            $this->{session}->logger->log('warning', $e);
 
             # be nasty to errors that we didn't throw. They may be
             # caused by SMTP or perl, and give away info about the
@@ -349,6 +349,7 @@ sub sendEmail {
               unless $retries;
         };
     }
+
     return $errors;
 }
 

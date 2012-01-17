@@ -59,7 +59,7 @@ throw Foswiki::OopsException( 'oopsattention', def => 'generic',
 </verbatim>
 In this example =%MAKETEXT= is used so that if a language translation includes this string it will be automatically translated.
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 2613 (23 Feb 2009) $)
+API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 2710 (25 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the

@@ -1,6 +1,6 @@
 package Foswiki::Contrib::BehaviourContrib;
 use vars qw( $VERSION );
-$VERSION = '$Rev: 1393 (23 Feb 2009) $';
+$VERSION = '$Rev: 1393 (25 Feb 2009) $';
 $RELEASE = '1.4';
 
 =begin TML

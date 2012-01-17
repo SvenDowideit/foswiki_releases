@@ -246,7 +246,7 @@ Another great extension from the <a style="text-decoration:none" href="http://wi
 |  Plugin Author: | Foswiki:Main.CrawfordCurrie http://www.c-dot.co.uk inspired by the work of TWiki:Main.DavidWeller and TWiki:Main.PeterMasiar |
 |  Copyright: | &copy; 2004, TWiki:Main.CrawfordCurrie<br />&copy; 2004-2009 Foswiki:%SYSTEMWEB%.ProjectContributor |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Plugin Version: | 13 Jan 2009 1984 (23 Feb 2009) |
+|  Plugin Version: | 13 Jan 2009 1984 (25 Feb 2009) |
 |  Change History: | |
 |  15 Jan 2008 | Foswikitask:Item727 - data loss issue when missing anchor or location |
 |  13 Jan 2009 | Foswikitask:736 Make !CommentPlugin aware of CompareRevisionsAddOn bin script. |

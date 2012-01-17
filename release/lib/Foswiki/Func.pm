@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-02-16 05:57:57 +0100 (Mon, 16 Feb 2009) $ (revision $Rev: 2613 (23 Feb 2009) $)
+API version $Date: 2009-02-24 05:01:47 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 2710 (25 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -416,20 +416,20 @@ sub popTopicContext {
 
 ---+++ getPreferencesValue( $key, $web ) -> $value
 
-Get a preferences value from Foswiki or from a Plugin
-   * =$key= - Preferences key
-   * =$web= - Name of web, optional. Current web if not specified; does not apply to settings of Plugin topics
+Get a preferences value for the currently requested context, from the currently request topic, its web and the site.
+   * =$key= - Preference name
+   * =$web= - Name of web, optional. if defined, we shortcircuit to the WebPreferences (and its Sitewide defaults)
 Return: =$value=  Preferences value; empty string if not set
-
-   * Example for Plugin setting:
-      * MyPlugin topic has: =* Set COLOR = red=
-      * Use ="MYPLUGIN_COLOR"= for =$key=
-      * =my $color = Foswiki::Func::getPreferencesValue( "MYPLUGIN_COLOR" );=
 
    * Example for preferences setting:
       * WebPreferences topic has: =* Set WEBBGCOLOR = #FFFFC0=
       * =my $webColor = Foswiki::Func::getPreferencesValue( 'WEBBGCOLOR', 'Sandbox' );=
 
+   * Example for MyPlugin setting:
+      * if the %SYSTEMWEB%.MyPlugin topic has: =* Set COLOR = red=
+      * Use ="MYPLUGIN_COLOR"= for =$key=
+      * =my $color = Foswiki::Func::getPreferencesValue( "MYPLUGIN_COLOR" );=
+      
 *NOTE:* If =$NO_PREFS_IN_TOPIC= is enabled in the plugin, then
 preferences set in the plugin topic will be ignored.
 
@@ -2426,7 +2426,6 @@ sub spaceOutWikiWord {
 
 Log Warning that may require admin intervention to data/warning.txt
    * =$text= - Text to write; timestamp gets added
-Return:            none
 
 =cut
 
@@ -2434,9 +2433,8 @@ sub writeWarning {
 
     #   my( $text ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    my ($message) = @_;
-    return $Foswiki::Plugins::SESSION->writeWarning(
-        "(" . caller() . ") " . $message );
+    return $Foswiki::Plugins::SESSION->logger->log(
+        'warning', scalar(caller()), @_ );
 }
 
 =begin TML
@@ -2445,7 +2443,6 @@ sub writeWarning {
 
 Log debug message to data/debug.txt
    * =$text= - Text to write; timestamp gets added
-Return:            none
 
 =cut
 
@@ -2453,7 +2450,7 @@ sub writeDebug {
 
     #   my( $text ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    return $Foswiki::Plugins::SESSION->writeDebug(@_);
+    return $Foswiki::Plugins::SESSION->logger->log('debug', @_);
 }
 
 =begin TML

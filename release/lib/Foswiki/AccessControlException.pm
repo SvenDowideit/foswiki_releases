@@ -18,7 +18,7 @@ The exception may be thrown by plugins. If a plugin throws the exception, it
 will normally be caught and the browser redirected to a login screen (if the
 user is not logged in) or reported (if they are and just don't have access).
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 2613 (23 Feb 2009) $)
+API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 2710 (25 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -47,7 +47,7 @@ use base 'Error';
 
 use strict;
 
-our $VERSION = '$Rev: 2613 (23 Feb 2009) $';
+our $VERSION = '$Rev: 2710 (25 Feb 2009) $';
 
 =begin TML
 
