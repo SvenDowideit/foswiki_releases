@@ -66,4 +66,7 @@ foreach my $zip (@releases) {
 }
 
 #push it all to github
+`git push`;
 `git push --tags`;
+
+
