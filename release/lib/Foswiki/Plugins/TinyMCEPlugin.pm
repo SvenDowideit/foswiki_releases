@@ -18,8 +18,8 @@ use strict;
 
 use Assert;
 
-our $VERSION = '$Rev: 1628 (08 Jan 2009) $';
-our $RELEASE = '03 Dec 2008';
+our $VERSION = '$Rev: 2114 (23 Feb 2009) $';
+our $RELEASE = '21 Jan 2009';
 our $SHORTDESCRIPTION = 'Integration of TinyMCE with WysiwygPlugin';
 
 use Foswiki::Func;

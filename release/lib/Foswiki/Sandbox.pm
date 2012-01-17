@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2009-01-08 12:07:43 +0100 (Thu, 08 Jan 2009) $ (revision $Rev: 1876 (08 Jan 2009) $)
+API version $Date: 2009-02-17 09:56:29 +0100 (Tue, 17 Feb 2009) $ (revision $Rev: 2613 (23 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -72,7 +72,7 @@ sub _assessPipeSupport {
     # Shell quoting - shell used only on non-safe platforms
     if ( $Foswiki::cfg{OS} eq 'UNIX'
            || ( $Foswiki::cfg{OS} eq 'WINDOWS'
-                  && $$Foswiki::cfg{DetailedOS} eq 'cygwin' ) ) {
+                  && $Foswiki::cfg{DetailedOS} eq 'cygwin' ) ) {
         $CMDQUOTE = "'";
     }
     else {
@@ -533,7 +533,7 @@ sub sysCommand {
             untie(*STDOUT);
             untie(*STDERR);
 
-            open( STDOUT, ">&=" . fileno($writeHandle) ) or die;
+            open( STDOUT, ">&=", fileno($writeHandle) ) or die;
 
             open( STDERR, '>', File::Spec->devnull() );
             unless ( exec( $path, @args ) ) {

@@ -162,26 +162,54 @@ $Foswiki::cfg{Password} = '';
 # By restricting this path to just a few key
 # directories, you increase the security of your Foswiki.
 # <ol>
-# <li>Unix or Linux
-#  <ul>
-#   <li>Path separator is :</li>
-#   <li>Make sure diff and shell (Bourne or bash type) are found on path.</li>
-#   <li>Typical setting is <tt>/bin:/usr/bin</tt></li>
-#  </ul>
-# <li>Windows ActiveState Perl, using DOS shell</li>
-#  <ul>
-#   <li>path separator is ;</li>
-#   <li>The Windows system directory is required.</li>
-#   <li>Use '\' not '/' in pathnames.</li>
-#   <li>Typical setting is <tt>C:\windows\system32</tt></li>
-#  </ul>
-# <li>Windows Cygwin Perl</li>
-#  <ul>
-#   <li>path separator is :</li>
-#   <li>The Windows system directory is required.</li>
-#   <li>Use '/' not '\' in pathnames.</li>
-#   <li>Typical setting is <tt>/cygdrive/c/windows/system32</tt></li>
-#  </ul>
+# 	<li>
+# 		Unix or Linux 
+# 		<ul>
+# 			<li>
+# 				Path separator is : 
+# 			</li>
+# 			<li>
+# 				Make sure diff and shell (Bourne or bash type) are found on path. 
+# 			</li>
+# 			<li>
+# 				Typical setting is /bin:/usr/bin 
+# 			</li>
+# 		</ul>
+# 	</li>
+# 	<li>
+# 		Windows <span class="foswikiNewLink"> ActiveState<a href="/~arthur/foswiki/core/bin/edit/Sandbox/ActiveState?topicparent=Sandbox.HtmlCreator" rel="nofollow" title="Create this topic">?</a> </span> Perl, using DOS shell 
+# 		<ul>
+# 			<li>
+# 				path separator is ; 
+# 			</li>
+# 			<li>
+# 				The Windows system directory is required. 
+# 			</li>
+# 			<li>
+# 				Use '\' not '/' in pathnames. 
+# 			</li>
+# 			<li>
+# 				Typical setting is C:\windows\system32 
+# 			</li>
+# 		</ul>
+# 	</li>
+# 	<li>
+# 		Windows Cygwin Perl 
+# 		<ul>
+# 			<li>
+# 				path separator is : 
+# 			</li>
+# 			<li>
+# 				The Windows system directory is required. 
+# 			</li>
+# 			<li>
+# 				Use '/' not '\' in pathnames. 
+# 			</li>
+# 			<li>
+# 				Typical setting is /cygdrive/c/windows/system32 
+# 			</li>
+# 		</ul>
+# 	</li>
 # </ol>
 $Foswiki::cfg{SafeEnvPath} = '';
 
@@ -193,7 +221,7 @@ $Foswiki::cfg{SafeEnvPath} = '';
 # Client sessions are not required for logins to work, but Foswiki will not
 # be able to remember logged-in users consistently.
 #
-# See System.UserAuthentication for a full discussion of the pros and
+# See UserAuthentication for a full discussion of the pros and
 # cons of using persistent sessions. Session files are stored in the
 # <tt>{WorkingDir}/tmp</tt> directory.
 $Foswiki::cfg{UseClientSessions} = 1;
@@ -349,7 +377,7 @@ $Foswiki::cfg{AuthScripts} = 'attach,edit,manage,rename,save,upload,viewauth,rdi
 # Authentication realm. This is
 # normally only used in md5 password encoding. You may need to change it
 # if you are sharing a password file with another application.
-$Foswiki::cfg{AuthRealm} = 'Enter your System.LoginName. (Typically First name and last name, no space, no dots, capitalized, e.g. !JohnSmith, unless you chose otherwise). Visit System.UserRegistration if you do not have one.';
+$Foswiki::cfg{AuthRealm} = 'Enter your $Foswiki::cfg{SystemWebName}.LoginName. (Typically First name and last name, no space, no dots, capitalized, e.g. !JohnSmith, unless you chose otherwise). Visit $Foswiki::cfg{SystemWebName}.UserRegistration if you do not have one.';
 
 #---++ User Mapping
 # **SELECTCLASS Foswiki::Users::*UserMapping**
@@ -546,7 +574,7 @@ $Foswiki::cfg{PermittedRedirectHostUrls} = '';
 # Defines the filter-in regexp that must match the names of environment
 # variables that can be seen using the %ENV{}% Foswiki variable. Set it to
 # '^.*$' to allow all environment variables to be seen (not recommended).
-$Foswiki::cfg{AccessibleENV} = '^(HTTP_\w+|REMOTE_\w+|SERVER_\w+|REQUEST_\w+|MOD_PERL|TWIKI_ACTION)$';
+$Foswiki::cfg{AccessibleENV} = '^(HTTP_\w+|REMOTE_\w+|SERVER_\w+|REQUEST_\w+|MOD_PERL|FOSWIKI_ACTION)$';
 
 #---+ Anti-spam measures
 
@@ -1248,9 +1276,9 @@ $Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
 # For Extensions with the same name in both repositories, the one in the last repository will be chosen, so foswiki should be last for maximum compatibility.
 # where:
 # <ul>
-# <li><i>name</i> is the symbolic name of the repository e.g. Foswiki.org</li>
-# <li><i>listurl</i> is the root of a view URL
-# <li><i>puburl</i> is the root of a download URL
+# <li><em>name</em> is the symbolic name of the repository e.g. Foswiki.org</li>
+# <li><em>listurl</em> is the root of a view URL</li>
+# <li><em>puburl</em> is the root of a download URL</li>
 # </ul>
 # For example,<code>
 # twiki.org=(http://twiki.org/cgi-bin/view/Plugins/,http://twiki.org/p/pub/Plugins/);

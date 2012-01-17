@@ -32,15 +32,15 @@ use vars
   qw( $VERSION $RELEASE $pluginName @modes $doneHeader $doneDefaults $twistyCount
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-# This should always be $Rev: 1493 (08 Jan 2009) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 2230 (23 Feb 2009) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-$VERSION = '$Rev: 1493 (08 Jan 2009) $';
+$VERSION = '$Rev: 2230 (23 Feb 2009) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part
 # of the version number in PLUGINDESCRIPTIONS.
-$RELEASE = '1.5.1';
+$RELEASE = '1.5.2';
 
 $pluginName = 'TwistyPlugin';
 

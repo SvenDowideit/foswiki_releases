@@ -1,6 +1,5 @@
 %{ This is a default template }%%TMPL:INCLUDE{"foswiki"}%
 
-
 %TMPL:DEF{"titleaction"}%%MAKETEXT{"(edit)"}% %TMPL:END%
 
 
@@ -23,8 +22,7 @@
 %TMPL:DEF{"formstart"}%<div class="foswikiFormHolder twistyMakeHidden" id="formHolder">
 <form name="main" action="%SCRIPTURLPATH{"save"}%/%WEB%/%TOPIC%" method="post">%TMPL:END%
 
-%TMPL:DEF{"formend"}%%TMPL:P{"formparameters"}%
-</form></div><!-- /foswikiFormHolder-->%TMPL:END%
+%TMPL:DEF{"formend"}%%TMPL:P{"formparameters"}%</form></div><!-- /foswikiFormHolder-->%TMPL:END%
 
 
 %TMPL:DEF{"formparameters"}%%TMPL:P{"formparameters:edit"}%%TMPL:END%
@@ -42,7 +40,8 @@
 <input type="hidden" name="forcenewrevision" value="%URLPARAM{"forcenewrevision"}%" />
 <input type="hidden" name="rev" value="%URLPARAM{"rev"}%" />
 <input type="hidden" name="cmd" value="%CMD%" />
-<input type="hidden" name="nowysiwyg" value="%URLPARAM{"nowysiwyg"}%" />%TMPL:END%
+<input type="hidden" name="nowysiwyg" value="%URLPARAM{"nowysiwyg"}%" />
+<input type="hidden" name="action" value="%URLPARAM{"action"}%" />%TMPL:END%
 
 
 %TMPL:DEF{"sig"}%<div><div class="foswikiLeft"><label for="sig" class="foswikiGrayText">%MAKETEXT{"Your signature to copy/paste:"}%&nbsp;&nbsp;</label><input class="foswikiInputFieldReadOnly" size="41" name="sig" type="text" readonly="readonly" title='%MAKETEXT{"Select, copy and paste your signature text to the bottom of your entry"}%' id="sig" value="-- <nop>%WIKIUSERNAME% - %DATE%" /></div><br class="foswikiClear"><!--/foswikiLeft--></div>%TMPL:END%

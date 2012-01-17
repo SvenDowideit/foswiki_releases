@@ -263,10 +263,7 @@ sub _userReallyExists {
         return 1;
     }
     else {
-
-        # passwd==none case generally assumes any login given exists...
-        # (not positive if that makes sense for rego..)
-        return 1;
+        return 0;
     }
 
     return 0;
@@ -322,7 +319,7 @@ sub addUser {
             $password = Foswiki::Users::randomPassword();
         }
 
-        unless ( $this->{passwords}->setPassword( $login, $password ) ) {
+        unless ( $this->{passwords}->setPassword( $login, $password ) == 1) {
 
            #print STDERR "\n Failed to add user:  ".$this->{passwords}->error();
             throw Error::Simple(
@@ -579,8 +576,7 @@ sub eachUser {
         my $login    = $this->{session}->{users}->getLoginName($cUID);
         my $wikiname = $this->{session}->{users}->getWikiName($cUID);
 
-        require Foswiki::Plugins;
-        return !( $Foswiki::Plugins::SESSION->{users}->{basemapping}
+        return !( $this->{session}->{users}->{basemapping}
             ->handlesUser( undef, $login, $wikiname ) );
     };
     return $iter;
@@ -748,7 +744,7 @@ sub findUserByEmail {
                   $this->getEmails($uo);
             }
         }
-        push( @users, $this->{_MAP_OF_EMAILS}->{$email} );
+        push( @users, @{ $this->{_MAP_OF_EMAILS}->{$email} } );
     }
     return \@users;
 }
@@ -948,7 +944,8 @@ sub findUserByWikiName {
         if ( $this->{W2U}->{$wn} ) {
 
             # Wikiname to UID mapping is defined
-            push( @users, $this->{W2U}->{$wn} );
+            my $user = $this->{W2U}->{$wn};
+            push( @users, $user ) if $user;
         }
         else {
 
@@ -957,7 +954,8 @@ sub findUserByWikiName {
             # mapping. We have to do this because Foswiki defines access controls
             # in terms of mapped users, and if a wikiname is *missing* from the
             # mapping there is "no such user".
-            push( @users, $this->login2cUID($wn) );
+            my $user = $this->login2cUID($wn);
+            push( @users, $user ) if $user;
         }
     }
     else {
@@ -1012,8 +1010,10 @@ Otherwise returns 1 on success, undef on failure.
 
 sub setPassword {
     my ( $this, $user, $newPassU, $oldPassU ) = @_;
+    ASSERT( $user ) if DEBUG; 
+    my $login = $this->getLoginName($user) || $user;
     return $this->{passwords}
-      ->setPassword( $this->getLoginName($user), $newPassU, $oldPassU );
+      ->setPassword( $login, $newPassU, $oldPassU );
 }
 
 =begin TML
@@ -1038,6 +1038,10 @@ sub _cacheUser {
     ASSERT($wikiname) if DEBUG;
 
     $login ||= $wikiname;
+    
+    #discard users that are the BaseUserMapper's responsibility
+    return if ( $this->{session}->{users}->{basemapping}
+        ->handlesUser( undef, $login, $wikiname ) );
 
     my $cUID = $this->login2cUID( $login, 1 );
     return unless ($cUID);

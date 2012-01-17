@@ -45,7 +45,8 @@
 
 %TMPL:DEF{"bodystart"}%<body class="%TMPL:P{"bodyclassname"}%"><div class="foswikiPage">
 #PageTop %TMPL:END%
-%TMPL:DEF{"bodyend"}%</div><!--/foswikiPage--></body></html>%TMPL:END%
+%TMPL:DEF{"bodyend"}%</div><!--/foswikiPage-->
+</body></html>%TMPL:END%
 
 %TMPL:DEF{"broadcastmessage"}%%IF{"defined BROADCASTMESSAGE and $BROADCASTMESSAGE != ''" then="$percntTMPL:P{$quotbroadcastmessage:contents$quot}$percnt"}%%TMPL:END%
 %TMPL:DEF{"broadcastmessage:contents"}%<div class="foswikiBroadcastMessage"> %BROADCASTMESSAGE% </div>%TMPL:END%
@@ -85,8 +86,7 @@
 %TMPL:DEF{"topicinfo"}%<div class="foswikiTopicInfo" style="background:%WEBBGCOLOR%">
 %TMPL:P{"topicaction"}%</div>%TMPL:END%
 
-%TMPL:DEF{"main"}%<div class="foswikiMain">
-%TMPL:P{"simpleheader"}%
+%TMPL:DEF{"main"}%<div class="foswikiMain">%TMPL:P{"simpleheader"}%
 %TMPL:P{"pagetitlestylewrapper"}%%TMPL:P{"contentwrapper"}%
 %TMPL:P{"standardfooter"}%</div>%TMPL:END%
 
@@ -109,10 +109,4 @@
 %TMPL:DEF{"templatestyle"}%%TMPL:END%
 %{ title string in page: }%
 %TMPL:DEF{"pagetitle"}%%TMPL:P{"webaction"}%%TMPL:END%
-%TMPL:DEF{"pagetitlestylewrapper"}%<h1>%TMPL:P{"pagetitle"}%</h1>%TMPL:END%
-
-%TMPL:P{"htmldoctype"}%
-%TMPL:P{"head"}%
-%TMPL:P{"bodystart"}%
-%TMPL:P{"main"}%
-%TMPL:P{"bodyend"}%
+%TMPL:DEF{"pagetitlestylewrapper"}%<h1>%TMPL:P{"pagetitle"}%</h1>%TMPL:END%%TMPL:P{"htmldoctype"}%%TMPL:P{"head"}%%TMPL:P{"bodystart"}%%TMPL:P{"main"}%%TMPL:P{"bodyend"}%

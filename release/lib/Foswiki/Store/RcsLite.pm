@@ -27,26 +27,26 @@ FIXME:
 
 <verbatim>
 rcstext    ::=  admin {delta}* desc {deltatext}*
-admin      ::=  head {num};
+admin      ::=  'head' {num};
                 { branch   {num}; }
-                access {id}*;
-                symbols {sym : num}*;
-                locks {id : num}*;  {strict  ;}
-                { comment  {string}; }
-                { expand   {string}; }
+                'access' {id}*;
+                'symbols' {sym : num}*;
+                'locks' {id : num}*;  {strict  ;}
+                { 'comment'  {string}; }
+                { 'expand'   {string}; }
                 { newphrase }*
 delta      ::=  num
-                date num;
-                author id;
-                state {id};
-                branches {num}*;
-                next {num};
+                'date' num;
+                'author' id;
+                'state' {id};
+                'branches' {num}*;
+                'next' {num};
                 { newphrase }*
-desc       ::=  desc string
+desc       ::=  'desc' string
 deltatext  ::=  num
-                log string
+                'log' logstring
                 { newphrase }*
-                text string
+                'text' string
 num        ::=  {digit | .}+
 digit      ::=  0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
 id         ::=  {num} idchar {idchar | num }*
@@ -54,6 +54,7 @@ sym        ::=  {digit}* idchar {idchar | digit }*
 idchar     ::=  any visible graphic character except special
 special    ::=  $ | , | . | : | ; | @
 string     ::=  @{any character, with @ doubled}*@
+logstring  ::=  @@ | @{any string not ending in \n}\n@
 newphrase  ::=  id word* ;
 word       ::=  id | num | string | :
 </verbatim>
@@ -105,7 +106,7 @@ require Foswiki::Sandbox;
 # symbols - the symbols field from the file
 # comment - the comment field from the file
 # desc    - the desc field from the file
-# expand  - 'b' for binary, or null
+# expand  - 'b' for binary, or 'o' for text
 # author  - ref to array of version authors
 # date    - ref to array of dates indexed by version number
 # log     - ref to array of messages indexed by version
@@ -122,8 +123,9 @@ sub new {
     $this->{head}    = 0;
     $this->{access}  = '';
     $this->{symbols} = '';
-    $this->{comment} = '';
-    $this->{desc}    = '';
+    $this->{comment} = '# ';     # Default comment for Rcs
+    $this->{desc}    = 'none';
+    $this->initText;             # Set default expand to 'o'
     return $this;
 }
 
@@ -258,6 +260,7 @@ sub _process {
         elsif ( $state eq 'admin.access' ) {
             if (/^access\s*(.*);$/) {
                 $state = 'admin.symbols';
+
                 # Implicit untaint OK; data from ,v file
                 $this->{access} = $1;
             }
@@ -268,6 +271,7 @@ sub _process {
         elsif ( $state eq 'admin.symbols' ) {
             if (/^symbols(.*);$/) {
                 $state = 'admin.locks';
+
                 # Implicit untaint OK; data from ,v file
                 $this->{symbols} = $1;
             }
@@ -315,6 +319,7 @@ sub _process {
         }
         elsif ( $state eq 'delta.author' ) {
             if (/^author\s+(.*);$/) {
+
                 # Implicit untaint OK; data from ,v file
                 $revs[$num]->{author} = $1;
                 if ( $num == 1 ) {
@@ -334,9 +339,10 @@ sub _process {
         }
         elsif ( $state eq 'deltatext.log' ) {
             if (/\d+\.(\d+)\s+log\s+$/o) {
-                $dnum               = $1;
+                $dnum = $1;
+                $string =~ s/\n*$//o;
                 $revs[$dnum]->{log} = $string;
-                $state              = 'deltatext.text';
+                $state = 'deltatext.text';
             }
         }
         elsif ( $state eq 'deltatext.text' ) {
@@ -382,7 +388,7 @@ sub _write {
     my $nr = $this->{head} || 1;
     print $file <<HERE;
 head	1.$nr;
-access	$this->{access};
+access$this->{access};
 symbols$this->{symbols};
 locks; strict;
 HERE
@@ -399,22 +405,24 @@ HERE
         my $d       = $this->{revs}[$i]->{date};
         my $rcsDate = Foswiki::Store::RcsFile::_epochToRcsDateTime($d);
         print $file <<HERE;
+
 1.$i
 date	$rcsDate;	author $this->{revs}[$i]->{author};	state Exp;
-branches;	
+branches;
 HERE
         print $file 'next', "\t";
         print $file '1.', ( $i - 1 ) if ( $i > 1 );
         print $file ";\n";
     }
 
-    print $file "\n\n", 'desc', "\n", _formatString( $this->{desc} ) . "\n\n";
+    print $file "\n\n", 'desc', "\n",
+      _formatString( $this->{desc} . "\n" ) . "\n\n";
 
     for ( my $i = $this->{head} ; $i > 0 ; $i-- ) {
         print $file "\n", '1.', $i, "\n",
-          'log', "\n", _formatString( $this->{revs}[$i]->{log} ),
+          'log', "\n", _formatString( $this->{revs}[$i]->{log} . "\n" ),
           "\n", 'text', "\n", _formatString( $this->{revs}[$i]->{text} ),
-          "\n\n";
+          "\n" . ( $i == 1 ? '' : "\n" );
     }
     $this->{state} = 'parsed';    # now known clean
 }
@@ -432,7 +440,7 @@ sub initText {
     my ($this) = @_;
 
     # Nothing to be done but note for re-writing
-    $this->{expand} = '';
+    $this->{expand} = 'o';
 }
 
 # implements RcsFile
@@ -462,6 +470,9 @@ sub _addRevision {
     my ( $this, $isStream, $data, $log, $author, $date ) = @_;
 
     _ensureProcessed($this);
+
+    $log ||= '';    # Undef doesn't make a good log
+    $log =~ s/\n*$//;
 
     if ( $this->{state} eq 'nocommav' && -e $this->{file} ) {
 
@@ -743,7 +754,6 @@ sub _diff {
 
         $adj += _addChunk( $chunkSign, \$out, \@lines, $start, $adj );
     }
-    $out .= "\n";
 
     #print STDERR "CONVERTED\n",$out,"\n";
     return $out;
@@ -766,7 +776,9 @@ sub _addChunk {
               . join( "\n", @$lines ) . "\n";
         }
         else {
-            $$out .= 'd' . ( $start + 1 ) . ' ' . $nLines;
+
+            # Added "\n" at end to correct Item945
+            $$out .= 'd' . ( $start + 1 ) . ' ' . $nLines . "\n";
             $nLines *= -1;
         }
         @$lines = ();

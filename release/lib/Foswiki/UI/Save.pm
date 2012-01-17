@@ -271,8 +271,8 @@ sub buildNewTopic {
 
     my $merged;
 
-    # assumes rev numbers start at 1
-    if ($originalrev) {
+    # If the topic exists, see if we need to merge
+    if ( $topicExists && $originalrev ) {
         my ( $orev, $odate );
         if ( $originalrev =~ /^(\d+)_(\d+)$/ ) {
             ( $orev, $odate ) = ( $1, $2 );
@@ -293,7 +293,8 @@ sub buildNewTopic {
             require Foswiki::Merge;
 
             my $pti = $prevMeta->get('TOPICINFO');
-            if (   $pti->{reprev}
+            if (   $pti
+                && $pti->{reprev}
                 && $pti->{version}
                 && $pti->{reprev} == $pti->{version} )
             {
@@ -494,6 +495,8 @@ WARN
           if $query->param('cover');
         $redirecturl .= '&nowysiwyg=' . $query->param('nowysiwyg')
           if $query->param('nowysiwyg');
+        $redirecturl .= '&action=' . $query->param('action')
+          if $query->param('action');
         $redirecturl .= $editparams
           if $editparams;    # May contain anchor
         my $lease = $store->getLease( $web, $topic );

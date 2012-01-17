@@ -1,4 +1,4 @@
 package Foswiki::Contrib::PatternSkin;
 use vars qw( $VERSION );
-$VERSION = '$Rev: 1744 (08 Jan 2009) $';
+$VERSION = '4.0.2';
 1;

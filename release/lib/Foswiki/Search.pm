@@ -757,13 +757,18 @@ sub searchWeb {
         if ( defined $header ) {
             $beforeText = Foswiki::expandStandardEscapes($header);
             $beforeText =~ s/\$web/$web/gos;    # expand name of web
-            if ( defined($separator) ) {
-                $beforeText .= $separator;
-            }
-            else {
+            
+            # It cannot be correct to append the separator to the header,
+            # removing this  -- AC
+            #if ( defined($separator) ) {
+            #     $beforeText .= $separator;
+            #}
+            
+            #else {
                 $beforeText =~
                   s/([^\n])$/$1\n/os;           # add new line at end if needed
-            }
+            #}
+            # / end removing separator from header
         }
 
         # output the list of topics in $web

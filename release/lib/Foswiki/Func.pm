@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 1876 (08 Jan 2009) $)
+API version $Date: 2009-02-16 05:57:57 +0100 (Mon, 16 Feb 2009) $ (revision $Rev: 2613 (23 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -132,7 +132,8 @@ sub getViewUrl {
     my ( $web, $topic ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
-    $web ||= $Foswiki::Plugins::SESSION->{webName} || $Foswiki::cfg{UsersWebName};
+    $web ||= $Foswiki::Plugins::SESSION->{webName}
+      || $Foswiki::cfg{UsersWebName};
     return getScriptUrl( $web, $topic, 'view' );
 }
 
@@ -743,7 +744,7 @@ sub emailToWikiNames {
 Returns the registered email addresses of the named user. If $user is
 undef, returns the registered email addresses for the logged-in user.
 
-$user may also be a login name, or the name of a group.
+$user may also be a group.
 
 =cut
 
@@ -755,7 +756,8 @@ sub wikinameToEmails {
         }
         else {
             my $uids =
-              $Foswiki::Plugins::SESSION->{users}->findUserByWikiName($wikiname);
+              $Foswiki::Plugins::SESSION->{users}
+              ->findUserByWikiName($wikiname);
             my @em = ();
             foreach my $user (@$uids) {
                 push( @em,
@@ -780,7 +782,8 @@ Test if logged in user is a guest (WikiGuest)
 
 sub isGuest {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    return $Foswiki::Plugins::SESSION->{user} eq $Foswiki::Plugins::SESSION->{users}
+    return $Foswiki::Plugins::SESSION->{user} eq
+      $Foswiki::Plugins::SESSION->{users}
       ->getCanonicalUserID( $Foswiki::cfg{DefaultUserLogin} );
 }
 
@@ -1154,7 +1157,8 @@ sub eachChangeSince {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
     ASSERT( $Foswiki::Plugins::SESSION->{store}->webExists($web) ) if DEBUG;
 
-    my $iterator = $Foswiki::Plugins::SESSION->{store}->eachChange( $web, $time );
+    my $iterator =
+      $Foswiki::Plugins::SESSION->{store}->eachChange( $web, $time );
     return $iterator;
 }
 
@@ -1442,9 +1446,25 @@ sub moveTopic {
 
     return if ( $newWeb eq $web && $newTopic eq $topic );
 
-    $Foswiki::Plugins::SESSION->{store}
-      ->moveTopic( $web, $topic, $newWeb, $newTopic,
+    my $session = $Foswiki::Plugins::SESSION;
+    my $store   = $session->{store};
+    $store->moveTopic( $web, $topic, $newWeb, $newTopic,
         $Foswiki::Plugins::SESSION->{user} );
+    my ( $meta, $text ) = $store->readTopic( undef, $newWeb, $newTopic );
+
+    $meta->put(
+        'TOPICMOVED',
+        {
+            from => $web . '.' . $topic,
+            to   => $newWeb . '.' . $newTopic,
+            date => time(),
+            by   => $session->{user},
+        }
+    );
+
+    $store->saveTopic( $session->{user}, $newWeb, $newTopic, $text, $meta,
+        { minor => 1, comment => 'rename' } );
+
 }
 
 =begin TML
@@ -1456,11 +1476,11 @@ Get revision info of a topic or attachment
    * =$topic=   - Topic name, required, e.g. ='TokyoOffice'=
    * =$rev=     - revsion number, or tag name (can be in the format 1.2, or just the minor number)
    * =$attachment=                 -attachment filename
-Return: =( $date, $user, $rev, $comment )= List with: ( last update date, login name of last user, minor part of top revision number ), e.g. =( 1234561, 'phoeny', "5" )=
+Return: =( $date, $user, $rev, $comment )= List with: ( last update date, login name of last user, minor part of top revision number, comment of attachment if attachment ), e.g. =( 1234561, 'phoeny', "5",  )=
 | $date | in epochSec |
 | $user | Wiki name of the author (*not* login name) |
 | $rev | actual rev number |
-| $comment | WHAT COMMENT? |
+| $comment | comment given for uploaded attachment |
 
 NOTE: if you are trying to get revision info for a topic, use
 =$meta->getRevisionInfo= instead if you can - it is significantly
@@ -1674,7 +1694,8 @@ sub saveAttachment {
     my $result = undef;
 
     try {
-        $Foswiki::Plugins::SESSION->{store}->saveAttachment( $web, $topic, $name,
+        $Foswiki::Plugins::SESSION->{store}
+          ->saveAttachment( $web, $topic, $name,
             $Foswiki::Plugins::SESSION->{user}, $data );
     }
     catch Error::Simple with {
@@ -1875,7 +1896,7 @@ Note that this is _not_ the same as the HTTP header, which is modified through t
 
 Example:
 <verbatim>
-Foswiki::Func::addToHEAD('PATTERN_STYLE','<link id="twikiLayoutCss" rel="stylesheet" type="text/css" href="%PUBURL%/Foswiki/PatternSkin/layout.css" media="all" />');
+Foswiki::Func::addToHEAD('PATTERN_STYLE','<link id="foswikiLayoutCss" rel="stylesheet" type="text/css" href="%PUBURL%/Foswiki/PatternSkin/layout.css" media="all" />');
 </verbatim>
 
 =cut=
@@ -1883,7 +1904,19 @@ Foswiki::Func::addToHEAD('PATTERN_STYLE','<link id="twikiLayoutCss" rel="stylesh
 sub addToHEAD {
     my ( $tag, $header, $requires ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    $Foswiki::Plugins::SESSION->addToHEAD(@_);
+
+# addToHEAD may be called from a xxxTagsHandler of a plugin and addToHEAD
+# again calls xxxTagsHandlers via handleCommonTags causing deep recursion
+# we use $session->{_InsideFuncAddToHEAD} to block re-entry (Foswikitask:Item913)
+
+    my $session = $Foswiki::Plugins::SESSION;
+    return 0
+      if ( defined $session->{_InsideFuncAddToHEAD}
+        && $session->{_InsideFuncAddToHEAD} );
+
+    $session->{_InsideFuncAddToHEAD} = 1;
+    $session->addToHEAD(@_);
+    $session->{_InsideFuncAddToHEAD} = 0;
 }
 
 =begin TML
@@ -2602,7 +2635,6 @@ sub getScriptUrlPath {
     return $Foswiki::Plugins::SESSION->getScriptUrl( 0, '' );
 }
 
-
 =begin TML
 
 ---+++ getWikiToolName( ) -> $name
@@ -2826,7 +2858,8 @@ sub getPubDir { return $Foswiki::cfg{PubDir}; }
 
 # Removed; it was never used
 sub checkDependencies {
-    die "checkDependencies removed; contact plugin author or maintainer and tell them to use BuildContrib DEPENDENCIES instead";
+    die
+"checkDependencies removed; contact plugin author or maintainer and tell them to use BuildContrib DEPENDENCIES instead";
 }
 
 1;

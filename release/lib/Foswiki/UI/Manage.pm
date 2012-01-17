@@ -33,16 +33,15 @@ This method is designed to be invoked via the =UI::run= method.
 sub manage {
     my $session = shift;
 
-    my $action = $session->{request}->param('action') || '';
+    my $action = $session->{request}->param('action');
 
     # Dispatch to action function
     if (defined $action) {
         my $method = 'Foswiki::UI::Manage::_action_'.$action;
 
-        if (defined \&$method) {
+        if (defined &$method) {
             no strict 'refs';
             &$method($session);
-            use strict 'refs';
         }
         else {
             throw Foswiki::OopsException(
@@ -986,16 +985,6 @@ sub move {
     require Foswiki::Render;
     $text = $session->renderer->forEachLine( $text,
         \&Foswiki::Render::replaceTopicReferences, $options );
-
-    $meta->put(
-        'TOPICMOVED',
-        {
-            from => $oldWeb . '.' . $oldTopic,
-            to   => $newWeb . '.' . $newTopic,
-            date => time(),
-            by   => $session->{user},
-        }
-    );
 
     $store->saveTopic( $session->{user}, $newWeb, $newTopic, $text, $meta,
         { minor => 1, comment => 'rename' } );

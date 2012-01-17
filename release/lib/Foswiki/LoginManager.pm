@@ -381,12 +381,24 @@ sub loadSession {
         }
         else {
             _trace( $this, "User is logging out" );
-            my $origurl = $query->referer()
-              || $query->url() . $query->path_info();
 
-            #TODO:
+            #TODO: consider if we should risk passing on the urlparams on logout
+            my $path_info = $query->path_info();
+            if (my $topic = $query->param('topic')) {   #we should at least respect the ?topic= request
+                my $topicRequest = Foswiki::Sandbox::untaintUnchecked($query->param('topic'));
+                my ($web, $topic) = $this->{session}->normalizeWebTopicName(undef, $topicRequest);
+                $path_info = '/'.$web.'/'.$topic;
+            }
+
+            my $redirectUrl;
+            if ($path_info) {
+                $redirectUrl = $query->url() . $path_info;
+            } else {
+                $redirectUrl = $query->referer();
+            }
+
             $query->delete('logout');    #lets avoid infinite loops
-            $this->redirectCgiQuery( $query, $origurl );
+            $this->redirectCgiQuery( $query, $redirectUrl );
             $authUser = undef;
         }
     }
@@ -491,7 +503,7 @@ sub expireDeadSessions {
         # mtime. As a fallback we also check ctime. Files are deleted when
         # they expire.
         my $lat = $stat[9] || $stat[10] || 0;
-        unlink $file if ( $time - $lat >= $exp );
+        unlink "$Foswiki::cfg{WorkingDir}/tmp/$file" if ( $time - $lat >= $exp );
         next;
     }
     closedir D;
@@ -750,7 +762,7 @@ sub _pushCookie {
         require Foswiki::Time;
         my $exp = Foswiki::Time::formatTime(
             time() + $Foswiki::cfg{Sessions}{ExpireCookiesAfter},
-            '$dow, $day-$month-$ye $hours:$minutes:$seconds GMT'
+            '$wday, $day-$month-$ye $hours:$minutes:$seconds GMT'
         );
 
         $cookie->expires($exp);

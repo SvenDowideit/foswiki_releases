@@ -164,7 +164,7 @@ sub getExternalResource {
             $port = $proxyPort;
         }
 
-        '$Rev: 1876 (08 Jan 2009) $' =~ /([0-9]+)/;
+        '$Rev: 2613 (23 Feb 2009) $' =~ /([0-9]+)/;
         my $revstr = $1;
 
         $req .= 'User-Agent: Foswiki::Net/' . $revstr . "\r\n";
@@ -223,7 +223,7 @@ sub _GETUsingLWP {
     my $request;
     require HTTP::Request;
     $request = HTTP::Request->new( GET => $url );
-    '$Rev: 1876 (08 Jan 2009) $' =~ /([0-9]+)/;
+    '$Rev: 2613 (23 Feb 2009) $' =~ /([0-9]+)/;
     my $revstr = $1;
     $request->header( 'User-Agent' => 'Foswiki::Net/'
           . $revstr
