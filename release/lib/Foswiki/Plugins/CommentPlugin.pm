@@ -11,7 +11,7 @@ require Foswiki::Plugins;
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $NO_PREFS_IN_TOPIC );
 
-our $VERSION = '$Rev: 1984 (25 Feb 2009) $';
+our $VERSION = '$Rev: 1984 (28 Feb 2009) $';
 our $RELEASE = 'Foswiki-1.0.1';
 our $SHORTDESCRIPTION = 'Quickly post comments to a page without an edit/preview/save cycle';
 our $NO_PREFS_IN_TOPIC = 1;

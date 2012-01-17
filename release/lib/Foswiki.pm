@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-02-23 22:52:36 +0100 (Mon, 23 Feb 2009) $ $Rev: 2710 (25 Feb 2009) $ ';
-    $RELEASE = 'Foswiki-1.0.2';
+    $VERSION = '$Date: 2009-02-28 11:34:26 +0100 (Sat, 28 Feb 2009) $ $Rev: 2773 (28 Feb 2009) $ ';
+    $RELEASE = 'Foswiki-1.0.3';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -3070,11 +3070,11 @@ sub addToHEAD {
 sub _visit {
     my ( $v, $visited, $list ) = @_;
     return if $visited->{$v};
+    $visited->{$v} = 1;
     foreach my $r ( @{ $v->{requires} } ) {
         _visit( $r, $visited, $list );
     }
     push( @$list, $v );
-    $visited->{$v} = 1;
 }
 
 sub _genHeaders {

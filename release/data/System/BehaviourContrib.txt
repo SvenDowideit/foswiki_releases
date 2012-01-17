@@ -273,7 +273,7 @@ You can also set the global [[%SYSTEMWEB%.PreferenceSettings][preference setting
 |  Author: | Foswiki:Main.ArthurClemens |
 |  Copyright: | Code: =behaviour.js= version 1.1 - Copyright (c) Ben Nolan and Simon Willison. Foswiki distribution and updates/additions: Foswiki:Main.ArthurClemens. |
 |  License: | BSD |
-|  Version: | 1393 (25 Feb 2009) |
+|  Version: | 1393 (28 Feb 2009) |
 |  Contrib&nbsp;Version: | 1.4 |
 |  Change&nbsp;History: | <!-- specify latest version first -->&nbsp; |
 |  03 Dec 2008 | 1.4 Foswiki release version. |

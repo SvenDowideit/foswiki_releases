@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-02-24 05:01:47 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 2710 (25 Feb 2009) $)
+API version $Date: 2009-02-24 05:01:47 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 2773 (28 Feb 2009) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
