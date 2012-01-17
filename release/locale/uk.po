@@ -469,8 +469,8 @@ msgid "..."
 msgstr "..."
 
 #: core/templates/oopsmore.tmpl:14
-msgid "<a href='%1' rel='nofollow'>Edit settings</a> for this topic"
-msgstr "<a href='%1' rel='nofollow'>Редагувати налаштування</a> цієї теми"
+msgid "Edit settings for this topic"
+msgstr "Редагувати налаштування цієї теми"
 
 #: core/data/System/WebChanges.txt:8
 msgid ""
@@ -1624,6 +1624,10 @@ msgstr "Якщо у Вас є які-небудь питання, будь ла�
 msgid "If you haven't set a password yet or you want to reset it, go to: %1"
 msgstr ""
 "Якщо Ви не задали пароль або хочете його скинути, перейдіть за посиланням: %1"
+
+#: core/templates/messages.tmpl:420
+msgid "The =%1= script can only be called with POST method."
+msgstr ""
 
 #: core/templates/messages.tmpl:423
 msgid ""

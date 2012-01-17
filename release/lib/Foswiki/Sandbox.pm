@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2009-02-17 09:56:29 +0100 (Tue, 17 Feb 2009) $ (revision $Rev: 3201 (2009-03-19) $)
+API version $Date: 2009-04-21 03:53:50 +0200 (Tue, 21 Apr 2009) $ (revision $Rev: 3705 (2009-04-25) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -59,8 +59,8 @@ sub _assessPipeSupport {
     $REAL_SAFE_PIPE_OPEN = 1;
     $EMULATED_SAFE_PIPE_OPEN = 1;
 
-    # from the Activestate Docco this is _only_ defined on ActiveState Perl
-    if ( defined(&Win32::BuildNumber) ) {
+    # Detect ActiveState and Strawberry perl.   (Cygwin perl returns "cygwin" for $^O) 
+    if ( $^O eq 'MSWin32' ) {
         $REAL_SAFE_PIPE_OPEN     = 0;
         $EMULATED_SAFE_PIPE_OPEN = 0;
     }

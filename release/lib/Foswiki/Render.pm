@@ -112,6 +112,7 @@ Render parent meta-data
 sub renderParent {
     my ( $this, $web, $topic, $meta, $ah ) = @_;
     my $dontRecurse = $ah->{dontrecurse} || 0;
+    my $depth       = $ah->{depth}       || 0;
     my $noWebHome   = $ah->{nowebhome}   || 0;
     my $prefix      = $ah->{prefix}      || '';
     my $suffix      = $ah->{suffix}      || '';
@@ -133,8 +134,11 @@ sub renderParent {
     $parent = $parentMeta->{name} if $parentMeta;
 
     my @stack;
+    my $currentDepth = 0;
+    $depth = 1 if $dontRecurse;
 
     while ($parent) {
+        $currentDepth++;
         ( $pWeb, $pTopic ) =
           $this->{session}->normalizeWebTopicName( $pWeb, $parent );
         $parent = $pWeb . '.' . $pTopic;
@@ -145,8 +149,10 @@ sub renderParent {
         $text = $format;
         $text =~ s/\$web/$pWeb/g;
         $text =~ s/\$topic/$pTopic/g;
-        unshift( @stack, $text );
-        last if $dontRecurse;
+        if( ! $depth or $currentDepth == $depth ) {
+            unshift( @stack, $text );
+        }
+        last if $currentDepth == $depth;
         $parent = $store->getTopicParent( $pWeb, $pTopic );
     }
     $text = join( $usesep, @stack );
@@ -455,17 +461,22 @@ sub makeAnchorName {
     # filter '!!', '%NOTOC%'
     $anchorName =~ s/$Foswiki::regex{headerPatternNoTOC}//o;
 
-    # For most common alphabetic-only character encodings (i.e. iso-8859-*),
-    # remove non-alpha characters
-    if ( !defined( $Foswiki::cfg{Site}{CharSet} )
-        || $Foswiki::cfg{Site}{CharSet} =~ /^iso-?8859-?/i )
-    {
-        $anchorName =~ s/[^$Foswiki::regex{mixedAlphaNum}]+/_/g;
-    }
-    $anchorName =~ s/__+/_/g;    # remove excessive '_' chars
+    # No matter what character set we use, the HTML standard does not allow
+    # anything else than English alphanum characters in anchors
+    # So we convert anything non A-Za-z0-9_ to underscores
+    # and limit the number consecutive of underscores to 1 
+    # This means that pure non-English anchors will become A, A_AN1, A_AN2, ... 
+    # We accept anchors starting with 0-9. It is non RFC but it works and it
+    # is very important for compatibility 
+    $anchorName =~ s/[^A-Za-z0-9]+/_/g;
+    $anchorName =~ s/__+/_/g;   # remove excessive '_' chars 
+    
     if ( !$compatibilityMode ) {
         $anchorName =~ s/^[\s#_]+//;    # no leading space nor '#', '_'
     }
+    
+    $anchorName =~ s/^$/A/;             # prevent empty anchor
+
     # limit to 32 chars - FIXME: Use Unicode chars before truncate
     $anchorName =~ s/^(.{32})(.*)$/$1/;
     if ( !$compatibilityMode ) {
@@ -2043,6 +2054,9 @@ sub getReferenceRE {
 
     # Convert . and / to [./] (subweb separators)
     $matchWeb =~ s#[./]#[./]#go;
+    
+    # Item1468/5791 - Quote special characters
+    $topic = quotemeta($topic) if defined $topic;
 
     # Note use of \< and \> to match the empty string at the
     # edges of a word.

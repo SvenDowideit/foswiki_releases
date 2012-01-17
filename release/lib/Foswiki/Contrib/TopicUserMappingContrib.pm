@@ -17,7 +17,7 @@ use strict;
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION );
 
-$VERSION          = '$Rev: 3048 (2009-03-12) $';
+$VERSION          = '$Rev: 3701 (2009-04-25) $';
 $RELEASE          = '';
 $SHORTDESCRIPTION = '';
 

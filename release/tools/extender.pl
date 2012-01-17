@@ -619,12 +619,12 @@ sub unpackArchive {
 sub unzip {
     my $archive = shift;
 
-    unless ( 'Archive::Zip'->use ) {
+    if ( 'Archive::Zip'->use ) {
         my $zip           = Archive::Zip->new();
-        my $numberOfFiles = $zip->read($archive);
-        unless ( $numberOfFiles > 0 ) {
+        my $err = $zip->read($archive);
+        if ( $err ) {
             print STDERR "Could not openzip file $archive ("
-              . $zip->error() . "\n";
+              . $err . "\n";
             return 0;
         }
 
@@ -661,7 +661,7 @@ sub untar {
 
     my $compressed = ( $archive =~ /z$/i ) ? 'z' : '';
 
-    unless ( 'Archive::Tar'->use ) {
+    if ( 'Archive::Tar'->use ) {
         my $tar = Archive::Tar->new();
         my $numberOfFiles = $tar->read( $archive, $compressed );
         unless ( $numberOfFiles > 0 ) {
@@ -674,8 +674,8 @@ sub untar {
         foreach my $file (@members) {
             my $target = $file;
 
-            my $err = $tar->extract_file( $file, $target );
-            unless ($err) {
+            my $ok = $tar->extract_file( $file, $target );
+            unless ($ok) {
                 print STDERR 'Failed to extract ', $file, ' from tar file ',
                   $tar, ". Archive may be corrupt.\n";
                 return 0;
@@ -813,7 +813,14 @@ sub _emplace {
         print "Install $target, permissions $MANIFEST->{$file}->{perms}\n";
         unless ($inactive) {
             if ( -e $target ) {
-                unless ( File::Copy::move( $target, "$target.bak" ) ) {
+                # Save current permissions, remove write protect for Windows sake,  
+                # Back up the file and then restore the original permissions
+                my $mode = (stat($file))[2];
+                chmod( oct(600), "$target");
+                chmod( oct(600), "$target.bak") if ( -e "$target.bak");
+                if ( File::Copy::move( $target, "$target.bak" ) ) {
+                    chmod( $mode, "$target.bak");
+                } else {
                     print STDERR "Could not create $target.bak: $!\n";
                 }
             }

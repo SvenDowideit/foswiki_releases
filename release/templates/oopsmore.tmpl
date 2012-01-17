@@ -11,14 +11,14 @@
 
 
 %TMPL:DEF{"settings"}%---++ %MAKETEXT{"Edit topic preference settings"}%
-   * %MAKETEXT{"<a href='[_1]' rel='nofollow'>Edit settings</a> for this topic" args="%SCRIPTURLPATH{"manage"}%/%WEB%/%TOPIC%?action=editSettings"}%
+   * <form action="%SCRIPTURLPATH{"manage"}%/%WEB%/%TOPIC%" method="POST"><input type="submit" value="%MAKETEXT{"Edit settings for this topic"}%" class='foswikiButton'/> <input type="hidden" name="action" value="editSettings" /></form>
 %TMPL:END%
 
 
 
 %TMPL:DEF{"copy"}%---++ %MAKETEXT{"Copy topic"}%
 <p>%MAKETEXT{"Copy text and form data to a new topic (no attachments will be copied though)."}%</p>
-<form action="%SCRIPTURL{manage}%/%WEB%/">
+<form action="%SCRIPTURL{manage}%/%WEB%/" method="post">
 %MAKETEXT{"Name of copy:"}% <input type="text" name="topic" class="foswikiInputField" value="%TOPIC%Copy" size="30" /> <input type="submit" class="foswikiButton" value="%MAKETEXT{"Copy topic"}%" /> <span class="foswikiGrayText">%MAKETEXT{"You will be able to review the copied topic before saving"}%</span>
 %TMPL:P{"nonwikiword"}%
 <input type="hidden" name="action" value="create" />
@@ -60,10 +60,10 @@
 
 %TMPL:DEF{"setparent"}%#SetParent
 ---++ %MAKETEXT{"Set new topic parent"}%
-<form name="main" action="%SCRIPTURLPATH{"save"}%/%WEB%/%TOPIC%?action_save=1">
+<form name="main" action="%SCRIPTURLPATH{"save"}%/%WEB%/%TOPIC%?action_save=1" method="POST">
 <div class="foswikiFormSteps">
 <div class="foswikiFormStep">
----++!! %MAKETEXT{"Current parent:"}% %IF{"'NONE%SEARCH{ "^%TOPIC%$" casesensitive="on" scope="topic" regex="on" nosearch="on" nototal="on" format="$parent" }%'='NONE'" then="(none)" else='%SEARCH{ "^%TOPIC%$" scope="topic" regex="on" nosearch="on" nototal="on" format="[[$web.$parent][$parent]]" }%' }%
+---++!! %MAKETEXT{"Current parent:"}% %IF{"'NONE%SEARCH{ "^%TOPIC%$" casesensitive="on" scope="topic" regex="on" nosearch="on" nototal="on" format="$parent" }%'='NONE'" then="(none)" else='%SEARCH{ "name = '%TOPIC%'" scope="topic" type="query" nosearch="on" nototal="on" format="[[$parent]]" }%' }%
 </div>
 <div class="foswikiFormStep">
 ---+++!! %MAKETEXT{"Select topic parent:"}%
@@ -101,19 +101,19 @@ table.twikiDiffOptions img {
 
 %TMPL:DEF{"revision"}%---++ %MAKETEXT{"Revisions"}%
 %IF{"$ param1='0'" then="<!--" else="---+++ %MAKETEXT{"View previous topic revision"}% (1 ... %PARAM1%)" }%
-<form name="main" action="%SCRIPTURLPATH{"view"}%/%WEB%/%TOPIC%">
+<form name="main" action="%SCRIPTURLPATH{"view"}%/%WEB%/%TOPIC%" method="post">
    * %MAKETEXT{"View revision:"}% <input class="foswikiInputField" type="text" name="rev" size="6" value="%PARAM2%" /> &nbsp;
      <input type="checkbox" class="foswikiCheckbox" id="raw" name="raw" /><label for="raw">%MAKETEXT{"in raw text format"}%</label> <input type="submit" class="foswikiButton" value='%MAKETEXT{"View"}%' />
 </form>
 ---+++ %MAKETEXT{"Compare revisions"}%
 %TMPL:P{"cssTwikiDiffOptions"}%
-<form name="main" action="%SCRIPTURLPATH{"rdiff"}%/%WEB%/%TOPIC%">
+<form name="main" action="%SCRIPTURLPATH{"rdiff"}%/%WEB%/%TOPIC%" method="post">
    * %MAKETEXT{"Older revision:"}% <input class="foswikiInputField" type="text" name="rev2" size="6" value="1" /> &nbsp; %MAKETEXT{"Newer revision:"}% <input class="foswikiInputField" type="text" name="rev1" size="6" value="%PARAM1%" /><br />
      <table class="foswikiTable twikiDiffOptions"><tr><td><label for="sequential"><img src="%PUBURLPATH%/%SYSTEMWEB%/SkinTemplates/oopsmore_diff_sequential.gif" alt="sequential" width="80" height="80" /></label></td><td><label for="sidebyside"><img src="%PUBURLPATH%/%SYSTEMWEB%/SkinTemplates/oopsmore_diff_sidebyside.gif" alt="side by side" width="80" height="80" /></label></td><td><label for="debug"><img src="%PUBURLPATH%/%SYSTEMWEB%/SkinTemplates/oopsmore_diff_debug.gif" alt="debug" width="80" height="80" /></label></td></tr><tr><td><input type="radio" name="render" id="sequential" value="sequential" checked="checked" /><label for="sequential"> %MAKETEXT{"Sequential"}%</label></td><td><input type="radio" name="render" id="sidebyside" value="sidebyside" /><label for="sidebyside"> %MAKETEXT{"Side by side"}%</label></td><td><input type="radio" name="render" id="debug" value="debug" /><label for="debug"> %MAKETEXT{"Debug"}%</label></td></tr></table>
      <input type="submit" class="foswikiButton" value='%MAKETEXT{"View difference"}%' />
 </form>
 ---+++ %MAKETEXT{"Restore topic"}%
-<form name="main" action="%SCRIPTURLPATH{"manage"}%/%WEB%/%TOPIC%">
+<form name="main" action="%SCRIPTURLPATH{"manage"}%/%WEB%/%TOPIC%" method="post">
 	* %MAKETEXT{"Restore topic to revision:"}% <input class="foswikiInputField" type="text" name="rev" size="6" value="%PARAM2%" />
 	<input type="hidden" name="action" value="restoreRevision" />
 	<input type="hidden" name="nowysiwyg" value="1" />

@@ -1,7 +1,7 @@
 # Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
 # Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
-# Copyright (C) 2008 Foswiki Contributors
+# Copyright (C) 2008-2009 Foswiki Contributors
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -254,6 +254,10 @@ sub doFunc
             # FORMAT not recognized, just return value
             $result = $value;
         }
+
+    } elsif( $theFunc eq "EMPTY" ) {
+        $result = 1;
+        $result = 0 if( length( $theAttr ) > 0 );
 
     } elsif( $theFunc eq "EXACT" ) {
         $result = 0;
@@ -615,13 +619,15 @@ sub doFunc
 
     } elsif( $theFunc =~ /^(FIND|SEARCH)$/ ) {
         my( $searchString, $string, $pos ) = split( /,\s*/, $theAttr, 3 );
+        $string = '' unless ( defined $string );
+        $searchString = '' unless (defined $searchString );
         $result = 0;
         $pos--;
         $pos = 0 if( $pos < 0 );
-        pos( $string ) = $pos if( $pos );
         $searchString = quotemeta( $searchString ) if( $theFunc eq "FIND" );
+        pos( $string ) = $pos if( $pos );
         # using zero width lookahead '(?=...)' to keep pos at the beginning of match
-        if( eval '$string =~ m/(?=$searchString)/g' && $string ) {
+        if( $searchString ne '' && eval '$string =~ m/(?=$searchString)/g' ) {
             $result = pos( $string ) + 1;
         }
 
@@ -632,9 +638,8 @@ sub doFunc
         $start-- unless ($start < 1);
         $num = 0 unless( $num );
         $replace = "" unless( defined $replace );
-        if( eval 'substr( $string, $start, $num, $replace )' ) {
-            $result = $string;
-        }
+        eval 'substr( $string, $start, $num, $replace )';
+        $result = $string;
 
     } elsif( $theFunc eq "SUBSTITUTE" ) {
         my( $string, $from, $to, $inst, $options ) = split( /,\s*/, $theAttr );
@@ -659,8 +664,38 @@ sub doFunc
                     $result = $string;
                 }
             }
+        }    
+
+    } elsif( $theFunc =~ /^(MIDSTRING|SUBSTRING)$/ ) {
+        my( $string, $start, $num ) = split ( /,\s*/, $theAttr, 3 );
+        $result = '';
+        if( $start && $num ) {
+            $start-- unless ($start < 1);
+            eval '$result = substr( $string, $start, $num )';
         }
-    
+
+    } elsif( $theFunc =~ /^(LEFTSTRING)$/ ) {
+        my( $string, $num ) = split ( /,\s*/, $theAttr, 2 );
+        $string = "" unless ( defined $string );
+        $num = 1 if( !defined $num );
+        eval '$result = substr( $string, 0, $num )';
+        
+    } elsif( $theFunc =~ /^(RIGHTSTRING)$/ ) {
+        my( $string, $num ) = split ( /,\s*/, $theAttr, 2 );
+        $string = "" unless ( defined $string );
+        $num = 1 if( !defined $num );
+        $num = 0 if( $num < 0);
+        my $start = length( $string ) - $num;
+        $start = 0 if $start <0;
+        eval '$result = substr( $string, $start, $num )';
+
+    } elsif( $theFunc eq "INSERTSTRING" ) {
+        my( $string, $start, $new ) = split ( /,\s*/, $theAttr, 3 );
+        $string = "" unless ( defined $string );
+        $start = _getNumber( $start );
+        eval 'substr( $string, $start, 0, $new )';
+        $result = $string;
+
     } elsif( $theFunc eq "TRANSLATE" ) {
         $result = $theAttr;
         # greedy match for comma separated parameters (in case first parameter has embedded commas)
@@ -943,7 +978,7 @@ sub doFunc
         my $eval = "";
         $i = 0;
         my @arr =
-            grep { ! /^TWIKI_GREP_REMOVE$/ }
+            grep { ! /^FOSWIKI_GREP_REMOVE$/ }
             map {
                 $item = $_;
                 $_ = $cmd;
@@ -958,7 +993,7 @@ sub doFunc
                 } elsif( $eval ) {
                     $_ = $item;
                 } else {
-                    $_ = "TWIKI_GREP_REMOVE";
+                    $_ = "FOSWIKI_GREP_REMOVE";
                 }
             } getList( $str );
         $result = _listToDelimitedString( @arr );
@@ -1259,7 +1294,7 @@ sub _properSpace
     unless( $dontSpaceRE ) {
         $dontSpaceRE = &Foswiki::Func::getPreferencesValue( "DONTSPACE" ) ||
                        &Foswiki::Func::getPreferencesValue( "SPREADSHEETPLUGIN_DONTSPACE" ) ||
-                       "UnlikelyGibberishWikiWord";
+                       "CodeWarrior, MacDonald, McIntosh, RedHat, SuSE";
         $dontSpaceRE =~ s/[^a-zA-Z0-9\,\s]//go;
         $dontSpaceRE = "(" . join( "|", split( /[\,\s]+/, $dontSpaceRE ) ) . ")";
         # Example: "(RedHat|McIntosh)"

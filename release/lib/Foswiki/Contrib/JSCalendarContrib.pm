@@ -17,7 +17,7 @@ require Foswiki::Func;    # The plugins API
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION );
 
-$VERSION = '$Rev: 3048 (2009-03-12) $';
+$VERSION = '$Rev: 3417 (2009-04-12) $';
 $RELEASE = '03 Aug 2008';
 $SHORTDESCRIPTION = "[[http://dynarch.com/mishoo/calendar.epl][Mishoo JSCalendar]], packaged for use by plugins, skins and add-ons";
 

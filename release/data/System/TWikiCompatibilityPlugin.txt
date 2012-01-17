@@ -17,8 +17,8 @@ to add similar auto-compatibility for attachments, add (or uncomment) the follow
 your Apache configuration _in the =pub= section_
 
 <verbatim>
-	#for TWikiCompatibility
-	ErrorDocument 404 /foswiki/bin/viewfile
+    #for TWikiCompatibility
+    ErrorDocument 404 /foswiki/bin/viewfile
 </verbatim>
 
 ---+++ TODO:
@@ -41,7 +41,7 @@ Many thanks to the following sponsors for supporting this work:
 |  Plugin Author(s): | Sven Dowideit, Michael Daum, Crawford Currie |
 |  Copyright: | &copy; SvenDowideit@fosiki.com |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL3 (Gnu General Public License)]] |
-|  Plugin Version: | 3132 (2009-03-16) |
+|  Plugin Version: | 3626 (2009-04-22) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
 |  Dependencies: | None |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |

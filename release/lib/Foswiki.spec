@@ -378,19 +378,13 @@ $Foswiki::cfg{SuperAdminGroup} = 'AdminGroup';
 $Foswiki::cfg{UsersTopicName} = 'WikiUsers';
 
 # **STRING 100 EXPERT**
-# Comma-separated list of scripts that require the user to authenticate.
-# With TemplateLogin, any time an unauthenticated user attempts to access
-# one of these scripts, they will be redirected to the login script. With
-# ApacheLogin, they will be redirected to the logon script (note
-# login and logon; they are different scripts). This approach means that
-# only the logon script needs to be specified as require valid-user when
-# using Apache authentication.
-# <p/>
-# If you want finer access control (e.g. authorised users only in one web
-# but open access in another) then you should *clear* this list, and use
-# Foswiki Permissions to control access. Users wishing to make changes will
-# have to log in by clicking a "log in" link instead of being automatically
-# redirected when they try to edit.
+# Comma-separated list of scripts in the bin directory that require the user to
+# authenticate. Any time an unauthenticated user attempts to access one of these
+# scripts, they will be required to authenticate. With TemplateLogin, they are
+# redirected to the login script. With ApacheLogin the web server directly asks
+# the browser to authenticate without redirecting to a login page and for this
+# reason the bin scripts must be configured for authentication in the webserver
+# configuration.
 $Foswiki::cfg{AuthScripts} = 'attach,edit,manage,rename,save,upload,viewauth,rdiffauth,rest';
 
 # **STRING 80 EXPERT**
@@ -1278,7 +1272,7 @@ $Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
 # **STRING 80 EXPERT**
 # <b>Extensions Repositories Search List</b><br />
 # Foswiki extension repositories are just Foswiki webs that are organised in the
-# same way as the Plugins web on Foswiki.org. The 'Find more extensions' link
+# same way as the Extensions web on Foswiki.org. The 'Find more extensions' link
 # above searches these repositories for installable extensions. To set up an
 # extensions repository:
 # <ol>
@@ -1286,12 +1280,11 @@ $Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
 # <li>Copy the <tt>FastReport</tt> page from <a href="http://foswiki.org/Extensions/FastReport?raw=on">Foswiki:Extensions.FastReport</a> to your new web</li>
 # <li> Set the <tt>WEBFORMS</tt> variable in WebPreferences to <tt>PackageForm</tt></li>
 # </ol>
-# The page for each extension must have the Foswiki form <tt>PackageForm</tt>,
+# The page for each extension must have the <tt>PackageForm</tt> (copy from Foswiki.org),
 # and should have the packaged extension attached as a <tt>zip</tt> and/or
 # <tt>tgz</tt> file.
 # <p />
-# This setting is a semicolon-separated list of repository specifications, each in the format: <i>name=(listurl,puburl)</i>.
-# For Extensions with the same name in both repositories, the one in the last repository will be chosen, so foswiki should be last for maximum compatibility.
+# The search list is a semicolon-separated list of repository specifications, each in the format: <i>name=(listurl,puburl)</i>
 # where:
 # <ul>
 # <li><em>name</em> is the symbolic name of the repository e.g. Foswiki.org</li>
@@ -1299,7 +1292,7 @@ $Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
 # <li><em>puburl</em> is the root of a download URL</li>
 # </ul>
 # For example,<code>
-# twiki.org=(http://twiki.org/cgi-bin/view/Plugins/,http://twiki.org/p/pub/Plugins/);
-# foswiki.org=(http://foswiki.org/Extensions/,http://foswiki.org/pub/Extensions/);</code><p />
+# twiki.org=(http://twiki.org/cgi-bin/view/Plugins/,http://twiki.org/p/pub/Plugins/);foswiki.org=(http://foswiki.org/Extensions/,http://foswiki.org/pub/Extensions/);</code><p />
+# For Extensions with the same name in more than one repository, the <strong>last</strong> matching repository in the list will be chosen, so Foswiki.org should always be last in the list for maximum compatibility.
 $Foswiki::cfg{ExtensionsRepositories} = 'Foswiki.org=(http://foswiki.org/Extensions/,http://foswiki.org/pub/Extensions/)';
 1;

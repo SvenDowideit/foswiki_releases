@@ -447,8 +447,8 @@ msgid "..."
 msgstr "..."
 
 #: core/templates/oopsmore.tmpl:14
-msgid "<a href='%1' rel='nofollow'>Edit settings</a> for this topic"
-msgstr "<a href='%1' rel='nofollow'>Rediger innstillinger</a> for denne siden"
+msgid "Edit settings for this topic"
+msgstr "Rediger innstillinger for denne siden"
 
 #: core/data/System/WebChanges.txt:8
 msgid ""
@@ -1584,6 +1584,10 @@ msgstr "Dersom du harspørsmål vennlighst kontakt %1."
 #: core/templates/registernotify.tmpl:25
 msgid "If you haven't set a password yet or you want to reset it, go to: %1"
 msgstr "Hvis du ikke har satt et passord enda eller vil endre det, gå til: %1"
+
+#: core/templates/messages.tmpl:420
+msgid "The =%1= script can only be called with POST method."
+msgstr "Skriptet =%1= kan kun kalles med metoden POST."
 
 #: core/templates/messages.tmpl:423
 msgid ""

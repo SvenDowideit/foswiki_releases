@@ -160,8 +160,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-03-19 21:16:41 +0100 (Thu, 19 Mar 2009) $ $Rev: 3201 (2009-03-19) $ ';
-    $RELEASE = 'Foswiki-1.0.4';
+    $VERSION = '$Date: 2009-04-25 12:43:12 +0200 (Sat, 25 Apr 2009) $ $Rev: 3705 (2009-04-25) $ ';
+    $RELEASE = 'Foswiki-1.0.5';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -848,7 +848,7 @@ sub redirect {
         if ( $url =~ s/\?(.*)$// ) {
             $existing = $1;    # implicit untaint OK; recombined later
         }
-        if ( $query->method() eq 'POST' ) {
+        if ( uc($query->method()) eq 'POST' ) {
 
             # Redirecting from a post to a get
             my $cache = $this->cacheQuery();
@@ -1771,8 +1771,9 @@ sub logEvent {
         if ($cgiQuery) {
             my $agent = $cgiQuery->user_agent();
             if ($agent) {
-                $agent =~ m/([\w]+)/;
-                $extra .= ' ' . $1;
+                if ( $agent =~ m/([\w]+)/ ) {
+                    $extra .= ' ' . $1;
+                }
             }
         }
     }
@@ -3746,7 +3747,7 @@ sub SEARCH {
     $params->{inline}    = 1;
     $params->{baseweb}   = $web;
     $params->{basetopic} = $topic;
-    $params->{search}    = $params->{_DEFAULT} if ( $params->{_DEFAULT} );
+    $params->{search}    = $params->{_DEFAULT} if defined $params->{_DEFAULT};
     $params->{type} =
       $this->{prefs}->getPreferencesValue('SEARCHVARDEFAULTTYPE')
       unless ( $params->{type} );

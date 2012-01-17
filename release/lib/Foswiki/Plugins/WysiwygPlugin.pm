@@ -39,7 +39,7 @@ use vars qw( %TWikiCompatibility @refs );
 
 $SHORTDESCRIPTION = 'Translator framework for Wysiwyg editors';
 $NO_PREFS_IN_TOPIC = 1;
-$VERSION = '$Rev: 3048 (2009-03-12) $';
+$VERSION = '$Rev: 3509 (2009-04-18) $';
 
 $RELEASE = '03 Aug 2008';
 
@@ -737,6 +737,11 @@ sub _restHTML2TML {
 sub _restUpload {
     my ($session, $plugin, $verb, $response) = @_;
     my $query = Foswiki::Func::getCgiQuery();
+    # Item1458 ignore uploads not using POST
+    if ($query && $query->method() && uc($query->method()) ne 'POST') {
+        returnRESTResult($response, 405, "Method not Allowed");
+        return undef;
+    }
     my ($web, $topic) = Foswiki::Func::normalizeWebTopicName( undef,
         $query->param('topic'));
     $web = Foswiki::Sandbox::untaint(

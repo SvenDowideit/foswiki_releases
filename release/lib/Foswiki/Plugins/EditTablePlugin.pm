@@ -22,20 +22,15 @@ package Foswiki::Plugins::EditTablePlugin;
 
 use strict;
 
-# This should always be $Rev: 3160 (2009-03-18) $ so that Foswiki can determine the checked-in
-# status of the plugin. It is used by the build automation tools, so
-# you should leave it alone.
-our $VERSION = '$Rev: 3160 (2009-03-18) $';
-
-# This is a free-form string you can use to "name" your own plugin version.
-# It is *not* used by the build automation tools, but is reported as part
-# of the version number in PLUGINDESCRIPTIONS.
-our $RELEASE = '4.20';
+our $VERSION = '$Rev: 3523 (2009-04-18) $';
+our $RELEASE = '4.23';
 
 our $pluginName   = 'EditTablePlugin';
 our $ENCODE_START = '--EditTableEncodeStart--';
 our $ENCODE_END   = '--EditTableEncodeEnd--';
 our $ASSET_URL    = '%PUBURL%/%SYSTEMWEB%/EditTablePlugin';
+our $NO_PREFS_IN_TOPIC = 1;
+our $SHORTDESCRIPTION = 'Edit tables using edit fields, date pickers and drop down boxes';
 our $web;
 our $topic;
 our $user;
@@ -43,6 +38,7 @@ our $debug;
 our $usesJavascriptInterface;
 our $viewModeHeaderDone;
 our $editModeHeaderDone;
+our $recursionBlock;
 
 sub initPlugin {
     ( $topic, $web, $user ) = @_;
@@ -62,7 +58,8 @@ sub initPlugin {
     # Get plugin debug flag
     $debug = Foswiki::Func::getPreferencesFlag('EDITTABLEPLUGIN_DEBUG');
     $usesJavascriptInterface =
-      Foswiki::Func::getPreferencesFlag('EDITTABLEPLUGIN_JAVASCRIPTINTERFACE');
+      Foswiki::Func::getPreferencesFlag('EDITTABLEPLUGIN_JAVASCRIPTINTERFACE')
+          || 1;
     $viewModeHeaderDone = 0;
     $editModeHeaderDone = 0;
 
@@ -107,6 +104,8 @@ sub commonTagsHandler {
         "EditTablePlugin::commonTagsHandler( $web.$topic )")
       if $debug;
 
+    return if $recursionBlock;
+    $recursionBlock = 1;
     addViewModeHeadersToHead();
     require Foswiki::Plugins::EditTablePlugin::Core;
 
@@ -114,6 +113,7 @@ sub commonTagsHandler {
     Foswiki::Plugins::EditTablePlugin::Core::parseTables( $_[0], $_[1], $_[2] );
     Foswiki::Plugins::EditTablePlugin::Core::process( $_[0], $_[1], $_[2],
         $topic, $web );
+    $recursionBlock = 0;
 }
 
 sub postRenderingHandler {

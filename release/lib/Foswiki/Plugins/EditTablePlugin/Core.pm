@@ -168,6 +168,10 @@ sub processText {
 
     $query = Foswiki::Func::getCgiQuery();
 
+    # Item1458 ignore all saving unless it happened using POST method.
+    $doSave = 0
+      if ( $query && $query->method() && uc($query->method()) ne 'POST' );
+
     if ($Foswiki::Plugins::EditTablePlugin::debug) {
         Foswiki::Func::writeDebug(
 "EditTablePlugin::Core::processText( inMode=$inMode; inSaveTableNr=$inSaveTableNr; inText=$inText; inTopic=$inTopic; inWeb=$inWeb; inIncludingTopic=$inIncludingTopic; inIncludingWeb=$inIncludingWeb"
@@ -623,32 +627,32 @@ sub getPreferencesValues {
 
     $prefEDIT_BUTTON =
       Foswiki::Func::getPreferencesValue("\U$pluginName\E_EDIT_BUTTON")
-      || 'Edit table';
+      ||  '%MAKETEXT{"Edit this table"}%, %ATTACHURL%/edittable.gif';
 
     $prefSAVE_BUTTON =
       Foswiki::Func::getPreferencesValue("\U$pluginName\E_SAVE_BUTTON")
-      || 'Save table';
+      || '%MAKETEXT{"Save table"}%';
 
     $prefQUIET_SAVE_BUTTON =
       Foswiki::Func::getPreferencesValue("\U$pluginName\E_QUIET_SAVE_BUTTON")
-      || 'Quiet save';
+      || '%MAKETEXT{"Quiet save"}%';
 
     $prefADD_ROW_BUTTON =
       Foswiki::Func::getPreferencesValue("\U$pluginName\E_ADD_ROW_BUTTON")
-      || 'Add row';
+      || '%MAKETEXT{"Add row"}%';
 
     $prefDELETE_LAST_ROW_BUTTON = Foswiki::Func::getPreferencesValue(
         "\U$pluginName\E_DELETE_LAST_ROW_BUTTON")
-      || 'Delete last row';
+      || '%MAKETEXT{"Delete last row"}%';
       
     $prefCANCEL_BUTTON =
       Foswiki::Func::getPreferencesValue("\U$pluginName\E_CANCEL_BUTTON")
-      || 'Cancel';
+      || '%MAKETEXT{"Cancel"}%';
       
     $prefMESSAGE_INCLUDED_TOPIC_DOES_NOT_EXIST =
       Foswiki::Func::getPreferencesValue(
         "\U$pluginName\E_INCLUDED_TOPIC_DOES_NOT_EXIST")
-      || 'Warning: \'include\' topic does not exist!';
+      || '<span class="foswikiAlert">%MAKETEXT{"Warning: \'include\' topic does not exist!"}%</span>';
 }
 
 =begin TML
@@ -745,19 +749,12 @@ sub handleEditTableTag {
 
     # include topic to read definitions
     my $iTopic = Foswiki::Func::extractNameValuePair( $theArgs, 'include' );
-    my $iTopicExists = 0;
     if ($iTopic) {
-        if ( $iTopic =~ /^([^\.]+)\.(.*)$/o ) {
-            $inWeb  = $1;
-            $iTopic = $2;
-        }
+	($inWeb, $iTopic) = Foswiki::Func::normalizeWebTopicName($inWeb, $iTopic);
 
-        $iTopicExists = Foswiki::Func::topicExists( $inWeb, $iTopic )
-          if $iTopic ne '';
-        if ( $iTopic && !$iTopicExists ) {
+        unless (Foswiki::Func::topicExists( $inWeb, $iTopic )) {
             $warningMessage = $prefMESSAGE_INCLUDED_TOPIC_DOES_NOT_EXIST;
-        }
-        if ($iTopicExists) {
+        } else {
 
             my $text = Foswiki::Func::readTopicText( $inWeb, $iTopic );
             $text =~ /$PATTERN_EDITTABLEPLUGIN/os;
@@ -1669,7 +1666,7 @@ sub handleSearchResultsBelowEditTables {
     # my $tableData = $_[2]
 
     $_[0] =~
-s/(<!--%EDITTABLESTUB{([0-9]+)}%-->\s+)((\s*)\|.*\|)\s+/addSearchResultsTableTextToTableObject($_[2], $_[1], $1, $2, $3)/geos;
+s/(<!--%EDITTABLESTUB{([0-9]+)}%-->[ ]*\n)((?:[ \t]*\|[^\n]*\|[ ]*\n)+)/addSearchResultsTableTextToTableObject($_[2], $_[1], $1, $2, $3)/geos;
 }
 
 sub addSearchResultsTableTextToTableObject {

@@ -1,4 +1,4 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.0" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
 %META:TOPICPARENT{name="FrequentlyAskedQuestions"}%
 ---++ FAQ:
 How can I create a simple data form based application?
@@ -40,7 +40,7 @@ HTML forms have nothing to do with data forms, except that they are a way to cre
 
 Example HTML form:
 <verbatim>
-<form action="%SCRIPTURLPATH{edit}%/%WEB%/">
+<form action="%SCRIPTURLPATH{edit}%/%WEB%/" method="post">
 Name of the new topic: %BR%
 <input type="text" name="topic" class="foswikiInputField" size="32" />
 

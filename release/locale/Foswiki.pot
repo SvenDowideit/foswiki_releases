@@ -426,7 +426,7 @@ msgid "..."
 msgstr ""
 
 #: core/templates/oopsmore.tmpl:14
-msgid "<a href='%1' rel='nofollow'>Edit settings</a> for this topic"
+msgid "Edit settings for this topic"
 msgstr ""
 
 #: core/data/System/WebChanges.txt:8
@@ -1473,7 +1473,11 @@ msgstr ""
 msgid "If you haven't set a password yet or you want to reset it, go to: %1"
 msgstr ""
 
-#: core/templates/messages.tmpl:423
+#: core/templates/messages.tmpl:420
+msgid "The =%1= script can only be called with POST method."
+msgstr ""
+
+#: core/templates/messages.tmpl:424
 msgid ""
 "If you received a link to this topic in an e-mail or just want to look at "
 "the topic, [[%1][cancel save]] to go to %2."

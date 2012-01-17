@@ -12,48 +12,132 @@ use strict;
 
 BEGIN {
     $Foswiki::cfg{SwitchBoard} ||= {};
-    $Foswiki::cfg{SwitchBoard}{attach} =
-      [ 'Foswiki::UI::Upload', 'attach', { attach => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{changes} =
-      [ 'Foswiki::UI::Changes', 'changes', { changes => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{edit} =
-      [ 'Foswiki::UI::Edit', 'edit', { edit => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{login} =
-      [ undef, 'logon', { ( login => 1, logon => 1 ) } ];
-    $Foswiki::cfg{SwitchBoard}{logon} =
-      [ undef, 'logon', { ( login => 1, logon => 1 ) } ];
-    $Foswiki::cfg{SwitchBoard}{manage} =
-      [ 'Foswiki::UI::Manage', 'manage', { manage => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{oops} =
-      [ 'Foswiki::UI::Oops', 'oops_cgi', { oops => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{preview} =
-      [ 'Foswiki::UI::Preview', 'preview', { preview => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{rdiffauth} =
-      [ 'Foswiki::UI::RDiff', 'diff', { diff => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{rdiff} =
-      [ 'Foswiki::UI::RDiff', 'diff', { diff => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{register} =
-      [ 'Foswiki::UI::Register', 'register_cgi', { register => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{rename} =
-      [ 'Foswiki::UI::Manage', 'rename', { rename => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{resetpasswd} =
-      [ 'Foswiki::UI::Register', 'resetPassword', { resetpasswd => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{rest} =
-      [ 'Foswiki::UI::Rest', 'rest', { rest => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{save} =
-      [ 'Foswiki::UI::Save', 'save', { save => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{search} =
-      [ 'Foswiki::UI::Search', 'search', { search => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{statistics} =
-      [ 'Foswiki::UI::Statistics', 'statistics', { statistics => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{upload} =
-      [ 'Foswiki::UI::Upload', 'upload', { upload => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{viewauth} =
-      [ 'Foswiki::UI::View', 'view', { view => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{viewfile} =
-      [ 'Foswiki::UI::View', 'viewfile', { viewfile => 1 } ];
-    $Foswiki::cfg{SwitchBoard}{view} =
-      [ 'Foswiki::UI::View', 'view', { view => 1 } ];
+
+    # package - perl package that contains the method for this request
+    # function - name of the function in package
+    # context - hash of context vars to define
+    # allow - hash of HTTP methods to allow (all others are denied)
+    # deny - hash of HTTP methods that are denied (all others are allowed)
+    # 'deny' is not tested if 'allow' is defined
+
+    # The switchboard can contain entries either as hashes or as arrays.
+    # The array format specifies [0] package, [1] function, [2] context
+    # and should be used when declaring scripts from plugins that must work
+    # with Foswiki 1.0.0 and 1.0.4.
+
+    $Foswiki::cfg{SwitchBoard}{attach} = {
+        package => 'Foswiki::UI::Upload',
+        function => 'attach',
+        context => { attach => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{changes} = {
+        package => 'Foswiki::UI::Changes',
+        function => 'changes',
+        context => { changes => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{edit} = {
+        package => 'Foswiki::UI::Edit',
+        function => 'edit',
+        context => { edit => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{login} = {
+        package => undef,
+        function => 'logon',
+        context => { ( login => 1, logon => 1 ) },
+    };
+    $Foswiki::cfg{SwitchBoard}{logon} = {
+        package => undef,
+        function => 'logon',
+        context => { ( login => 1, logon => 1 ) },
+    };
+    $Foswiki::cfg{SwitchBoard}{manage} = {
+        package => 'Foswiki::UI::Manage',
+        function => 'manage',
+        context => { manage => 1 },
+        allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{oops} = {
+        package => 'Foswiki::UI::Oops',
+        function => 'oops_cgi',
+        context => { oops => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{preview} = {
+        package => 'Foswiki::UI::Preview',
+        function => 'preview',
+        context => { preview => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{rdiffauth} = {
+        package => 'Foswiki::UI::RDiff',
+        function => 'diff',
+        context => { diff => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{rdiff} = {
+        package => 'Foswiki::UI::RDiff',
+        function => 'diff',
+        context => { diff => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{register} = {
+        package => 'Foswiki::UI::Register',
+        function => 'register_cgi',
+        context => { register => 1 },
+        # method verify must allow GET; protect in Foswiki::UI::Register
+        #allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{rename} = {
+        package => 'Foswiki::UI::Manage',
+        function => 'rename',
+        context => { rename => 1 },
+        # Rename is 2 stage; protect in Foswiki::UI::Rename
+        #allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{resetpasswd} = {
+        package => 'Foswiki::UI::Register',
+        function => 'resetPassword',
+        context => { resetpasswd => 1 },
+        allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{rest} = {
+        package => 'Foswiki::UI::Rest',
+        function => 'rest',
+        context => { rest => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{save} = {
+        package => 'Foswiki::UI::Save',
+        function => 'save',
+        context => { save => 1 },
+        allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{search} = {
+        package => 'Foswiki::UI::Search',
+        function => 'search',
+        context => { search => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{statistics} = {
+        package => 'Foswiki::UI::Statistics',
+        function => 'statistics',
+        context => { statistics => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{upload} = {
+        package => 'Foswiki::UI::Upload',
+        function => 'upload',
+        context => { upload => 1 },
+        allow => { POST => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{viewauth} = {
+        package => 'Foswiki::UI::View',
+        function => 'view',
+        context => { view => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{viewfile} = {
+        package => 'Foswiki::UI::View',
+        function => 'viewfile',
+        context => { viewfile => 1 },
+    };
+    $Foswiki::cfg{SwitchBoard}{view} = {
+        package => 'Foswiki::UI::View',
+        function => 'view',
+        context => { view => 1 },
+    };
 }
 
 use Error qw(:try);
@@ -88,7 +172,7 @@ sub handleRequest {
 
     my $res;
     my $dispatcher = $Foswiki::cfg{SwitchBoard}{ $req->action() };
-    unless ( defined $dispatcher && ref($dispatcher) eq 'ARRAY' ) {
+    unless ( defined $dispatcher ) {
         $res = new Foswiki::Response();
         $res->header( -type => 'text/html', -status => '404' );
         my $html = CGI::start_html('404 Not Found');
@@ -101,37 +185,26 @@ sub handleRequest {
         $res->print($html);
         return $res;
     }
-    my ( $package, $function, $context ) = @$dispatcher;
 
-    if ( $package && !$isInitialized{$package} ) {
-        eval qq(use $package);
+    if (ref($dispatcher) eq 'ARRAY') {
+        # Old-style array entry in switchboard from a plugin
+        my @array = @$dispatcher;
+        $dispatcher = {
+            package  => $array[0],
+            function => $array[1],
+            context  => $array[2],
+        };
+    }
+
+    if ( $dispatcher->{package} && !$isInitialized{$dispatcher->{package}} ) {
+        eval qq(use $dispatcher->{package});
         die $@ if $@;
-        $isInitialized{$package} = 1;
+        $isInitialized{$dispatcher->{package}} = 1;
     }
 
     my $sub;
-    $sub = $package . '::' if $package;
-    $sub .= $function;
-
-    if ( UNIVERSAL::isa( $Foswiki::engine, 'Foswiki::Engine::CLI' ) ) {
-        $context->{command_line} = 1;
-    }
-
-    $res = execute( $req, \&$sub, %$context );
-    return $res;
-}
-
-=begin TML
-
----++ StaticMethod execute($req, $sub, %initialContext) -> $res
-
-Creates a Foswiki session object with %initalContext and calls
-$sub method. Returns the Foswiki::Response object generated
-
-=cut
-
-sub execute {
-    my ( $req, $sub, %initialContext ) = @_;
+    $sub = $dispatcher->{package} . '::' if $dispatcher->{package};
+    $sub .= $dispatcher->{function};
 
     my $cache = $req->param('foswiki_redirect_cache');
 
@@ -158,12 +231,45 @@ sub execute {
             $req->delete('foswiki_redirect_cache');
             print STDERR "Passthru: Loaded and unlinked $passthruFilename\n"
               if TRACE_PASSTHRU;
+            $req->method('POST');
         }
         else {
             print STDERR "Passthru: Could not find $passthruFilename\n"
               if TRACE_PASSTHRU;
         }
     }
+    if ( UNIVERSAL::isa( $Foswiki::engine, 'Foswiki::Engine::CLI' ) ) {
+        $dispatcher->{context}->{command_line} = 1;
+    } elsif ( defined $req->method()
+              && (
+                ( defined $dispatcher->{allow}
+                  && !$dispatcher->{allow}->{uc($req->method())} )
+                ||
+                ( defined $dispatcher->{deny}
+                  && $dispatcher->{deny}->{uc($req->method())} )
+              )
+            ) {
+        $res = new Foswiki::Response();
+        $res->header( -type => 'text/html', -status => '405' );
+        $res->print('Bad Request: '.uc($req->method()).' denied for '
+                      .$req->action());
+        return $res;
+    }
+    $res = _execute( $req, \&$sub, %{$dispatcher->{context}} );
+    return $res;
+}
+
+=begin TML
+
+---++ StaticMethod _execute($req, $sub, %initialContext) -> $res
+
+Creates a Foswiki session object with %initalContext and calls
+$sub method. Returns the Foswiki::Response object generated
+
+=cut
+
+sub _execute {
+    my ( $req, $sub, %initialContext ) = @_;
 
     # DO NOT pass in $req->remoteUser here (even though it appears to be right)
     # because it may occlude the login manager.
@@ -389,7 +495,7 @@ sub run {
     if ( UNIVERSAL::isa( $Foswiki::engine, 'Foswiki::Engine::CLI' ) ) {
         $context{command_line} = 1;
     }
-    execute( Foswiki::Request->new(), \&$method, %context );
+    _execute( Foswiki::Request->new(), \&$method, %context );
 }
 
 1;

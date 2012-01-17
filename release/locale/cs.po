@@ -470,8 +470,8 @@ msgid "..."
 msgstr "..."
 
 #: core/templates/oopsmore.tmpl:14
-msgid "<a href='%1' rel='nofollow'>Edit settings</a> for this topic"
-msgstr "<a href='%1' rel='nofollow'>Změnit nastavení</a> pro tento článek"
+msgid "Edit settings for this topic"
+msgstr "Změnit nastavení pro tento článek"
 
 #: core/data/System/WebChanges.txt:8
 msgid ""
@@ -1630,6 +1630,10 @@ msgstr "Pokud máte libovolné otázky, kontaktujte prosím %1."
 msgid "If you haven't set a password yet or you want to reset it, go to: %1"
 msgstr ""
 "Pokud jste zatím nenastavil heslo nebo ho chcete znovu nastavit, jděte na: %1"
+
+#: core/templates/messages.tmpl:420
+msgid "The =%1= script can only be called with POST method."
+msgstr ""
 
 #: core/templates/messages.tmpl:423
 msgid ""
