@@ -363,20 +363,26 @@ sub searchWeb {
     my $caseSensitive = Foswiki::isTrue( $params{casesensitive} );
     my $excludeTopic  = $params{excludetopic} || '';
     my $doExpandVars  = Foswiki::isTrue( $params{expandvariables} );
-    my $format        = defined $params{format} ? $params{format} : '';
+    my $formatDefined = defined $params{format};
+    my $format        = $params{format};
     my $header        = $params{header};
+    my $footer        = $params{footer};
     my $inline        = $params{inline};
     my $limit         = $params{limit} || '';
     my $doMultiple    = Foswiki::isTrue( $params{multiple} );
     my $nonoise       = Foswiki::isTrue( $params{nonoise} );
     my $noEmpty       = Foswiki::isTrue( $params{noempty}, $nonoise );
 
-    # Note: a defined header overrides noheader
+    # Note: a defined header/footer overrides noheader/nofooter
+    # To maintain Cairo compatibility we ommit default header/footer if the
+    # now deprecated option 'inline' is used combined with 'format'
     my $noHeader = !defined($header)
       && Foswiki::isTrue( $params{noheader}, $nonoise )
-
-      # Note: This is done for Cairo compatibility
-      || ( !$header && $format && $inline );
+      || ( !$header && $formatDefined && $inline );
+      
+    my $noFooter = !defined($footer)
+      && Foswiki::isTrue( $params{nofooter}, $nonoise )
+      || ( !$footer && $formatDefined && $inline );
 
     my $noSearch  = Foswiki::isTrue( $params{nosearch},  $nonoise );
     my $noSummary = Foswiki::isTrue( $params{nosummary}, $nonoise );
@@ -499,14 +505,14 @@ sub searchWeb {
     my $originalSearch = $searchString;
     my $spacedTopic;
 
-    if ($format) {
+    if ( $formatDefined ) {
         $template = 'searchformat';
     }
-    elsif ($template) {
+    elsif ( $template ) {
 
         # template definition overrides book and rename views
     }
-    elsif ($doBookView) {
+    elsif ( $doBookView ) {
         $template = 'searchbookview';
     }
     else {
@@ -753,25 +759,22 @@ sub searchWeb {
         # header and footer of $web
         my ( $beforeText, $repeatText, $afterText ) =
           split( /%REPEAT%/, $tmplTable );
+
         if ( defined $header ) {
             $beforeText = Foswiki::expandStandardEscapes($header);
             $beforeText =~ s/\$web/$web/gos;    # expand name of web
-            
-            # It cannot be correct to append the separator to the header,
-            # removing this  -- AC
-            #if ( defined($separator) ) {
-            #     $beforeText .= $separator;
-            #}
-            
-            #else {
-                $beforeText =~
-                  s/([^\n])$/$1\n/os;           # add new line at end if needed
-            #}
-            # / end removing separator from header
+            $beforeText =~ s/([^\n])$/$1\n/os;  # add new line at end
+        }
+
+        if ( defined $footer ) {
+            $afterText = Foswiki::expandStandardEscapes($footer);
+            $afterText =~ s/\$web/$web/gos;    # expand name of web
+            $afterText =~ s/([^\n])$/$1\n/os;  # add new line at end
         }
 
         # output the list of topics in $web
-        my $ntopics    = 0;
+        my $ntopics    = 0; # number of topics in current web
+        my $nhits      = 0; # number of hits (if multiple=on) in current web
         my $headerDone = $noHeader;
         foreach my $topic (@topicList) {
             my $forceRendering = 0;
@@ -805,7 +808,7 @@ sub searchWeb {
             my ( $meta, $text );
 
             # Special handling for format='...'
-            if ($format) {
+            if ( $formatDefined ) {
                 ( $meta, $text ) =
                   _getTextAndMeta( $this, $topicInfo, $web, $topic );
 
@@ -837,13 +840,12 @@ sub searchWeb {
                 }
             }
 
-            # SMELL: this loop is a rather hairy; why not do it thus:
-            # while(scalar(@multipleHitLines))?
-            # presumably you are relying on the fact that text will be set
-            # when doMultiple is off, even though @multipleHitLines will
-            # be empty? I can't work it out.
+            $ntopics += 1;
+            $ttopics += 1;
+
             do {    # multiple=on loop
 
+                $nhits += 1;
                 my $out = '';
 
                 $text = pop(@multipleHitLines) if ( scalar(@multipleHitLines) );
@@ -852,7 +854,7 @@ sub searchWeb {
                 $wikiusername = "$Foswiki::cfg{UsersWebName}.UnknownUser"
                   unless defined $wikiusername;
 
-                if ($format) {
+                if ( $formatDefined ) {
                     $out = $format;
                     $out =~ s/\$web/$web/gs;
                     $out =~ s/\$topic\(([^\)]*)\)/Foswiki::Render::breakName( 
@@ -862,6 +864,8 @@ sub searchWeb {
                     $out =~ s/\$isodate/$isoDate/gs;
                     $out =~ s/\$rev/$revNum/gs;
                     $out =~ s/\$wikiusername/$wikiusername/ges;
+                    $out =~ s/\$ntopics/$ntopics/gs;
+                    $out =~ s/\$nhits/$nhits/gs;
 
                     my $wikiname = $users->getWikiName($cUID);
                     $wikiname = 'UnknownUser' unless defined $wikiname;
@@ -930,7 +934,7 @@ sub searchWeb {
                     $out =~ s/%TEXTHEAD%/$text/go;
 
                 }
-                elsif ($format) {
+                elsif ( $formatDefined ) {
                     $out =~
 s/\$summary(?:\(([^\)]*)\))?/$renderer->makeTopicSummary( $text, $topic, $web, $1 )/ges;
                     $out =~
@@ -987,6 +991,8 @@ s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
                       || '\#FF00FF';
                     $beforeText =~ s/%WEBBGCOLOR%/$thisWebBGColor/go;
                     $beforeText =~ s/%WEB%/$web/go;
+                    $beforeText =~ s/\$ntopics/0/gs;
+                    $beforeText =~ s/\$nhits/0/gs;
                     $beforeText =
                       $session->handleCommonTags( $beforeText, $web, $topic );
                     if ( defined $callback ) {
@@ -1001,8 +1007,8 @@ s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
                     }
                 }
 
-             #don't expand if a format is specified - it breaks tables and stuff
-                unless ($format) {
+                # don't expand if a format is specified - it breaks tables and stuff
+                unless ( $formatDefined ) {
                     $out = $renderer->getRenderedVersion( $out, $web, $topic );
                 }
 
@@ -1017,9 +1023,6 @@ s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
 
             } while (@multipleHitLines);    # multiple=on loop
 
-            $ntopics += 1;
-            $ttopics += 1;
-
             # delete topic info to clear any cached data
             undef $topicInfo->{$topic};
 
@@ -1030,9 +1033,11 @@ s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
         if ($ntopics) {
 
             # output footer of $web
+            $afterText =~ s/\$ntopics/$ntopics/gs;
+            $afterText =~ s/\$nhits/$nhits/gs;
             $afterText =
               $session->handleCommonTags( $afterText, $web, $homeTopic );
-            if ( $inline || $format ) {
+            if ( $inline || $formatDefined ) {
                 $afterText =~ s/\n$//os;    # remove trailing new line
             }
 
@@ -1068,7 +1073,7 @@ s/\$pattern\((.*?\s*\.\*)\)/_extractPattern( $text, $1 )/ges;
     }    # end of: foreach my $web ( @webs )
     return '' if ( $ttopics == 0 && $zeroResults );
 
-    if ( $format && !$finalTerm ) {
+    if ( $formatDefined && !$finalTerm ) {
         if ($separator) {
             $separator = quotemeta($separator);
             $searchResult =~ s/$separator$//s;    # remove separator at end

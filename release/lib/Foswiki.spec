@@ -77,7 +77,7 @@ my $OS = $Foswiki::cfg{OS} || '';
 
 #---+ General path settings
 # If you are a first-time installer; once you have set up the next
-# six paths below, your Foswiki should work - try it. You can always come
+# eight paths below, your Foswiki should work - try it. You can always come
 # back and tweak other settings later.<p />
 # <b>Security Note:</b> Only the URL paths listed below should
 # be browseable from the web. If you expose any other directories (such as
@@ -140,7 +140,7 @@ $Foswiki::cfg{PermittedRedirectHostUrls} = '';
 # of Foswiki, but are not normally required to be browsed from the web.
 # A number of subdirectories will be created automatically under this
 # directory:
-# <ul><li>{WorkingDir}<tt>/tmp/</tt> - used for security-related temporary
+# <ul><li>{WorkingDir}<tt>/tmp</tt> - used for security-related temporary
 # files (these files can be deleted at any time without permanent damage)
 # <ul><li>
 # <i>Passthrough files</i> are used by Foswiki to work around the limitations
@@ -192,7 +192,7 @@ $Foswiki::cfg{Password} = '';
 # 		</ul>
 # 	</li>
 # 	<li>
-# 		Windows <span class="foswikiNewLink"> ActiveState<a href="/~arthur/foswiki/core/bin/edit/Sandbox/ActiveState?topicparent=Sandbox.HtmlCreator" rel="nofollow" title="Create this topic">?</a> </span> Perl, using DOS shell 
+# 		Windows ActiveState Perl, using DOS shell 
 # 		<ul>
 # 			<li>
 # 				path separator is ; 
@@ -288,7 +288,7 @@ $Foswiki::cfg{Sessions}{IDsInURLs} = 0;
 # This gives a small increase in security. Public web sites can easily be
 # accessed by different users from the same IP address when they access
 # through the same proxy gateway, meaning that the protection is limited.
-# Additionally people get more and more mobile using a mix of LAN, WLAN, 
+# Additionally, people get more and more mobile using a mix of LAN, WLAN, 
 # and 3G modems and they will often change IP address several times per day.
 # For these users IP matching causes the need to re-authenticate all the time.
 # IP matching is therefore disabled by default and should only be enabled if
@@ -306,6 +306,50 @@ $Foswiki::cfg{Sessions}{UseIPMatching} = 0;
 # If you turn this option on, you can safely turn {Sessions}{IDsInURLs}
 # <i>off</i>.
 $Foswiki::cfg{Sessions}{MapIP2SID} = 0;
+
+# **SELECT strikeone,embedded,none EXPERT **
+# By default Foswiki uses Javascript to perform "double submission" validation
+# of browser requests. This technique, called "strikeone", is highly
+# recommended for the prevention of cross-site request forgery (CSRF).
+# If Javascript is known not to be available in browsers that use the site,
+# or cookies are disabled, but you still want validation of submissions,
+# then you can fall back on a embedded-key validation technique that
+# is less secure, but still offers some protection against CSRF. Both
+# validation techniques rely on user verification of "suspicious"
+# transactions.
+# This option allows you to select which validation technique will be
+# used.<br />
+# If it is set to "strikeone", or is undefined, 0, or the empty string, then
+# double-submission using Javascript will be used.<br />
+# If it is set to "embedded", then embedded validation keys will be used.<br/>
+# If it is set to "none", then no validation of posted requests will
+# be performed.
+$Foswiki::cfg{Validation}{Method} = 'strikeone';
+
+# **NUMBER EXPERT**
+# Validation keys are stored for a maximum of this amount of time before
+# they are invalidated. Time in seconds.
+$Foswiki::cfg{Validation}{ValidForTime} = 3600;
+
+# **NUMBER EXPERT**
+# The maximum number of validation keys to store in a session. There is one
+# key stored for each page rendered. If the number of keys exceeds this
+# number, the oldest keys will be force-expired to bring the number down.
+$Foswiki::cfg{Validation}{MaxKeysPerSession} = 1000;
+
+# **BOOLEAN EXPERT**
+# Expire a validation key immediately when it is used to validate the saving
+# of a page. This protects against an attacker evesdropping the communication
+# between browser and server and exploiting the keys sent from browser to
+# server. This setting means that if a user edits and saves a page and then go
+# back to the edit screen using the browser back button and saves again, the
+# user will be met by a warning screen against "Suspicious request from
+# browser". Same warning will be displayed if you build an application with
+# pages containing multiple forms and the users tries to submit from these
+# forms more than once. If this warning screen is a problem for your users you
+# can disable this setting which enables reuse of validation keys. This
+# however lowers the level of security against cross-site request forgery.
+$Foswiki::cfg{Validation}{ExpireKeyOnUse} = 1;
 
 #---++ Authentication
 # **SELECTCLASS none,Foswiki::LoginManager::*Login**
@@ -356,13 +400,13 @@ $Foswiki::cfg{AdminUserLogin} = 'admin';
 
 # **STRING 20 EXPERT**
 # An admin user WikiName what is displayed for actions done by the AdminUserLogin
-# You should normally not need to change this. (you will need to move the
-# %USERSWEB%.AdminUser topic to match)
+# You should normally not need to change this. (You will need to move the
+# %USERSWEB%.AdminUser topic to match.)
 $Foswiki::cfg{AdminUserWikiName} = 'AdminUser';
 
 # **STRING 20 EXPERT**
 # Group of users that can use special action=repRev and action=delRev
-# on =save= and ALWAYS have edit powers. See %SYSTEMWEB%.CompleteDocumentation
+# on <code>save</code> and ALWAYS have edit powers. See %SYSTEMWEB%.CompleteDocumentation
 # for an explanation of wiki groups. This user will also run all the
 # standard cron jobs, such as statistics and mail notification.
 # The default value "AdminGroup" is used everywhere in Foswiki to
@@ -504,6 +548,9 @@ $Foswiki::cfg{DenyDotDotInclude} = $TRUE;
 # to mount a denial-of-service (DoS) attack on a Foswiki site using INCLUDE and
 # URLs. Only enable it if you are in an environment where a DoS attack is not
 # a high risk.
+# <br /> You may also need to configure the proxy settings ({PROXY}{HOST} and
+# {PROXY}{PORT}) if your server is behind a firewall and you allow %INCLUDE of
+# external webpages.
 $Foswiki::cfg{INCLUDE}{AllowURLs} = $FALSE;
 
 # **BOOLEAN EXPERT**
@@ -530,7 +577,7 @@ $Foswiki::cfg{UploadFilter} = qr/^(\.htaccess|.*\.(?i)(?:php[0-9s]?(\..*)?|[sp]h
 $Foswiki::cfg{NameFilter} = qr/[\s\*?~^\$@%`"'&;|<>\[\]\x00-\x1f]/;
 
 # **BOOLEAN EXPERT**
-# If this is set, the the search module will use more relaxed
+# If this is set, then the search module will use more relaxed
 # rules governing regular expressions searches.
 $Foswiki::cfg{ForceUnsafeRegexes} = $FALSE;
 
@@ -581,8 +628,8 @@ $Foswiki::cfg{AccessibleENV} = '^(HTTP_\w+|REMOTE_\w+|SERVER_\w+|REQUEST_\w+|MOD
 # e-mail addresses and control the activities of benign robots. These
 # should be enough to handle intranet requirements. Administrators of
 # public (internet) sites are strongly recommended to install
-# <a href="http://foswiki.org/Extensions/AntiSpamPlugin">
-# AntiSpamPlugin </a>
+# <a href="http://foswiki.org/Extensions/AntiWikiSpamPlugin">
+# AntiWikiSpamPlugin </a>
 
 # **STRING 50**
 # Text added to email addresses to prevent spambots from grabbing
@@ -816,7 +863,7 @@ $Foswiki::cfg{LowerNational} = '';
 $Foswiki::cfg{Site}{CharSet} = undef;
 
 # **BOOLEAN EXPERT**
-# Change non-existant plural topic name to singular,
+# Change non-existent plural topic name to singular,
 # e.g. TestPolicies to TestPolicy. Only works in English.
 $Foswiki::cfg{PluralToSingular} = $TRUE;
 
@@ -845,14 +892,14 @@ $Foswiki::cfg{RCS}{ExtOption} = "";
 # **OCTAL**
 # File security for new directories. You may have to adjust these
 # permissions to allow (or deny) users other than the webserver user access
-# to directories that Foswiki creates. This is an *octal* number
+# to directories that Foswiki creates. This is an <b>octal</b> number
 # representing the standard UNIX permissions (e.g. 755 == rwxr-xr-x)
 $Foswiki::cfg{RCS}{dirPermission}= 0755;
 
 # **OCTAL**
 # File security for new files. You may have to adjust these
 # permissions to allow (or deny) users other than the webserver user access
-# to files that Foswiki creates.  This is an *octal* number
+# to files that Foswiki creates.  This is an <b>octal</b> number
 # representing the standard UNIX permissions (e.g. 644 == rw-r--r--)
 $Foswiki::cfg{RCS}{filePermission}= 0644;
 
@@ -958,7 +1005,8 @@ $Foswiki::cfg{RCS}{delRevCmd} =
 # if you find searches run very slowly, you may want to try a different
 # algorithm, which may work better on your configuration.
 # Note that there is an alternative algorithm available from
-# http://foswiki.org/Extensions/NativeSearchContrib, that often
+# <a href="http://foswiki.org/Extensions/NativeSearchContrib">
+# http://foswiki.org/Extensions/NativeSearchContrib </a>, that often
 # gives better performance with mod_perl and Speedy CGI.
 $Foswiki::cfg{RCS}{SearchAlgorithm} = 'Foswiki::Store::SearchAlgorithms::Forking';
 
@@ -1081,7 +1129,7 @@ $Foswiki::cfg{SMTP}{Debug} = 0;
 
 # **STRING 30 EXPERT**
 # Some environments require outbound HTTP traffic to go through a proxy
-# server. (e.g. proxy.your.company).
+# server. (e.g. http://proxy.your.company).
 # <b>CAUTION</b> This setting can be overridden by a PROXYHOST setting
 # in SitePreferences. Make sure you delete the setting from there if
 # you are using a SitePreferences topic from a previous release of Foswiki.
@@ -1190,6 +1238,10 @@ $Foswiki::cfg{ReplaceIfEditedAgainWithin} = 3600;
 # can always be broken, but they are valuable if you want to avoid merge
 # conflicts (e.g. you use highly structured data in your topic text and
 # want to avoid ever having to deal with conflicts)
+# <p />Since Foswiki 1.0.6, Foswiki pages that can be used to POST to the
+# server have a validation key, that must be sent to the server for the
+# post to succeed. These validation keys can only be used once, and expire
+# at the same time as the lease expires.
 $Foswiki::cfg{LeaseLength} = 3600;
 
 # **NUMBER EXPERT**

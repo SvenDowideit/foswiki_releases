@@ -54,6 +54,7 @@ For a full explanation of the available options, and guidance on reconfiguring T
    convert_urls : true,
    relative_urls : false,
    remove_script_host : false,
+   extended_valid_elements : "li[type]",
    setupcontent_callback : FoswikiTiny.setUpContent,
    urlconverter_callback : "FoswikiTiny.convertLink",
    hide_instance_callback : FoswikiTiny.switchToRaw,
@@ -122,7 +123,7 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  Copyright: | &copy; 2007-2008 Crawford Currie http://c-dot.co.uk |
 |             | This package also includes the complete sources for version 2.1.1.1 of the !TinyMCE editor |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
-|  Plugin Version: | 3236 (2009-03-21) |
+|  Plugin Version: | 3993 (2009-05-30) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
 |  21 Jan 2009 | Foswikitask:Item833: Eugen Mayer added SYSTEMWEB to foswiki_vars, simplifying the activation of the foswikilink dialog of Extensions.TinyMCEUsabilityUpgradePlugin (if installed) |
 |  06 Dec 2008 | Foswikitask:Item5859: Eugen Mayer removed XHR headers that were banjaxing NTLM |
@@ -147,7 +148,7 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  14668 | Bugfixes and refinements done as part of 4.2 release |
 |  14543 | Added PROTECTED style, to allow protection of special text. Disable on unsupported browsers (untested) |
 |  14538 | First release |
-|  Dependencies: | <table class="foswikiTable" border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Plugins::BehaviourContrib</td><td align="left">&gt;=15357</td><td align="left">Javascript module</td></tr><tr><td align="left">Foswiki::Plugins::WysiwygPlugin</td><td align="left">&gt;=16650</td><td align="left">Translator module</td></tr></table> |
+|  Dependencies: | <table border="1"><tr><th>Name</th><th>Version</th><th>Description</th></tr><tr><td align="left">Foswiki::Plugins::BehaviourContrib</td><td align="left">&gt;=15357</td><td align="left">Javascript module</td></tr><tr><td align="left">Foswiki::Plugins::WysiwygPlugin</td><td align="left">&gt;=16650</td><td align="left">Translator module</td></tr></table> |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |
 |  Support: | http://foswiki.org/Support/%TOPIC% |
 

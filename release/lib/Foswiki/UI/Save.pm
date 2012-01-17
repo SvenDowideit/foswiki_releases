@@ -457,6 +457,9 @@ WARN
         return;
     }
 
+    # Do this *before* we do any query parameter rewriting
+    Foswiki::UI::checkValidationKey($session, 'save', $web, $topic);
+
     my $editaction = lc( $query->param('editaction') ) || '';
     my $edit       = $query->param('edit')             || 'edit';
     my $editparams = $query->param('editparams')       || '';
@@ -576,6 +579,7 @@ WARN
             timetravel => 1,
             operation  => 'cmd',
         };
+
         try {
             $store->repRev( $user, $web, $topic, $meta->text(), $meta,
                 $saveOpts );

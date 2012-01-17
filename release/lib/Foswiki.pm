@@ -47,11 +47,15 @@ with CGI accelerators such as mod_perl.
 use strict;
 use Assert;
 use Error qw( :try );
-use CGI;    # Always required to get html generation tags;
 
-use Foswiki::Response;
-use Foswiki::Request;
-use Foswiki::Logger;
+use Fcntl;          # File control constants e.g. O_EXCL
+use CGI         (); # Always required to get html generation tags;
+use Digest::MD5 (); # For passthru and validation
+
+use Foswiki::Response ();
+use Foswiki::Request  ();
+use Foswiki::Logger   ();
+use Foswiki::Validation ();
 
 require 5.005;    # For regex objects and internationalisation
 
@@ -69,7 +73,6 @@ our $foswikiLibDir;
 our %regex;
 our %functionTags;
 our %contextFreeSyntax;
-our %restDispatch;
 our $VERSION;
 our $RELEASE;
 our $TRUE  = 1;
@@ -160,8 +163,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-04-25 12:43:12 +0200 (Sat, 25 Apr 2009) $ $Rev: 3705 (2009-04-25) $ ';
-    $RELEASE = 'Foswiki-1.0.5';
+    $VERSION = '$Date: 2009-06-21 23:21:08 +0200 (Sun, 21 Jun 2009) $ $Rev: 4272 (2009-06-21) $ ';
+    $RELEASE = 'Foswiki-1.0.6';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -275,6 +278,13 @@ BEGIN {
         require locale;
         import locale();
     }
+
+    # If not set, default to strikeone validation
+    $Foswiki::cfg{Validation}{Method} ||= 'strikeone';
+    $Foswiki::cfg{Validation}{ValidForTime} = $Foswiki::cfg{LeaseLength}
+      unless defined $Foswiki::cfg{Validation}{ValidForTime};
+    $Foswiki::cfg{Validation}{MaxKeys} = 1000
+      unless defined $Foswiki::cfg{Validation}{MaxKeys};
 
     # Constant tags dependent on the config
     $functionTags{ALLOWLOGINNAME} =
@@ -525,16 +535,15 @@ sub UTF82SiteCharSet {
 
         # warn if using Perl older than 5.8
         if ( $] < 5.008 ) {
-            $this->logger->log(
-                'warning',
-                'UTF-8 not remotely supported on Perl '
+            $this->logger->log( 'warning',
+                    'UTF-8 not remotely supported on Perl ' 
                   . $]
-                    . ' - use Perl 5.8 or higher..' );
+                  . ' - use Perl 5.8 or higher..' );
         }
 
         # We still don't have Codev.UnicodeSupport
-        $this->logger->log(
-            'warning', 'UTF-8 not yet supported as site charset -'
+        $this->logger->log( 'warning',
+                'UTF-8 not yet supported as site charset -'
               . 'Foswiki is likely to have problems' );
         return $text;
     }
@@ -560,11 +569,11 @@ sub UTF82SiteCharSet {
             my $charEncoding =
               Encode::resolve_alias( $Foswiki::cfg{Site}{CharSet} );
             if ( not $charEncoding ) {
-                $this->logger->log(
-                    'warning', 'Conversion to "'
+                $this->logger->log( 'warning',
+                        'Conversion to "'
                       . $Foswiki::cfg{Site}{CharSet}
-                        . '" not supported, or name not recognised - check '
-                          . '"perldoc Encode::Supported"' );
+                      . '" not supported, or name not recognised - check '
+                      . '"perldoc Encode::Supported"' );
             }
             else {
 
@@ -582,8 +591,8 @@ sub UTF82SiteCharSet {
             require Unicode::MapUTF8;    # Pre-5.8 Perl versions
             my $charEncoding = $Foswiki::cfg{Site}{CharSet};
             if ( not Unicode::MapUTF8::utf8_supported_charset($charEncoding) ) {
-                $this->logger->log(
-                    'warning', 'Conversion to "'
+                $this->logger->log( 'warning',
+                        'Conversion to "'
                       . $Foswiki::cfg{Site}{CharSet}
                       . '" not supported, or name not recognised - check '
                       . '"perldoc Unicode::MapUTF8"' );
@@ -631,6 +640,42 @@ sub writeCompletePage {
         $text =~ s/([\t ]?)[ \t]*<\/?(nop|noautolink)\/?>/$1/gis;
         $text .= "\n" unless $text =~ /\n$/s;
 
+        my $cgis = $this->getCGISession();
+        if ( $cgis && $contentType eq 'text/html'
+               && $Foswiki::cfg{Validation}{Method} ne 'none') {
+            # Don't expire the validation key through login, or when
+            # endpoint is an error.
+            Foswiki::Validation::expireValidationKeys($cgis)
+                unless ($this->{request}->action() eq 'login'
+                          or ( $ENV{REDIRECT_STATUS} || 0 ) >= 400);
+            my $usingStrikeOne = 0;
+            if ($Foswiki::cfg{Validation}{Method} eq 'strikeone'
+                  # Add the onsubmit handler to the form
+                  && $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
+                    Foswiki::Validation::addOnSubmit($1)/gei) {
+                # At least one form has been touched; add the validation
+                # cookie
+                $this->{users}->{loginManager}->addCookie(
+                    Foswiki::Validation::getCookie(
+                        $cgis, $this->{response}));
+                # Add the JS module to the page. Note that this is *not*
+                # incorporated into the foswikilib.js because that module
+                # is conditionally loaded under the control of the
+                # templates, and we have to be *sure* it gets loaded.
+                $this->addToHEAD( 'FOSWIKI STRIKE ONE',
+                                  <<STRIKEONE);
+<script type="text/javascript" src="$Foswiki::cfg{PubUrlPath}/$Foswiki::cfg{SystemWebName}/JavascriptFiles/strikeone.js"></script>
+STRIKEONE
+                $usingStrikeOne = 1;
+            }
+            # Inject validation key in HTML forms
+            my $context =
+              $this->{request}->url( -full => 1, -path => 1, -query => 1 )
+                . time();
+            $text =~ s/(<form[^>]*method=['"]POST['"][^>]*>)/
+              $1 . Foswiki::Validation::addValidationKey(
+                  $cgis, $context, $usingStrikeOne )/gei;
+        }
         my $htmlHeader = join( "\n",
             map { '<!--' . $_ . '-->' . $this->{_HTMLHEADERS}{$_} }
               keys %{ $this->{_HTMLHEADERS} } );
@@ -848,15 +893,17 @@ sub redirect {
         if ( $url =~ s/\?(.*)$// ) {
             $existing = $1;    # implicit untaint OK; recombined later
         }
-        if ( uc($query->method()) eq 'POST' ) {
+
+        if ( uc( $query->method() ) eq 'POST' ) {
 
             # Redirecting from a post to a get
             my $cache = $this->cacheQuery();
             if ($cache) {
-                $url .= "?$cache";
+                $url .= $cache;
             }
         }
         else {
+            # Redirecting a get to a get; no need to use passthru
             if ( $query->query_string() ) {
                 $url .= '?' . $query->query_string();
             }
@@ -924,21 +971,34 @@ sub cacheQuery {
     # Don't double-cache
     return '' if ( $query->param('foswiki_redirect_cache') );
 
-    require Digest::MD5;
-    my $md5 = new Digest::MD5();
-    $md5->add( $$, time(), rand(time) );
-    my $uid              = $md5->hexdigest();
+    $this->{digester}->add( $$, rand(time) );
+    my $uid              = $this->{digester}->hexdigest();
     my $passthruFilename = "$Foswiki::cfg{WorkingDir}/tmp/passthru_$uid";
 
-    use Fcntl;
-
-#passthrough file is only written to once, so if it already exists, suspect a security hack (O_EXCL)
+    # passthrough file is only written to once, so if it already exists,
+    # suspect a security hack (O_EXCL)
     sysopen( F, "$passthruFilename", O_RDWR | O_EXCL | O_CREAT, 0600 )
-      || die
-"Unable to open $Foswiki::cfg{WorkingDir}/tmp for write; check the setting of {WorkingDir} in configure, and check file permissions: $!";
+      || die 'Unable to open '.$Foswiki::cfg{WorkingDir}
+        .'/tmp for write; check the setting of {WorkingDir} in configure,'
+          .' and check file permissions: '.$!;
     $query->save( \*F );
     close(F);
-    return 'foswiki_redirect_cache=' . $uid;
+
+    return '/foswiki_redirect_cache/' . $uid;
+}
+
+=begin TML
+
+---++ ObjectMethod getCGISession() -> $cgisession
+
+Get the CGI::Session object associated with this session, if there is
+one. May return undef.
+
+=cut
+
+sub getCGISession {
+    my $this = shift;
+    return $this->{users}->{loginManager}->{_cgisession};
 }
 
 =begin TML
@@ -1329,6 +1389,7 @@ sub new {
     $this->{request}  = $query;
     $this->{cgiQuery} = $query;    # for backwards compatibility in contribs
     $this->{response} = new Foswiki::Response();
+    $this->{digester} = new Digest::MD5();
 
     # Tell Foswiki::Response which charset we are using if not default
     if ( defined $Foswiki::cfg{Site}{CharSet}
@@ -1633,7 +1694,7 @@ needs the i18ner.
 sub logger {
     my $this = shift;
 
-    unless ($this->{logger}) {
+    unless ( $this->{logger} ) {
         eval "require $Foswiki::cfg{Log}{Implementation}";
         die $@ if $@;
         $this->{logger} = $Foswiki::cfg{Log}{Implementation}->new();
@@ -1723,6 +1784,7 @@ sub finish {
 
     undef $this->{_HTMLHEADERS};
     undef $this->{request};
+    undef $this->{digester};
     undef $this->{urlHost};
     undef $this->{web};
     undef $this->{topic};
@@ -1780,8 +1842,8 @@ sub logEvent {
 
     my $remoteAddr = $this->{request}->remoteAddress() || '';
 
-    $this->logger->log(
-        'info', $user, $action, $webTopic, $extra, $remoteAddr);
+    $this->logger->log( 'info', $user, $action, $webTopic, $extra,
+        $remoteAddr );
 }
 
 # Add a web reference to a [[...][...]] link in an included topic
@@ -2105,8 +2167,10 @@ sub inlineAlert {
             $text =~ s/%PARAM$n%/$param/g;
             $n++;
         }
+
         # Suppress missing params
         $text =~ s/%PARAM\d+%//g;
+
         # Suppress missing params
         $text =~ s/%PARAM\d+%//g;
     }
@@ -2621,7 +2685,7 @@ sub _processTags {
 
     unless ($depth) {
         my $mess = "Max recursive depth reached: $text";
-        $this->logger->log('warning', $mess);
+        $this->logger->log( 'warning', $mess );
 
         # prevent recursive expansion that just has been detected
         # from happening in the error message
@@ -2880,35 +2944,6 @@ sub registerTagHandler {
     if ( $syntax && $syntax eq 'context-free' ) {
         $contextFreeSyntax{$tag} = 1;
     }
-}
-
-=begin TML=
-
----++ StaticMethod registerRESTHandler( $subject, $verb, \&fn )
-
-Adds a function to the dispatch table of the REST interface
-for a given subject. See System.CommandAndCGIScripts#rest for more info.
-
-   * =$subject= - The subject under which the function will be registered.
-   * =$verb= - The verb under which the function will be registered.
-   * =\&fn= - Reference to the function.
-
-The handler function must be of the form:
-<verbatim>
-sub handler(\%session,$subject,$verb) -> $text
-</verbatim>
-where:
-   * =\%session= - a reference to the Foswiki session object (may be ignored)
-   * =$subject= - The invoked subject (may be ignored)
-   * =$verb= - The invoked verb (may be ignored)
-
-*Since:* Foswiki::Plugins::VERSION 1.1
-
-=cut=
-
-sub registerRESTHandler {
-    my ( $subject, $verb, $fnref ) = @_;
-    $restDispatch{$subject}{$verb} = \&$fnref;
 }
 
 =begin TML
@@ -3212,6 +3247,9 @@ sub expandStandardEscapes {
     $text =~ s/\$quot(\(\))?/\"/gos;   # expand double quote
     $text =~ s/\$percnt(\(\))?/\%/gos; # expand percent
     $text =~ s/\$dollar(\(\))?/\$/gos; # expand dollar
+    $text =~ s/\$lt(\(\))?/\</gos;     # expand less than
+    $text =~ s/\$gt(\(\))?/\>/gos;     # expand greater than
+    $text =~ s/\$amp(\(\))?/\&/gos;    # expand ampersand
     return $text;
 }
 

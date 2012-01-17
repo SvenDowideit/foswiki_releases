@@ -18,7 +18,7 @@ The exception may be thrown by plugins. If a plugin throws the exception, it
 will normally be caught and the browser redirected to a login screen (if the
 user is not logged in) or reported (if they are and just don't have access).
 
-API version $Date: 2009-01-06 19:25:41 +0100 (Tue, 06 Jan 2009) $ (revision $Rev: 3705 (2009-04-25) $)
+API version $Date: 2009-05-16 12:36:23 +0200 (Sat, 16 May 2009) $ (revision $Rev: 4272 (2009-06-21) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -43,11 +43,12 @@ the function or parameter.
 # AND ENSURE ALL POD DOCUMENTATION IS COMPLETE AND ACCURATE.
 
 package Foswiki::AccessControlException;
-use base 'Error';
+use Error ();
+@Foswiki::AccessControlException::ISA = ( 'Error' );
 
 use strict;
 
-our $VERSION = '$Rev: 3705 (2009-04-25) $';
+our $VERSION = '$Rev: 4272 (2009-06-21) $';
 
 =begin TML
 

@@ -8,6 +8,7 @@ Coordinator of execution flow and service functions used by the UI packages
 =cut
 
 package Foswiki::UI;
+
 use strict;
 
 BEGIN {
@@ -142,13 +143,16 @@ BEGIN {
 
 use Error qw(:try);
 use Assert;
+use CGI ();
 
-use Foswiki;
-use Foswiki::Request;
-use Foswiki::Response;
-use Foswiki::OopsException;
-use Foswiki::EngineException;
-use CGI;
+use Foswiki                         ();
+use Foswiki::Request                ();
+use Foswiki::Response               ();
+use Foswiki::OopsException          ();
+use Foswiki::EngineException        ();
+use Foswiki::ValidationException    ();
+use Foswiki::AccessControlException ();
+use Foswiki::Validation             ();
 
 # Used to lazily load UI handler modules
 our %isInitialized = ();
@@ -206,12 +210,15 @@ sub handleRequest {
     $sub = $dispatcher->{package} . '::' if $dispatcher->{package};
     $sub .= $dispatcher->{function};
 
-    my $cache = $req->param('foswiki_redirect_cache');
-
-    # Never trust input data from a query. We will only accept
-    # an MD5 32 character string
-    if ( $cache && $cache =~ /^([a-f0-9]{32})$/ ) {
+    # Get the params cache from the path
+    my $cache;
+    my $path_info = $req->path_info();
+    if ($path_info =~ s#/foswiki_redirect_cache/([a-f0-9]{32})$##) {
         $cache = $1;
+        $req->path_info( $path_info );
+    }
+
+    if ( $cache ) {
 
         # Read cached post parameters
         my $passthruFilename =
@@ -231,6 +238,7 @@ sub handleRequest {
             $req->delete('foswiki_redirect_cache');
             print STDERR "Passthru: Loaded and unlinked $passthruFilename\n"
               if TRACE_PASSTHRU;
+
             $req->method('POST');
         }
         else {
@@ -238,6 +246,10 @@ sub handleRequest {
               if TRACE_PASSTHRU;
         }
     }
+    #print STDERR "INCOMING ".$req->method()." ".$req->url." -> ".$sub."\n";
+    #print STDERR "Validation: ".($req->param('validation_key')||'no key')."\n";
+    #require Data::Dumper;
+    #print STDERR Data::Dumper->Dump([$req]);
     if ( UNIVERSAL::isa( $Foswiki::engine, 'Foswiki::Engine::CLI' ) ) {
         $dispatcher->{context}->{command_line} = 1;
     } elsif ( defined $req->method()
@@ -285,6 +297,20 @@ sub _execute {
         try {
             $session->{users}->{loginManager}->checkAccess();
             &$sub($session);
+        }
+        catch Foswiki::ValidationException with {
+            my $query = $session->{request};
+            # Redirect with passthrough so we don't lose the
+            # original query params. We use the login script for
+            # validation because it already has the correct criteria
+            # in httpd.conf for Apache login.
+            my $url     = $session->getScriptUrl(
+                0, 'login', $session->{webName}, $session->{topicName} );
+            $query->param( -name => 'action',
+                           -value => 'validate' );
+            $query->param( -name => 'origurl',
+                           -value => $session->{request}->uri );
+            $session->redirect( $url, 1 );    # with passthrough
         }
         catch Foswiki::AccessControlException with {
             my $e = shift;
@@ -370,7 +396,14 @@ Handler to "logon" action.
 
 sub logon {
     my $session = shift;
-    $session->{users}->{loginManager}->login( $session->{request}, $session );
+    if (($session->{request}->param('action') ||'') eq 'validate'
+          # Force login if not recognisably authenticated
+          && $session->inContext('authenticated')) {
+        Foswiki::Validation::validate( $session );
+    } else {
+        $session->{users}->{loginManager}->login(
+            $session->{request}, $session );
+    }
 }
 
 =begin TML
@@ -472,6 +505,39 @@ sub readTemplateTopic {
     }
     return $session->{store}
       ->readTopic( $session->{user}, $web, $theTopicName, undef );
+}
+
+=pod TML
+
+---++ StaticMethod checkValidationKey( $session )
+
+Check the validation key for the given action. Throws an exception
+if the validation key isn't valid (handled in _execute(), above)
+
+See Foswiki::Validation for more information.
+
+=cut
+
+sub checkValidationKey {
+    my ($session) = @_;
+
+    # Check the nonce before we do anything else
+    my $nonce = $session->{request}->param('validation_key');
+    $session->{request}->delete('validation_key');
+    if ( !defined($nonce)
+        || !Foswiki::Validation::isValidNonce( $session->getCGISession(),
+            $nonce ) )
+    {
+        throw Foswiki::ValidationException();
+    }
+    if ( defined($nonce) ) {
+
+        # Expire the nonce. If the user tries to use it again, they will
+        # be prompted.
+        Foswiki::Validation::expireValidationKeys(
+            $session->getCGISession(),
+            $Foswiki::cfg{Validation}{ExpireKeyOnUse} ? $nonce : undef );
+    }
 }
 
 =begin TML

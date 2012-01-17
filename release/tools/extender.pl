@@ -37,6 +37,7 @@ no warnings 'redefine';
 
 my $noconfirm  = 0;
 my $downloadOK = 0;
+my $alreadyUnpacked = 0;
 my $reuseOK    = 0;
 my $inactive   = 0;
 my $session;
@@ -78,13 +79,13 @@ BEGIN {
                 return $available{$module} = 0;
             }
         }
-        unless ( $module->use ) {
+        if ( eval "use $module; 1;" ) {
+            $available{$module} = 1;
+        }
+        else {
             print "Warning: $module is not available,"
               . " some installer functions have been disabled\n";
             $available{$module} = 0;
-        }
-        else {
-            $available{$module} = 1;
         }
         return $available{$module};
     };
@@ -100,10 +101,6 @@ BEGIN {
     # read setlib.cfg
     chdir('bin');
     require 'setlib.cfg';
-
-    # This has to be read after setlib.cfg, as it might not exist in the system
-    # so we will use the one we ship
-    require UNIVERSAL::require;
 
     # See if we can make a Foswiki. If we can, then we can save topic
     # and attachment histories. Key off Foswiki::Merge because it is
@@ -203,11 +200,9 @@ sub check_dep {
         return ( $ok, $msg );
     }
 
-    # try to load the module, using CPAN:UNIVERSAL::require
-    # This is roughly equivalent to eval { require $module }
-    # but should be way more readable
+    # try to load the module
     my $module = $dep->{name};
-    if ( not $module->require ) {
+    if ( not eval "require $module" ) {
         $ok = 0;
         ( $msg = $@ ) =~ s/ in .*$/\n/s;
         return ( $ok, $msg );
@@ -222,7 +217,9 @@ sub check_dep {
 
         # Providing 0 as version number as version checking is done below
         # and without it, perl < 5.10 won't trigger the warning
-        my $version = $module->VERSION(0);
+        # The eval there is used to automatically transform strings to numbers
+        # so that things like '2.36_01' become 2.3601 (numeric)
+        my $version = eval $module->VERSION(0);
         $moduleVersion ||= $version;
     }
 
@@ -619,7 +616,7 @@ sub unpackArchive {
 sub unzip {
     my $archive = shift;
 
-    if ( 'Archive::Zip'->use ) {
+    if ( not eval 'require Archive::Zip' ) {
         my $zip           = Archive::Zip->new();
         my $err = $zip->read($archive);
         if ( $err ) {
@@ -661,7 +658,7 @@ sub untar {
 
     my $compressed = ( $archive =~ /z$/i ) ? 'z' : '';
 
-    if ( 'Archive::Tar'->use ) {
+    if ( not eval 'require Archive::Tar' ) {
         my $tar = Archive::Tar->new();
         my $numberOfFiles = $tar->read( $archive, $compressed );
         unless ( $numberOfFiles > 0 ) {
@@ -778,17 +775,21 @@ sub _uninstall {
     return 1 if $inactive;
     my $reply = ask("Are you SURE you want to uninstall $MODULE?");
     if ($reply) {
-        defined &Foswiki::preuninstall
-          ? &Foswiki::preuninstall
-          : &TWiki::preuninstall;
+        if (defined &Foswiki::preuninstall) {
+            Foswiki::preuninstall();
+        } elsif (defined &TWiki::preuninstall) {
+            TWiki::preuninstall();
+        }
         foreach $file ( keys %$MANIFEST ) {
             if ( -e $file ) {
                 unlink($file);
             }
         }
-        defined &Foswiki::preinstall
-          ? &Foswiki::preinstall
-          : &TWiki::preinstall;
+        if (defined &Foswiki::postuninstall) {
+            Foswiki::postuninstall();
+        } elsif (defined &TWiki::postuninstall) {
+            TWiki::postuninstall();
+        }
         print "### $MODULE uninstalled ###\n";
     }
     return 1;
@@ -877,7 +878,7 @@ DONE
 
 sub usage {
     print STDERR <<DONE;
-Usage: ${MODULE}_installer -a -n -d -r install
+Usage: ${MODULE}_installer -a -n -d -r -u install
        ${MODULE}_installer -a -n uninstall
        ${MODULE}_installer manifest
        ${MODULE}_installer dependencies
@@ -895,6 +896,7 @@ $MODULE even if they have been locally modified.
    dependencies
 -d means auto-download if -a (no effect if not -a)
 -r means reuse packages on disc if -a (no effect if not -a)
+-u means the archive has already been downloaded and unpacked
 -n means don't write any files into my current install, just
    tell me what you would have done
 
@@ -936,7 +938,7 @@ sub _install {
         $path = $source . '::' . $type . '::' . $rootModule;
     }
 
-    if ( $path->use ) {
+    if ( eval "use $path; 1;" ) {
 
         # Module is already installed
         # XXX SMELL: Could be more user-friendly:
@@ -963,24 +965,36 @@ sub _install {
         }
     }
 
-    print "Fetching the archive for $path.\n";
-    my $archive = getArchive($MODULE);
+    if ($alreadyUnpacked) {
+        print "Archive has already been unpacked.\n";
+    } else {
+        print "Fetching the archive for $path.\n";
+        my $archive = getArchive($MODULE);
 
-    unless ($archive) {
-        print STDERR "Unable to locate suitable archive for install";
-        return 0;
+        unless ($archive) {
+            print STDERR "Unable to locate suitable archive for install";
+            return 0;
+        }
+        if (defined &Foswiki::preinstall) {
+            Foswiki::preinstall();
+        } elsif (defined &TWiki::preinstall) {
+            TWiki::preinstall();
+        }
+        my $tmpdir = unpackArchive($archive);
+        print "Archive unpacked\n";
+        return 0 unless $tmpdir;
+        return 0 unless _emplace($tmpdir);
+
+        print "\n### $MODULE installed";
+        print ' with ', $unsatisfied . ' unsatisfied dependencies'
+          if ($unsatisfied);
+        print " ###\n";
     }
-    defined &Foswiki::preinstall ? &Foswiki::preinstall : &TWiki::preinstall;
-    my $tmpdir = unpackArchive($archive);
-    print "Archive unpacked\n";
-    return 0 unless $tmpdir;
-    return 0 unless _emplace($tmpdir);
-
-    print "\n### $MODULE installed";
-    print ' with ', $unsatisfied . ' unsatisfied dependencies'
-      if ($unsatisfied);
-    print " ###\n";
-    defined &Foswiki::postinstall ? &Foswiki::postinstall : &TWiki::postinstall;
+    if ( defined &Foswiki::postinstall ) {
+        Foswiki::postinstall();
+    } elsif( defined &TWiki::postinstall ) {
+        TWiki::postinstall();
+    }
 
     print "\n### Installation finished ###\n";
     return ( $unsatisfied ? 0 : 1 );
@@ -1102,6 +1116,9 @@ DONE
         }
         elsif ( $ARGV[$n] eq '-n' ) {
             $inactive = 1;
+        }
+        elsif ( $ARGV[$n] eq '-u' ) {
+            $alreadyUnpacked = 1;
         }
         elsif ( $ARGV[$n] =~ m/(install|uninstall|manifest|dependencies)/ ) {
             $action = $1;

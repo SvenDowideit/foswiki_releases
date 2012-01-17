@@ -565,6 +565,9 @@ sub _resetUsersPassword {
         return 0;
     }
 
+    # Now that we have successfully reset the password we log the event
+    $session->logEvent('resetpasswd', $login);
+
     # absolute URL context for email generation
     $session->enterContext('absolute_urls');
 

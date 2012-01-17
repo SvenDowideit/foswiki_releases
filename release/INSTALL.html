@@ -28,6 +28,7 @@ These installation instructions are also available online at <a href="http://fos
 </li> <li> <a href="#Beyond_the_basic_installation"> Beyond the basic installation</a> <ul>
 <li> <a href="#Site_configuration_and_maintenan"> Site configuration and maintenance</a> <ul>
 <li> <a href="#Set_Foswiki_Preferences"> Set Foswiki Preferences</a>
+</li> <li> <a href="#Select_the_desired_security_leve"> Select the desired security level</a>
 </li> <li> <a href="#Enable_Email_Notification"> Enable Email Notification</a>
 </li> <li> <a href="#Automate_removal_of_expired_sess"> Automate removal of expired sessions and lease files</a>
 </li> <li> <a href="#Enable_WebStatistics"> Enable WebStatistics</a>
@@ -102,9 +103,8 @@ If you do not have shell access to your web server host, see the section "<a hre
 <h3><a name="Set_the_file_and_directory_permi"></a> Set the file and directory permissions for the installation </h3>
 <p />
 <strong>Set up access file and directory rights</strong>, as well as file ownership, as required by your web server configuration so that the web server user (the user used by the web server to run CGI programs) can read and write within the <code>foswiki</code> directory tree.
-<!-- to be included once the supplemental document is available
+<p />
 Note: for more information on the appropriate permissions to ensure security for your Foswiki data, see <a href="http://foswiki.org/Support.SecuringYourSite" title="'Support.SecuringYourSite' on foswiki.org" class="interwikiLink">Foswiki:Support.SecuringYourSite</a>.
--->
 <p />
 The default file and directory access permissions as set by the distribution define a reasonable security level that will work for many types of installations, including shared hosting. Nonetheless, you should verify that the web server user has read access to all files and directories beneath the <code>foswiki</code> directory, and execute access for all directories. Also verify that the <code>data</code> and <code>pub</code> directories and all the subdirectories and files beneath them allow write access for the web server user. <ul>
 <li> <strong>Warning:</strong> Do not just run a <code>chmod -R 770 foswiki</code>. Providing execute access to all files is potentially dangerous. This is a common mistake made by Foswiki installers. See <a href="http://foswiki.org/Support.SettingFileAccessRightsLinuxUnix" title="'Support.SettingFileAccessRightsLinuxUnix' on foswiki.org" class="interwikiLink">Foswiki:Support.SettingFileAccessRightsLinuxUnix</a> for a sample set of Unix commands to set the file and directory permissions.
@@ -186,7 +186,7 @@ For more information, refer to <a href="http://foswiki.org/Support.ProtectingYou
 <li> When you access the <code>configure</code> web page for the first time, you can only edit the section <code>General Path Settings</code>. Make any required changes, and save the settings, whether or not you needed to make any changes. You will be prompted to set a password for the <code>configure</code> page: this password must be entered for all subsequent configuration changes, and is also used to log in via the internal admin link (see the section "<a href="http://foswiki.org/System/InstallationGuide#DefineAdminUser" class="foswikiCurrentTopicLink">Define the administrator user(s)</a>"). Note the configuration password is separate from any web server security you have set up for the <code>configure</code> web page (see "<a href="http://foswiki.org/System/InstallationGuide#ProtectConfigure" class="foswikiCurrentTopicLink">Protect the configure script</a>").
 </li> <li> Continue configuring Foswiki. Resolve any errors or warnings highlighted on the configure page.
 </li> <li> If your web server can be accessed by more than one domain name make sure to add the additional alternative URLs to <code>{PermittedRedirectHostUrls}</code>
-</li> <li> Setup the <em>Mail and Proxies</em> section. The <code>{WebMasterEmail}</code> and <code>{SMTP}{MAILHOST}</code> settings must be defined so Foswiki can send registration emails. Many ISPs have introduced authentication when sending emails to fight spam so you may also have to set <code>{SMTP}{Username}</code> and <code>{SMTP}{Password}</code>. If you do not want to enable sending registration emails or want to enable it later you can uncheck <code>{EnableEmail}</code>.
+</li> <li> Setup the <em>Mail and Proxies</em> section. The <code>{WebMasterEmail}</code> and <code>{SMTP}{MAILHOST}</code> settings must be defined so Foswiki can send registration emails. Many ISPs have introduced authentication when sending emails to fight spam so you may also have to set <code>{SMTP}{Username}</code> and <code>{SMTP}{Password}</code>. If you do not want to enable sending registration emails or want to enable it later you can uncheck <code>{EnableEmail}</code>.     If your server is behind a firewall with a proxy, and you wish to install extensions via <code>configure</code>, you may have to set <code>{PROXY}{HOST}</code> and <code>{PROXY}{PORT}</code>.
 </li></ul> 
 <p />
 If there is a problem with your setup that prevents you from accessing the <code>configure</code> page, you can <a href="http://foswiki.org/System/InstallationGuide#ConfiguringFoswikiManually" class="foswikiCurrentTopicLink">configure Foswiki manually</a>.
@@ -292,6 +292,14 @@ To simplify your upgrades, do not modify <code>System.DefaultPreferences</code>.
 To see the available preferences that can be set, look through <code><a href="http://foswiki.org/System/DefaultPreferences">System.DefaultPreferences</a></code>.
 <p />
 If, for some reason, you wish to pick up default preferences from a different topic, you can set the location in the <code>Miscellaneous settings</code> pane of the <code>configure</code> page, in the <code>{SitePrefsTopicName}</code> setting (visible when Expert mode is enabled). It is recommended that you leave this setting to its default value, <code>DefaultPreferences</code>.
+<p />
+<h4><a name="Select_the_desired_security_leve"></a> Select the desired security level </h4>
+<p />
+Foswiki has a many security features that can be enabled/disabled and adjusted to suit your needs.
+<p />
+In many cases enabling a security feature prevents other features. It is a balance that the administrator has to choose depending on the purpose of the Foswiki installation (confidential vs public knowledge), the type of installation (intranet vs internet), and your type of business.
+<p />
+A new administrator is encouraged to read <a href="http://foswiki.org/Support.SecurityFeatures" title="'Support.SecurityFeatures' on foswiki.org" class="interwikiLink">Foswiki:Support.SecurityFeatures</a> which gives a walkthrough of the different security aspects and how to set the appropriate configuration settings. Note that that some security settings are only visible in configure in "expert mode" which you enter by clicking the "Yes, I've read all the documentation" button at the top of the configure screen.
 <p />
 <h4><a name="Enable_Email_Notification"></a> Enable Email Notification </h4>
 <p />
@@ -514,12 +522,8 @@ The following Perl CPAN modules are used by Foswiki:
 			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol"> &nbsp; </td>
 		</tr>
 		<tr class="foswikiTableEven foswikiTableRowdataBgSorted0 foswikiTableRowdataBg0">
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol"> Time::Local </td>
-			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol"> &gt;=1.11 </td>
-		</tr>
-		<tr class="foswikiTableOdd foswikiTableRowdataBgSorted1 foswikiTableRowdataBg1">
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> UNIVERSAL::require (included) </td>
-			<td bgcolor="#edf4f9" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> &gt;=0.11 </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol0 foswikiFirstCol foswikiLast"> Time::Local </td>
+			<td bgcolor="#ffffff" valign="top" class="foswikiTableCol1 foswikiLastCol foswikiLast"> &gt;=1.11 </td>
 		</tr>
 	</tbody></table>
 <p />

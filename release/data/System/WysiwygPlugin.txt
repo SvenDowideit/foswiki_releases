@@ -168,7 +168,7 @@ Many thanks to the following sponsors for supporting this work:
 |  Author: | [[http://c-dot.co.uk][Crawford Currie]] |
 |  Copyright | &copy; ILOG 2005 http://www.ilog.fr |
 |  License | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
-|  Plugin Version: | 3509 (2009-04-18) |
+|  Plugin Version: | 3900 (2009-05-13) |
 |  Change History: | |
 |  03 Dec 2008 | Foswikitask:Item6041: fixed empty bullet list problem. Foswiki version |
 |  22 Oct 2008 | Fixed TWikibug:Item5961 (emphasis), TWikibug:Item6089 (backslash in verbatim) |

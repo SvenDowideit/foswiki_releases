@@ -34,10 +34,10 @@
 <li> <a href="#Supported_Perl_version"> Supported Perl version</a>
 </li> <li> <a href="#Template_spec_changed"> Template spec changed</a>
 </li></ul> 
-</li> <li> <a href="#Important_changes_since_TWik_AN1"> Important changes since TWiki 4.1.0</a> <ul>
+</li> <li> <a href="#Important_changes_for_the_upgrad"> Important changes for the upgrader - since TWiki 4.1.0</a> <ul>
 <li> <a href="#New_location_for_session_and_oth"> New location for session and other temporary files</a>
 </li></ul> 
-</li> <li> <a href="#Important_changes_since_TWik_AN2"> Important changes since TWiki 4.1.2</a> <ul>
+</li> <li> <a href="#Important_changes_for_the_up_AN1"> Important changes for the upgrader - since TWiki 4.1.2</a> <ul>
 <li> <a href="#New_WYSIWYG_editor"> New WYSIWYG editor</a>
 </li> <li> <a href="#NEWTOPICLINKSYMBOL_removed"> NEWTOPICLINKSYMBOL removed</a>
 </li> <li> <a href="#UserForm_and_NewUserTemplate_cus"> UserForm and NewUserTemplate customization</a>
@@ -45,6 +45,8 @@
 </li> <li> <a href="#New_working_directory"> New working directory</a>
 </li> <li> <a href="#New_internal_admin_login"> New internal admin login</a>
 </li></ul> 
+</li> <li> <a href="#Important_changes_for_the_up_AN2"> Important changes for the upgrader - since Foswiki 1.0.4</a>
+</li> <li> <a href="#Important_changes_for_the_up_AN3"> Important changes for the upgrader - since Foswiki 1.0.5</a>
 </li></ul> 
 </div>
 <p />
@@ -307,13 +309,13 @@ Starting in TWiki 4.1 and continuing with Foswiki 1.0, the newline before the st
 &#37;TMPL:END&#37;
 </pre>
 <p />
-<h2><a name="Important_changes_since_TWik_AN1"></a> Important changes since TWiki 4.1.0 </h2>
+<h2><a name="Important_changes_for_the_upgrad"></a> Important changes for the upgrader - since TWiki 4.1.0 </h2>
 <p />
 <h3><a name="New_location_for_session_and_oth"></a> New location for session and other temporary files </h3>
 <p />
 The directory for passthrough and session files have been replaced by a common directory for temporary files used by Foswiki. Previously the two configure settings <code>{PassthroughDir}</code> and <code>{Sessions}{Dir}</code> were set by default to <code>/tmp</code>. These config settings have been eliminated: Foswiki creates a tmp directory and other temporary directories under the directory defined by the configure setting <code>{WorkingDir}</code>.
 <p />
-<h2><a name="Important_changes_since_TWik_AN2"></a> Important changes since TWiki 4.1.2 </h2>
+<h2><a name="Important_changes_for_the_up_AN1"></a> Important changes for the upgrader - since TWiki 4.1.2 </h2>
 <p />
 <h3><a name="New_WYSIWYG_editor"></a> New WYSIWYG editor </h3>
 <p />
@@ -355,6 +357,33 @@ If you have your own scheduled task to delete obsolete session files, note they 
 Foswiki has a new <em>internal admin login</em> feature that lets you login as a temporary administrator, using "admin" as your user name and the password for the <code>configure</code> page. The internal admin username can be configured in the {AdminUserLogin} setting in the <code>Security setup</code> pane on the <code>configure</code> page.
 <p />
 In order to add an initial user to the default {SuperAdminGroup}, <a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a>, you must login as the internal admin user using the link on the <a href="http://foswiki.org/Main/AdminGroup">Main.AdminGroup</a> page.
+<p />
+<h2><a name="Important_changes_for_the_up_AN2"></a> Important changes for the upgrader - since Foswiki 1.0.4 </h2>
+<p />
+An additional security feature has been added to Foswiki 1.0.5 so that saving data now requires the http method POST. This means that it is no longer possible to store data via an "&lt;a href=..." link or img tag. It also means that if you have an application with an HTML form that creates new topics you must specify in the form tag method="post". This change is done to further tighten the security of Foswiki.
+<p />
+<pre>
+&lt;form name="new" action="%SCRIPTURLPATH{save}%/Sandbox/" method="post"&gt;
+    ...
+&lt;/form&gt;
+</pre>
+<p />
+The template webs _default and _empty are frequent targets for spammers because these webs are normally not monitored very carefully by the community around a Foswiki installation. These webs are now write protected so on an administrator can edit topics in these webs. When an administrator creates a new web it is important to remember to remove the access restriction from the WebPreferences in the new web.
+<p />
+<h2><a name="Important_changes_for_the_up_AN3"></a> Important changes for the upgrader - since Foswiki 1.0.5 </h2>
+<p />
+Foswiki 1.0.6 introduces a major security enhancement, protecting against Cross-Site Request Forgery. The extra safe "double submit" algorithm, as recommended by the <a href="http://www.owasp.org" target="_top">Open Web Application Security Project (OWASP)</a> project has been used. This is the same algorithm used by several major banks and other security-conscious institutions, and requires that users have Javascript enabled.
+<p />
+See <a href="http://foswiki.org/Support.SecurityFeatures" title="'Support.SecurityFeatures' on foswiki.org" class="interwikiLink">Foswiki:Support.SecurityFeatures</a> for more information on these, and other, Foswiki security features. This is recommended reading for all Foswiki administrators.
+<p />
+If these new countermeasures against CSRF creates problems for your users and your applications, you can alter the way the protection works or disable it. These are the configure parameters you need to visit (note that some are expert settings).
+<p /> <ul>
+<li> {Validation}{Method} is by default "strikeone" which is the highest level of security and requires that users have Javascript enabled. You can lower this setting to "embedded" which uses a less safe validation method but does not require javascript. If you want to disable CSRF protection set it to "none". It is highly recommended to keep it at "strikeone".
+</li> <li> {Validation}{ValidForTime} is the time the validation key is valid. It is by default 1 hour. If your users often edit pages longer you can increase this time. Your users can still save pages with an expired validation key but they will be asked to confirm the saving.
+</li> <li> {Validation}{MaxKeysPerSession} is the maximum number of validation keys to store in a session. There is one key stored for each page rendered. If the number of keys exceeds this number, the oldest keys will be force-expired to bring the number down. If you have users that are very fast at editing pages and experience expired keys, you can increase this number. The default is 1000 and should be much higher than any normal person will experience.
+</li> <li> {Validation}{ExpireKeyOnUse} defines if validation keys expire when they are used for storing data. This prevents an attacker from evesdropping communication between server and browser and reuse keys. Unfortunately it also means that if a user edits a page, saves it, uses the back button of the browser, corrects his previous editing, and then saves again, he is asked to confirm that he intended to save the topic. Another use case is if you create an application with multiple forms and multiple submit buttons on a topic and you submit multiple times from this topic without navigating away from it, you will be asked to confirm the submission each time. If this is not acceptable to your use of Foswiki, you can turn off {Validation}{ExpireKeyOnUse}.
+</li></ul> 
+<p />
 <p />
 <p />
 <p />
