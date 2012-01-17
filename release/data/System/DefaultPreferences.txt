@@ -1,4 +1,5 @@
-%META:TOPICINFO{author="ProjectContributor" date="1231502400" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1252718634" format="1.1" version="1"}%
+%META:TOPICPARENT{name="AdminToolsCategory"}%
 ---+!! <nop>%WIKITOOLNAME% Site-Level Preferences
 
 This topic defines *site-level* settings that apply to all users and webs on this site.
@@ -162,7 +163,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * Set MAILTHISTOPICTEXT = Send a link to this page
 
    * URL for current topic
-      * Set TOPICURL = %SCRIPTURL{"view"}%/%WEB%/%BASETOPIC%
+      * Set TOPICURL = %SCRIPTURL{"view"}%/%BASEWEB%/%BASETOPIC%
 
 
 ---+++ HTTP-<nop>EQUIV Settings
@@ -259,7 +260,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * Set M = <img src="%ICONURLPATH{arrowright}%" alt="MOVED TO..." title="MOVED TO..." width="16" height="16" border="0" />
       * Set N = <img src="%ICONURLPATH{new}%" alt="NEW" title="NEW" width="30" height="16" border="0" />
       * Set P = <img src="%ICONURLPATH{pencil}%" alt="REFACTOR" title="REFACTOR" width="16" height="16" border="0" />
-      * Set Q = <img src="%ICONURLPATH{help}%" alt="QUESTION?" title="QUESTION?" width="16" height="16" border="0" />
+      * Set Q = <img src="%ICONURLPATH{question}%" alt="QUESTION?" title="QUESTION?" width="16" height="16" border="0" />
       * Set S = <img src="%ICONURLPATH{starred}%" alt="PICK" title="PICK" width="16" height="16" border="0" />
       * Set T = <img src="%ICONURLPATH{tip}%" alt="TIP" title="TIP" width="16" height="16" border="0" />
       * Set U = <img src="%ICONURLPATH{updated}%" alt="UPDATED" title="UPDATED" width="55" height="16" border="0" />

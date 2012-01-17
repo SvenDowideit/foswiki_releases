@@ -163,9 +163,10 @@ Return false if not.
 
 sub isValidNonce {
     my ( $cgis, $nonce ) = @_;
-    print STDERR "V: CHECK: $nonce\n" if TRACE;
     return 1 if ( $Foswiki::cfg{Validation}{Method} eq 'none' );
     return 0 unless defined $nonce;
+    $nonce =~ s/^\?// if ( $Foswiki::cfg{Validation}{Method} ne 'strikeone' );
+    print STDERR "V: CHECK: $nonce\n" if TRACE;
     my $actions = $cgis->param('VALID_ACTIONS');
     return 0 unless ref($actions) eq 'HASH';
     return $actions->{$nonce};
@@ -239,6 +240,12 @@ sub validate {
 
     my $origurl = $query->param('origurl');
     $query->delete('origurl');
+    my $context = $query->param('context');
+    $query->delete('context');
+
+    # If a special context was requested, enter it. This will normally
+    # be the name of the script that invoked the original save operation.
+    $session->enterContext($context, 1) if $context;
 
     my $tmpl =
       $session->templates->readTemplate( 'validate', $session->getSkin() );

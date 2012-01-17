@@ -38,7 +38,7 @@ Pictorially,
 As well as the meta-data, the object also stores the web name, topic
 name and topic text.
 
-API version $Date: 2009-02-24 05:18:50 +0100 (Tue, 24 Feb 2009) $ (revision $Rev: 4272 (2009-06-21) $)
+API version $Date: 2009-09-16 14:36:32 +0200 (Wed, 16 Sep 2009) $ (revision $Rev: 5061 (2009-09-20) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -64,7 +64,7 @@ use strict;
 use Error qw(:try);
 use Assert;
 
-our $VERSION = '$Rev: 4272 (2009-06-21) $';
+our $VERSION = '$Rev: 5061 (2009-09-20) $';
 
 =begin TML
 
@@ -662,10 +662,12 @@ sub renderFormForDisplay {
         # Make pseudo-form from field data
         $form =
           new Foswiki::Form( $this->{_session}, $this->{_web}, $fname, $this );
-        return CGI::span(
+        my $mess = CGI::span(
             { class => 'foswikiAlert' },
             "%MAKETEXT{\"Form definition '[_1]' not found\" args=\"$fname\"}%"
-        ) . $form->renderForDisplay($this);
+           );
+        $mess .= $form->renderForDisplay($this) if $form;
+        return $mess;
     }
 }
 

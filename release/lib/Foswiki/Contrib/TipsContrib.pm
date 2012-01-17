@@ -1,4 +1,4 @@
 package Foswiki::Contrib::TipsContrib;
 use vars qw( $VERSION );
-$VERSION = '$Rev: 3417 (2009-04-12) $';
+$VERSION = '$Rev: 1074 (2008-11-30) $';
 1;

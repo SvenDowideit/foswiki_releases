@@ -2,4 +2,3 @@
 %META:TOPICPARENT{name="WebHome"}%
 ---+ %MAKETEXT{"Placeholder for trashed attachments"}%
 
-

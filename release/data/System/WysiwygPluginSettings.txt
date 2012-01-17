@@ -1,3 +1,4 @@
+%META:TOPICPARENT{name="WysiwygPlugin"}%
 ---+ Settings for WysiwygPlugin that are common to most editor integrations
 %STARTINCLUDE%
 The *global* [[%SYSTEMWEB%.PreferenceSettings][preference setting]] =WYSIWYG_EXCLUDE= can be set to make the plugin sensitive to what is in a topic, before allowing it to be edited. You can set it up to veto an edit if the topic contains:
@@ -14,7 +15,7 @@ You should set =WYSIWYG_EXCLUDE= and =WYSIWYG_EDITABLE_CALLS= in %USERSWEB%.Site
 
 You can define the global preference =WYSIWYGPLUGIN_STICKYBITS= to stop the
 plugin from ever trying to convert specific HTML tags into
-HTML when certain specific attributes are present on the tag. This is most
+TML when certain specific attributes are present on the tag. This is most
 useful when you have styling or alignment information in tags that must be
 preserved.
 

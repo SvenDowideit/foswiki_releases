@@ -361,7 +361,45 @@ s/$WC::CHECKw(($WC::PON|$WC::POFF)?[$WC::CHECKn$WC::CHECKs$WC::NBSP $WC::NBBR])/
     return $text;
 }
 
+# collapse adjacent nodes together, if they share the same class
+sub _collapseOneClass {
+    my $node  = shift;
+    my $class = shift;
+    if ( defined( $node->{tag} ) && $node->hasClass($class) ) {
+        my $next = $node->{next};
+        my @edible;
+        my $collapsible;
+        while (
+            $next
+            && (
+                ( !$next->{tag} && $next->{text} =~ /^\s*$/ )
+                || (   $node->{tag} eq $next->{tag}
+                    && $next->hasClass($class) )
+            )
+          )
+        {
+            push( @edible, $next );
+            $collapsible ||= $next->hasClass($class);
+            $next = $next->{next};
+        }
+        if ($collapsible) {
+            foreach my $meal (@edible) {
+                $meal->_remove();
+                if ( $meal->{tag} ) {
+                    require Foswiki::Plugins::WysiwygPlugin::HTML2TML::Leaf;
+                    $node->addChild(
+                        new Foswiki::Plugins::WysiwygPlugin::HTML2TML::Leaf(
+                            $WC::NBBR)
+                    );
+                    $node->_eat($meal);
+                }
+            }
+        }
+    }
+}
+
 # Collapse adjacent VERBATIM nodes together
+# Collapse adjacent STICKY nodes together
 # Collapse a <p> that contains only a protected span into a protected P
 # Collapse em in em
 # Collapse adjacent text nodes
@@ -371,43 +409,14 @@ sub _collapse {
     my @jobs = ($this);
     while ( scalar(@jobs) ) {
         my $node = shift(@jobs);
-        if ( defined( $node->{tag} ) && $node->hasClass('TMLverbatim') ) {
-            my $next = $node->{next};
-            my @edible;
-            my $collapsible;
-            while (
-                $next
-                && (
-                    ( !$next->{tag} && $next->{text} =~ /^\s*$/ )
-                    || (   $node->{tag} eq $next->{tag}
-                        && $next->hasClass('TMLverbatim') )
-                )
-              )
-            {
-                push( @edible, $next );
-                $collapsible ||= $next->hasClass('TMLverbatim');
-                $next = $next->{next};
-            }
-            if ($collapsible) {
-                foreach my $meal (@edible) {
-                    $meal->_remove();
-                    if ( $meal->{tag} ) {
-                        require Foswiki::Plugins::WysiwygPlugin::HTML2TML::Leaf;
-                        $node->addChild(
-                            new Foswiki::Plugins::WysiwygPlugin::HTML2TML::Leaf(
-                                $WC::NBBR)
-                        );
-                        $node->_eat($meal);
-                    }
-                }
-            }
-        }
+        _collapseOneClass( $node, 'TMLverbatim' );
+        _collapseOneClass( $node, 'WYSIWYG_STICKY' );
         if (   $node->{tag} eq 'p'
             && $node->{head}
             && $node->{head} == $node->{tail} )
         {
             my $kid = $node->{head};
-            if (   $kid->{tag} eq 'SPAN'
+            if ( uc( $kid->{tag} ) eq 'SPAN'
                 && $kid->hasClass('WYSIWYG_PROTECTED') )
             {
                 $kid->_remove();
@@ -445,16 +454,21 @@ sub _collapse {
 
 # If this node has the specified class, insert a new "span" node with that
 # class between this node and all of this node's children.
-sub _moveClassToSpan
-{
-    my $this = shift;
+sub _moveClassToSpan {
+    my $this  = shift;
     my $class = shift;
 
-    if ( $this->{tag} and 
-         lc($this->{tag}) ne 'span' and
-         $this->_removeClass($class) ) {
-         
-        my $newspan = new Foswiki::Plugins::WysiwygPlugin::HTML2TML::Node( $this->{context}, 'span', { class => $class } );
+    if (    $this->{tag}
+        and lc( $this->{tag} ) ne 'span'
+        and $this->_removeClass($class) )
+    {
+
+        my %new_attrs = ( class => $class );
+        $new_attrs{style} = $this->{attrs}->{style}
+          if exists $this->{attrs}->{style};
+        my $newspan =
+          new Foswiki::Plugins::WysiwygPlugin::HTML2TML::Node( $this->{context},
+            'span', \%new_attrs );
         my $kid = $this->{head};
         while ($kid) {
             $newspan->addChild($kid);
@@ -509,6 +523,8 @@ sub generate {
     my $tmlFn = '_handle' . uc($tag);
 
     $this->_moveClassToSpan('WYSIWYG_TT');
+    $this->_moveClassToSpan('WYSIWYG_COLOR')
+      if lc( $this->{tag} ) ne 'font';
 
     # See if we have a TML translation function for this tag
     # the translation functions will work out the rendering
@@ -862,12 +878,14 @@ sub _isConvertableTableRow {
     while ($kid) {
         if ( $kid->{tag} eq 'th' ) {
             $kid->_moveClassToSpan('WYSIWYG_TT');
+            $kid->_moveClassToSpan('WYSIWYG_COLOR');
             ( $flags, $text ) = $kid->_flatten($options);
             $text = _TDtrim($text);
             $text = "*$text*" if length($text);
         }
         elsif ( $kid->{tag} eq 'td' ) {
             $kid->_moveClassToSpan('WYSIWYG_TT');
+            $kid->_moveClassToSpan('WYSIWYG_COLOR');
             ( $flags, $text ) = $kid->_flatten($options);
             $text = _TDtrim($text);
         }
@@ -1022,12 +1040,12 @@ sub isBlockNode {
 sub previousLeaf {
     my $node = shift;
     if ( !$node ) {
-        return undef;
+        return;
     }
     do {
         while ( !$node->{prev} ) {
             if ( !$node->{parent} ) {
-                return undef;    # can't go any further back
+                return;    # can't go any further back
             }
             $node = $node->{parent};
         }
@@ -1052,7 +1070,7 @@ sub _checkBeforeEmphasis {
 sub nextLeaf {
     my $node = shift;
     if ( !$node ) {
-        return undef;
+        return;
     }
     do {
         while ( !$node->{next} ) {
@@ -1305,41 +1323,48 @@ sub _handleFONT {
     my %atts = %{ $this->{attrs} };
 
     # Try to convert font tags into %COLOUR%..%ENDCOLOR%
-    # First extract the colour
+
+    # First extract the colour from a style= param, if we can.
     my $colour;
-    if ( $atts{style} ) {
-        my $style = $atts{style};
-        if ( $style =~ s/(^|\s|;)color\s*:\s*([^\s;]+);?//i ) {
-            $colour = $2;
-            delete $atts{style} if $style =~ /^[\s;]*$/;
-        }
+    if ( defined $atts{style}
+        && $atts{style} =~ s/(^|\s|;)color\s*:\s*(#?\w+)\s*(;|$)// )
+    {
+        $colour = $2;
     }
-    if ( $atts{color} ) {
+
+    # override it with a color= param, if there is one.
+    if ( defined $atts{color} ) {
         $colour = $atts{color};
-        delete $atts{color};
     }
 
-    # The presence of the class forces it to be converted to a
-    # Foswiki variable
-    if ( !_removeClass( \%atts, 'WYSIWYG_COLOUR' ) ) {
-        delete $atts{class};
-        if (   scalar( keys %atts ) > 0
-            || !$colour
-            || $colour !~ /^([a-z]+|#[0-9A-Fa-f]{6})$/i )
-        {
-            return ( 0, undef );
+    # The presence of the WYSIWYG_COLOR class _forces_ the tag to be
+    # converted to a Foswiki colour macro, as long as the colour is
+    # recognised.
+    if ( hasClass( \%atts, 'WYSIWYG_COLOR' ) ) {
+        my $percentColour = $WC::HTML2TML_COLOURMAP{ uc($colour) };
+        if ( defined $percentColour ) {
+
+            # All other font information will be lost.
+            my ( $f, $kids ) = $this->_flatten($options);
+            return ( $f, '%' . $percentColour . '%' . $kids . '%ENDCOLOR%' );
         }
     }
 
-    # OK, just the colour
-    $colour = $WC::KNOWN_COLOUR{ uc($colour) };
-    if ( !$colour ) {
-
-        # Not a recognised colour
-        return ( 0, undef );
+    # May still be able to convert if there is no other font information.
+    delete $atts{class} if defined $atts{class} && $atts{class} =~ /^\s*$/;
+    delete $atts{style} if defined $atts{style} && $atts{style} =~ /^[\s;]*$/;
+    delete $atts{color} if defined $atts{color};
+    if ( defined $colour && !scalar keys %atts ) {
+        my $percentColour = $WC::HTML2TML_COLOURMAP{ uc($colour) };
+        if ( defined $percentColour ) {
+            my ( $f, $kids ) = $this->_flatten($options);
+            return ( $f, '%' . $percentColour . '%' . $kids . '%ENDCOLOR%' );
+        }
     }
-    my ( $f, $kids ) = $this->_flatten($options);
-    return ( $f, '%' . uc($colour) . '%' . $kids . '%ENDCOLOR%' );
+
+    # Either the colour can't be mapped, or we can't do the conversion
+    # without loss of information
+    return ( 0, undef );
 }
 
 # FORM
@@ -1480,14 +1505,32 @@ sub _handleSPAN {
         return _emphasis( @_, '=' );
     }
 
-    # Remove all other classes
-    delete $atts{class};
+    # If we have WYSIWYG_COLOR and the colour can be mapped, then convert
+    # to a macro.
+    if ( _removeClass( \%atts, 'WYSIWYG_COLOR' ) ) {
+        my $colour;
+        if ( $atts{style} ) {
+            my $style = $atts{style};
+            if ( $style =~ s/(^|\s|;)color\s*:\s*(#?\w+)\s*(;|$)// ) {
+                $colour = $2;
+            }
+        }
+        my $percentColour = $WC::HTML2TML_COLOURMAP{ uc($colour) };
+        if ( defined $percentColour ) {
+            my ( $f, $kids ) = $this->_flatten($options);
+            return ( $f, '%' . $percentColour . '%' . $kids . '%ENDCOLOR%' );
+        }
+    }
+
+    # Remove all other (non foswiki) classes
+    if ( defined $atts{class} && $atts{class} !~ /foswiki/ ) {
+        delete $atts{class};
+    }
 
     if ( $options & $WC::VERY_CLEAN ) {
 
-        # remove style attribute if cleaning aggressively. Have to do this
-        # because Foswiki generates these.
-        delete $atts{style} if defined $atts{style};
+        # remove style attribute if cleaning aggressively.
+        #        delete $atts{style} if defined $atts{style};
     }
 
     # ignore the span tag if there are no other attrs
@@ -1519,7 +1562,7 @@ sub _handleTABLE {
     my @table;
     return ( 0, undef )
       unless $this->_isConvertableTable( $options | $WC::NO_BLOCK_TML,
-              \@table );
+        \@table );
 
     my $maxrow = 0;
     my $row;

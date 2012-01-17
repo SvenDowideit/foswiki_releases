@@ -27,6 +27,7 @@
 #
 package Foswiki::Extender;
 use strict;
+use warnings;
 
 use Cwd;
 use File::Temp;
@@ -169,23 +170,55 @@ sub remap {
 # isn't numeric, like perl wants it to be
 my $moduleVersion;    # Global so that this handler can set it
 
-sub check_non_perl_versions {
-    my ($msg) = @_;
-    if ( $msg !~ /Version string '(.+)' contains invalid data; ignoring: '/ ) {
-        print STDERR $msg;
-    }
-    elsif ( $1 eq '$Rev$' ) {
+sub _comparableVersion {
+    my ($version) = @_;
 
+    # Remove leading and trailing spaces
+    $version =~ s/^\s+//;
+    $version =~ s/\s+$//;
+
+    if ( $version eq '' ) {
+        $version = 0;
+    }
+    elsif ( $version =~ /^\d+\.\d+_[0-9_]+$/ ) {
+        # The eval transform strings to numbers
+        # so that things like '2.36_01' become 2.3601 (numeric)
+        $version = eval($version);
+        if ($@) {
+            print STDERR $@;
+            # Ensure that the version is numeric
+            $version = 0;
+        }
+    }
+    elsif ( $version =~ /^v?\d+\.\d+$/ ) {
+        # 6.4 stays as 6.4 and 6.10 stays as 6.10
+        # SMELL: 6.10 ends up "greater than" 6.11.1
+    }
+    elsif ( $version =~ /^v?(\d+\.)(\d+(?:\.\d+)+)$/ ) {
+        # convert versions like 6.4.2 and 6.4.1.15 to a standard form
+        # i.e. 6.004002 and 6.004001015
+        my $major = $1;
+        my $minor = $2;
+        $minor =~ s/(\d+)\.?/sprintf('%03d',$1)/ge;
+        $version = $major.$minor;
+    }
+    elsif ( $version eq '$Rev$' ) {
         # Setting version to an arbitary high number
         # if it's supposed to be some subversion revision
-        $moduleVersion = 999999;
+        $version = 999999;
     }
-    elsif ( $1 =~ /(\d+)/ ) {
-
+    elsif ( $version =~ /(\d+)/ ) {
         # If the text contains a number, use the first one
-        $moduleVersion = $1;
+        # This works for versions like '$Rev: 1234 $'
+        $version = $1;
     }
+    else {
+        # Ensure that version is numeric
+        $version = 0;
+    }
+    return $version;
 }
+
 
 sub check_dep {
     my ($dep) = @_;
@@ -202,7 +235,8 @@ sub check_dep {
 
     # try to load the module
     my $module = $dep->{name};
-    if ( not eval "require $module" ) {
+    eval "require $module";
+    if ( $@ ) {
         $ok = 0;
         ( $msg = $@ ) =~ s/ in .*$/\n/s;
         return ( $ok, $msg );
@@ -213,24 +247,18 @@ sub check_dep {
     # Try to catch those until all VERSION are correct
     $moduleVersion = 0;
     {
-        local $SIG{__WARN__} = \&check_non_perl_versions;
-
-        # Providing 0 as version number as version checking is done below
-        # and without it, perl < 5.10 won't trigger the warning
-        # The eval there is used to automatically transform strings to numbers
-        # so that things like '2.36_01' become 2.3601 (numeric)
-        my $version = eval $module->VERSION(0);
-        $moduleVersion ||= $version;
+        no strict 'refs';
+        $moduleVersion = _comparableVersion( ${"${module}::VERSION"} );
     }
 
     # check if the version satisfies the prerequisite
     if ( defined $dep->{version} ) {
 
         # the version field is in fact a condition
-        if ( $dep->{version} =~ /^\s*(?:>=?)?\s*([0-9.]+)/ ) {
+        if ( $dep->{version} =~ /^\s*(?:>=?)?\s*([0-9._]+)/ ) {
 
             # Condition is >0 or >= 1.3
-            my $requiredVersion = $1;
+            my $requiredVersion = _comparableVersion($1);
 
             # SMELL: Once all modules have proper version, this should be:
             # if ( not eval { $module->VERSION( $requiredVersion ) } )
@@ -243,10 +271,12 @@ sub check_dep {
                 return ( $ok, $msg );
             }
         }
-        elsif ( $dep->{version} =~ /<\s*([0-9.]+)/ ) {
+        elsif ( $dep->{version} =~ /<\s*([0-9._]+)/ ) {
 
             # Condition is < 2.7
-            if ( $moduleVersion >= $1 ) {
+            my $requiredVersion = _comparableVersion($1);
+
+            if ( $moduleVersion >= $requiredVersion ) {
 
                 # But module doesn't meet this condition
                 $ok = 0;
@@ -616,7 +646,8 @@ sub unpackArchive {
 sub unzip {
     my $archive = shift;
 
-    if ( not eval 'require Archive::Zip' ) {
+    eval 'require Archive::Zip';
+    if ( $@ ) {
         my $zip           = Archive::Zip->new();
         my $err = $zip->read($archive);
         if ( $err ) {
@@ -658,7 +689,8 @@ sub untar {
 
     my $compressed = ( $archive =~ /z$/i ) ? 'z' : '';
 
-    if ( not eval 'require Archive::Tar' ) {
+    eval 'require Archive::Tar';
+    if ( $@ ) {
         my $tar = Archive::Tar->new();
         my $numberOfFiles = $tar->read( $archive, $compressed );
         unless ( $numberOfFiles > 0 ) {
@@ -943,18 +975,9 @@ sub _install {
         # Module is already installed
         # XXX SMELL: Could be more user-friendly:
         # test that current version isn't newest
-        $moduleVersion = 0;
-
-        # if the VERSION string isn't perl compatible (\d+\.\d+(\.\d+)?)
-        # perl will print out some message and test will fail
-        # Try to catch those until all VERSION are correct
         {
-            local $SIG{__WARN__} = \&check_non_perl_versions;
-
-            # Providing 0 as version number as version checking is done below
-            # and without it, perl < 5.10 won't trigger the warning
-            my $version = $path->VERSION(0);
-            $moduleVersion ||= $version;
+            no strict 'refs';
+            $moduleVersion = _comparableVersion( ${"${path}::VERSION"} );
         }
 
         if ($moduleVersion) {

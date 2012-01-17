@@ -211,14 +211,19 @@ sub handleRequest {
     $sub .= $dispatcher->{function};
 
     # Get the params cache from the path
-    my $cache;
+    my $cache = $req->param('foswiki_redirect_cache');
+
+    # If the path specifies a cache path, use that. It's arbitrary
+    # as to which takes precedence (param or path) because we should
+    # never have both at once.
     my $path_info = $req->path_info();
-    if ($path_info =~ s#/foswiki_redirect_cache/([a-f0-9]{32})$##) {
+    if ($path_info =~ s#/foswiki_redirect_cache/([a-f0-9]{32})##) {
         $cache = $1;
         $req->path_info( $path_info );
     }
 
-    if ( $cache ) {
+    if ( defined $cache && $cache =~ /^([a-f0-9]{32})$/ ) {
+        $cache = $1; # untaint;
 
         # Read cached post parameters
         my $passthruFilename =
@@ -299,6 +304,7 @@ sub _execute {
             &$sub($session);
         }
         catch Foswiki::ValidationException with {
+            my $e = shift;
             my $query = $session->{request};
             # Redirect with passthrough so we don't lose the
             # original query params. We use the login script for
@@ -310,6 +316,10 @@ sub _execute {
                            -value => 'validate' );
             $query->param( -name => 'origurl',
                            -value => $session->{request}->uri );
+            # Pass the action that was invoked to get here so that an
+            # appropriate message can be generated
+            $query->param( -name => 'context',
+                           -value => $e->{action} );
             $session->redirect( $url, 1 );    # with passthrough
         }
         catch Foswiki::AccessControlException with {
@@ -521,6 +531,12 @@ See Foswiki::Validation for more information.
 sub checkValidationKey {
     my ($session) = @_;
 
+    # If validation is disabled, do nothing
+    return if ( $Foswiki::cfg{Validation}{Method} eq 'none' );
+    
+    # No point in command-line mode 
+    return if $session->inContext('command_line'); 
+
     # Check the nonce before we do anything else
     my $nonce = $session->{request}->param('validation_key');
     $session->{request}->delete('validation_key');
@@ -528,7 +544,7 @@ sub checkValidationKey {
         || !Foswiki::Validation::isValidNonce( $session->getCGISession(),
             $nonce ) )
     {
-        throw Foswiki::ValidationException();
+        throw Foswiki::ValidationException( $session->{request}->action() );
     }
     if ( defined($nonce) ) {
 

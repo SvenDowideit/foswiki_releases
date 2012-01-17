@@ -19,7 +19,6 @@
 var FoswikiTiny = {
 
     foswikiVars : null,
-    request : null, // Container for HTTP request object
     metaTags : null,
 
     tml2html : new Array(), // callbacks, attached in plugins
@@ -28,7 +27,7 @@ var FoswikiTiny = {
     // Get a Foswiki variable from the set passed
     getFoswikiVar : function (name) {
         if (FoswikiTiny.foswikiVars == null) {
-            var sets = tinyMCE.getParam("foswiki_vars", "");
+            var sets = tinyMCE.activeEditor.getParam("foswiki_vars", "");
             FoswikiTiny.foswikiVars = eval(sets);
         }
         return FoswikiTiny.foswikiVars[name];
@@ -41,9 +40,19 @@ var FoswikiTiny = {
         return url;
     },
 
-    enableSave: function(enabled) {
+    saveEnabled: 0,
+    enableSaveButton: function(enabled) {
         var status = enabled ? null : "disabled";
+        FoswikiTiny.saveEnabled = enabled ? 1 : 0;
         var elm = document.getElementById("save");
+        if (elm) {
+            elm.disabled = status;
+        }
+        elm = document.getElementById("quietsave");
+        if (elm) {
+            elm.disabled = status;
+        }
+        elm = document.getElementById("checkpoint");
         if (elm) {
             elm.disabled = status;
         }
@@ -54,7 +63,7 @@ var FoswikiTiny = {
         }
     },
 
-    transform : function(editor, handler, text, onReadyToSend, onReply, onFail) {
+    transform : function(editor, handler, text, onSuccess, onFail) {
         // Work out the rest URL from the location
         var url = FoswikiTiny.getFoswikiVar("SCRIPTURL");
         var suffix = FoswikiTiny.getFoswikiVar("SCRIPTSUFFIX");
@@ -62,40 +71,20 @@ var FoswikiTiny = {
         url += "/rest" + suffix + "/WysiwygPlugin/" + handler;
         var path = FoswikiTiny.getFoswikiVar("WEB") + '.'
         + FoswikiTiny.getFoswikiVar("TOPIC");
-        FoswikiTiny.request = new Object();
-        if (tinyMCE.isIE) {
-            // branch for IE/Windows ActiveX version
-            FoswikiTiny.request.req = new ActiveXObject("Microsoft.XMLHTTP");
-        } else {
-            // branch for native XMLHttpRequest object
-            FoswikiTiny.request.req = new XMLHttpRequest();
-        }
-        FoswikiTiny.request.editor = editor;
-        FoswikiTiny.request.req.open("POST", url, true);
-        FoswikiTiny.request.req.setRequestHeader(
-            "Content-type", "application/x-www-form-urlencoded");
-        var params = "nocache=" + encodeURIComponent((new Date()).getTime())
-        + "&topic=" + encodeURIComponent(path)
-        + "&text=" + encodeURIComponent(text);
-    
-        FoswikiTiny.request.req.setRequestHeader(
-            "Content-length", params.length);
-        /* Banjaxes NTLM - see http://foswiki.org/Tasks/Item5859 for analysis
-           FoswikiTiny.request.req.setRequestHeader("Connection", "close"); */
-        FoswikiTiny.request.req.onreadystatechange = function() {
-            // Callback for XMLHttpRequest
-            // only if FoswikiTiny.request.req shows "complete"
-            if (FoswikiTiny.request.req.readyState == 4) {
-                // only if "OK"
-                if (FoswikiTiny.request.req.status == 200) {
-                    onReply();
-                } else {
-                    onFail();
-                }
-            }
-        };
-        onReadyToSend();
-        FoswikiTiny.request.req.send(params);
+
+        tinymce.util.XHR.send({
+            url: url,
+            content_type: "application/x-www-form-urlencoded",
+            type: "POST",
+            data:
+                "nocache=" + encodeURIComponent((new Date()).getTime())
+                    + "&topic=" + encodeURIComponent(path)
+                    + "&text=" + encodeURIComponent(text),
+            async: true,
+            scope: editor,
+            success: onSuccess,
+            error: onFail
+        })
     },
 
     initialisedFromServer : false,
@@ -111,41 +100,57 @@ var FoswikiTiny = {
         FoswikiTiny.initialisedFromServer = true;
     },
 
-    // Convert HTML content to textarea. Called from the WYSIWYG->raw switch
-    switchToRaw : function (inst) {
-        // As shown by OliverKrueger in Item5138, trivial text may include
-        // UTF-8 chars. These need to be encoded to entities before we can
-        // pass the string back to the server. This is done in triggerSave,
-        // but note that it requires cleanup:true to work.
-        inst.triggerSave(false, true);
-        var text = inst.oldTargetElement.value;
+    cleanBeforeSave : function (eid, buttonId) {
+        var el = document.getElementById(buttonId);
+        if (el == null)
+            return;
+        // SMELL: what if there is already an onclick handler?
+        el.onclick = function () {
+            var editor = tinyMCE.getInstanceById(eid);
+            editor.isNotDirty = true;
+            return true;
+        }
+    },
 
-        // Evaluate post-processors
+    onSubmitHandler : false,
+
+    // Convert HTML content to textarea. Called from the WYSIWYG->raw switch
+    switchToRaw : function (editor) {
+        var text = editor.getContent();
+
+        // Make the raw-edit help visible (still subject to toggle)
+        var el = document.getElementById("foswikiTinyMcePluginWysiwygEditHelp");
+        if (el) {
+            el.style.display = 'none';
+        }
+        el = document.getElementById("foswikiTinyMcePluginRawEditHelp");
+        if (el) {
+            el.style.display = 'block';
+        }
+
+        // Evaluate post-processors attached from plugins
         for (var i = 0; i < FoswikiTiny.html2tml.length; i++) {
             var cb = FoswikiTiny.html2tml[i];
-            text = cb.apply(inst, [ inst, text ]);
+            text = cb.apply(editor, [ editor, text ]);
         }
+        FoswikiTiny.enableSaveButton(false);
+        editor.getElement().value =
+            "Please wait... retrieving page from server.";
         FoswikiTiny.transform(
-            inst, "html2tml", text,
-            function () {
-                FoswikiTiny.enableSave(false);
-                var te = FoswikiTiny.request.editor.oldTargetElement;
-                te.value = "Please wait... retrieving page from server";
+            editor, "html2tml", text,
+            function (text, req, o) {
+                this.getElement().value = text;
+                FoswikiTiny.enableSaveButton(true);
             },
-            function () {
-                var te = FoswikiTiny.request.editor.oldTargetElement;
-                var text = FoswikiTiny.request.req.responseText;
-                te.value = text;
-                FoswikiTiny.enableSave(true);
-            },
-            function () {
-                var te = FoswikiTiny.request.editor.oldTargetElement;
-                te.value = "There was a problem retrieving the page: "
-                    + FoswikiTiny.request.req.statusText;
-                //FoswikiTiny.enableSave(true); leave it disabled
+            function (type, req, o) {
+                this.setContent("<div class='foswikiAlert'>"
+                                + "There was a problem retrieving "
+                                + o.url + ": "
+                                + type + " " + req.status + "</div>");
+                //FoswikiTiny.enableSaveButton(true); leave save disabled
             });
         // Add the button for the switch back to WYSIWYG mode
-        var eid = inst.editorId;
+        var eid = editor.id;
         var id = eid + "_2WYSIWYG";
         var el = document.getElementById(id);
         if (el) {
@@ -159,61 +164,94 @@ var FoswikiTiny = {
             el.value = "WYSIWYG";
             el.className = "foswikiButton";
             el.onclick = function () {
-                tinyMCE.execCommand("mceToggleEditor", null, inst.editorId);
+                // Make the wysiwyg help visible (still subject to toggle)
+                var el = document.getElementById("foswikiTinyMcePluginWysiwygEditHelp");
+                if (el) {
+                    el.style.display = 'block';
+                }
+                el = document.getElementById("foswikiTinyMcePluginRawEditHelp");
+                if (el) {
+                    el.style.display = 'none';
+                }
+                tinyMCE.execCommand("mceToggleEditor", null, eid);
+                FoswikiTiny.switchToWYSIWYG(editor);
                 return false;
             }
             // Need to insert after to avoid knackering 'back'
-            var pel = inst.oldTargetElement.parentNode;
-            pel.insertBefore(el, inst.oldTargetElement);
+            var pel = editor.getElement().parentNode;
+            pel.insertBefore(el, editor.getElement());
         }
         // SMELL: what if there is already an onchange handler?
-        inst.oldTargetElement.onchange = function() {
-            var inst = tinyMCE.getInstanceById(eid);
-            inst.isNotDirty = false;
+        editor.getElement().onchange = function() {
+            var editor = tinyMCE.getInstanceById(eid);
+            editor.isNotDirty = false;
             return true;
-        }
+        },
+        // Ooo-err. Stomp on the default submit handler and
+        // forcibly disable the editor to prevent a call to
+        // the TMCE save. This in turn blocks the getContent
+        // that would otherwise wipe out the content of the
+        // textarea with the DOM. We'd better make damn sure we
+        // remove this handler when we switch back!
+        this.onSubmitHandler = function(ed, e) {
+            // SMELL: Editor.initialized is undocumented and liable
+            // to break when we upgrade TMCE
+            editor.initialized = false;
+        };
+        // SMELL: Event.addToTop() is undocumented and liable
+        // to break when we upgrade TMCE
+        editor.onSubmit.addToTop(this.onSubmitHandler);
+        // Make the save buttons mark the text as not-dirty 
+        // to avoid the popup that says "Are you sure? The changes you have made will be lost"
+        FoswikiTiny.cleanBeforeSave(eid, "save");
+        FoswikiTiny.cleanBeforeSave(eid, "quietsave");
+        FoswikiTiny.cleanBeforeSave(eid, "checkpoint");
+        // preview shouldn't get the popup either, when preview is enabled one day
+        FoswikiTiny.cleanBeforeSave(eid, "preview"); 
+        // cancel shouldn't get the popup because the user just *said* they want to cancel
+        FoswikiTiny.cleanBeforeSave(eid, "cancel"); 
     },
 
     // Convert textarea content to HTML. This is invoked from the content
     // setup handler, and also from the raw->WYSIWYG switch
     switchToWYSIWYG : function (editor) {
         // Kill the change handler to avoid excess fires
-        editor.oldTargetElement.onchange = null;
-        // Need to tinyMCE.execCommand("mceToggleEditor", null, editor_id);
+        editor.getElement().onchange = null;
+
+        // Get the textarea content
+        var text = editor.getElement().value;
+
+        if (this.onSubmitHandler) {
+            editor.onSubmit.remove(this.onSubmitHandler);
+            this.onSubmitHandler = null;
+        }
+        FoswikiTiny.enableSaveButton(false);
+        editor.setContent("<span class='foswikiAlert'>"
+                          + "Please wait... retrieving page from server."
+                          + "</span>");
         FoswikiTiny.transform(
-            editor, "tml2html", editor.oldTargetElement.value,
-            function () {
-                // Before send
-                FoswikiTiny.enableSave(false);
-                var editor = FoswikiTiny.request.editor;
-                tinyMCE.setInnerHTML(
-                    FoswikiTiny.request.editor.getBody(),
-                    "<span class='foswikiAlert'>Please wait... retrieving page from server.</span>");
-            },
-            function () {
-                // Handle the reply
-                var text = FoswikiTiny.request.req.responseText;
+            editor, "tml2html", text,
+            function (text, req, o) { // Success
                 // Evaluate any registered pre-processors
                 for (var i = 0; i < FoswikiTiny.tml2html.length; i++) {
                     var cb = FoswikiTiny.tml2html[i];
-                    text = cb.apply(editor, [ editor, text ]);
+                    text = cb.apply(this, [ this, text ]);
                 }
-                tinyMCE.setInnerHTML(FoswikiTiny.request.editor.getBody(), text);
-                FoswikiTiny.request.editor.isNotDirty = true;
-                FoswikiTiny.enableSave(true);
+                this.setContent(text);
+                this.isNotDirty = true;
+                FoswikiTiny.enableSaveButton(true);
             },
-            function () {
+            function (type, req, o) {
                 // Handle a failure
-                tinyMCE.setInnerHTML(
-                    FoswikiTiny.request.editor.getBody(),
-                    "<div class='foswikiAlert'>"
-                    + "There was a problem retrieving the page: "
-                    + FoswikiTiny.request.req.statusText + "</div>");
-                //FoswikiTiny.enableSave(true); leave save disabled
+                this.setContent("<div class='foswikiAlert'>"
+                                + "There was a problem retrieving "
+                                + o.url + ": "
+                                + type + " " + req.status + "</div>");
+                //FoswikiTiny.enableSaveButton(true); leave save disabled
             });
 
         // Hide the conversion button, if it exists
-        var id = editor.editorId + "_2WYSIWYG";
+        var id = editor.id + "_2WYSIWYG";
         var el = document.getElementById(id);
         if (el) {
             // exists, hide it
@@ -229,7 +267,7 @@ var FoswikiTiny = {
             var cb = FoswikiTiny.html2tml[i];
             html = cb.apply(editor, [ editor, html ]);
         }
-        var secret_id = tinyMCE.getParam('foswiki_secret_id');
+        var secret_id = tinyMCE.activeEditor.getParam('foswiki_secret_id');
         if (secret_id != null && html.indexOf(
                 '<!--' + secret_id + '-->') == -1) {
             // Something ate the ID. Probably IE. Add it back.
@@ -281,12 +319,11 @@ var FoswikiTiny = {
     // is thrown away (reverts to the typed address) when the image is
     // actually inserted, at which time convertLink is called.
     convertPubURL : function(url){
-        var orig = url;
-        var base = FoswikiTiny.getFoswikiVar("PUBURL") + '/'
-        + FoswikiTiny.getFoswikiVar("WEB") + '/'
-        + FoswikiTiny.getFoswikiVar("TOPIC") + '/';
         url = FoswikiTiny.expandVariables(url);
         if (url.indexOf('/') == -1) {
+            var base = FoswikiTiny.getFoswikiVar("PUBURL") + '/'
+                + FoswikiTiny.getFoswikiVar("WEB") + '/'
+                + FoswikiTiny.getFoswikiVar("TOPIC") + '/';
             url = base + url;
         }
         return url;
@@ -312,11 +349,45 @@ var FoswikiTiny = {
     
     install : function() {
         // find the TINYMCEPLUGIN_INIT META
-        var tmce_init = FoswikiTiny.getMetaTag('TINYMCEPLUGIN_INIT');
+        var tmce_init = this.getMetaTag('TINYMCEPLUGIN_INIT');
         if (tmce_init != null) {
             eval("tinyMCE.init({" + unescape(tmce_init) + "});");
             return;
         }
         alert("Unable to install TinyMCE; <META name='TINYMCEPLUGIN_INIT' is missing"); 
+    },
+
+    getTopicPath: function() {
+        return this.getFoswikiVar("WEB") + '.' + this.getFoswikiVar("TOPIC");
+    },
+
+    getScriptURL: function(script) {
+        var scripturl = this.getFoswikiVar("SCRIPTURL");
+        var suffix = this.getFoswikiVar("SCRIPTSUFFIX");
+        if (suffix == null) suffix = '';
+        return scripturl + "/" + script + suffix;
+    },
+
+    getRESTURL: function(fn) {
+        return this.getScriptURL('rest') + "/WysiwygPlugin/" + fn;
+    },
+
+    getListOfAttachments: function(onSuccess) {
+        var url = this.getRESTURL('attachments');
+        var path = this.getTopicPath();
+        var params = "nocache=" + encodeURIComponent((new Date()).getTime())
+        + "&topic=" + encodeURIComponent(path);
+
+        tinymce.util.XHR.send({
+            url : url + "?" + params,
+            type: "POST",
+            content_type: "application/x-www-form-urlencoded",
+            data: params,
+            success: function(atts) {
+                if (atts != null) {
+                    onSuccess(eval(atts));
+                }
+            }
+        });
     }
 };

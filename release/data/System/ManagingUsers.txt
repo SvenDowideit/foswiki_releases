@@ -1,4 +1,5 @@
 %META:TOPICINFO{author="ProjectContributor" date="1158277691" format="1.1" version="1"}%
+%META:TOPICPARENT{name="WikiUsers"}%
 %STARTINCLUDE%
 ---+ Manage Users
 
@@ -119,7 +120,7 @@ Content-Type: text/plain; charset=%CHARSET%
 Content-Transfer-Encoding: 8bit
 
 %INCLUDE{
-    "Main.RegistrationNotification"
+    "%USERSWEB%.RegisterNotifyEmail"
     WIKINAME="%WIKINAME%"
     FIRSTLASTNAME="%FIRSTLASTNAME%"
     EMAILADDRESS="%EMAILADDRESS%"

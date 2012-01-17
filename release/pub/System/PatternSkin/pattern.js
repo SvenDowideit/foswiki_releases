@@ -1,13 +1,13 @@
 var Pattern = {
 
 	metaTags:[],
+	searchResultsCount:0,
 	
-	createTwikiActionFormStepSign:function(el) {
-		var sign = '&#9658;';
+	createActionFormStepSign:function(el) {
 		var newEl = foswiki.HTML.insertBeforeElement(
 			el,
 			'span',
-			sign
+			'&#9658;'
 		);
 		newEl.className = 'foswikiActionFormStepSign';
 	},
@@ -15,21 +15,17 @@ var Pattern = {
 	/**
 	Creates a attachment counter in the attachment table twisty.
 	*/
-	setAttachmentCount:function(inTableElement) {		
-		var count = inTableElement.getElementsByTagName("tr").length - 1;
-		var countStr = " " + "<span class='patternSmallLinkToHeader'>" + ' '  + count + "<\/span>";
-		var showElem = document.getElementById('topicattachmentslistshow');
-		if (showElem != undefined) {
-			var elems = foswiki.getElementsByClassName(showElem, 'patternAtachmentHeader');
-			if (elems && elems[0]) {
-				elems[0].innerHTML += countStr;
+	setAttachmentCount:function(inAttachmentContainer) {		
+		
+		var headers = foswiki.getElementsByClassName(inAttachmentContainer, 'patternAttachmentHeader', 'h3');
+		if (headers != undefined) {
+			var count = inAttachmentContainer.getElementsByTagName("tr").length - 1;
+			var countStr = " " + "<span class='patternSmallLinkToHeader'>" + ' '  + count + "<\/span>";
+			if (headers[0]) {
+				headers[0].innerHTML += countStr;
 			}
-		}
-		var hideElem = document.getElementById('topicattachmentslisthide');
-		if (hideElem != undefined) {
-			var elems = foswiki.getElementsByClassName(hideElem, 'patternAtachmentHeader');
-			if (elems && elems[0]) {
-				elems[0].innerHTML += countStr;
+			if (headers[1]) {
+				headers[1].innerHTML += countStr;
 			}
 		}
 	},
@@ -43,9 +39,7 @@ var Pattern = {
 		// write result count
 		if (Pattern.searchResultsCount >= 10) {
 			var text = " " + TEXT_NUM_TOPICS + " <b>" + Pattern.searchResultsCount + " <\/b>";
-			foswiki.HTML.setHtmlOfElement(el, text);			
-			// reset for next count
-			Pattern.searchResultsCount = 0;
+			foswiki.HTML.setHtmlOfElement(el, text);
 		}
 	},
 	
@@ -54,7 +48,7 @@ var Pattern = {
 		if (linkContainer != null) {
 			if (Pattern.searchResultsCount > 0) {
 				var linkText=' <a href="#" onclick="location.hash=\'foswikiSearchForm\'; return false;"><span class="foswikiLinkLabel foswikiSmallish">' + TEXT_MODIFY_SEARCH + '</span></a>';
-					foswiki.HTML.setHtmlOfElement(linkContainer, linkText);
+				foswiki.HTML.setHtmlOfElement(linkContainer, linkText);
 			}
 		}
 	}
@@ -62,9 +56,9 @@ var Pattern = {
 
 var patternRules = {
 	'.foswikiFormStep h3' : function(el) {
-		Pattern.createTwikiActionFormStepSign(el);
+		Pattern.createActionFormStepSign(el);
 	},
-	'#jumpFormField' : function(el) {
+	'input#jumpFormField' : function(el) {
 		foswiki.Form.initBeforeFocusText(el,TEXT_JUMP);
 		el.onfocus = function() {
 			foswiki.Form.clearBeforeFocusText(this);
@@ -73,7 +67,7 @@ var patternRules = {
 			foswiki.Form.restoreBeforeFocusText(this);
 		}
 	},
-	'#quickSearchBox' : function(el) {
+	'input#quickSearchBox' : function(el) {
 		foswiki.Form.initBeforeFocusText(el,TEXT_SEARCH);
 		el.onfocus = function() {
 			foswiki.Form.clearBeforeFocusText(this);
@@ -82,7 +76,7 @@ var patternRules = {
 			foswiki.Form.restoreBeforeFocusText(this);
 		}
 	},
-	'#foswikiAttachmentsTable' : function(el) {
+	'.foswikiAttachments' : function(el) {
 		Pattern.setAttachmentCount(el);
 	},
 	'body.patternEditPage' : function(el) {
@@ -91,22 +85,22 @@ var patternRules = {
 	'.foswikiSearchResultCount' : function(el) {
 		Pattern.addSearchResultsCounter(el);
 	},
-	'#foswikiNumberOfResultsContainer' : function(el) {
+	'span#foswikiNumberOfResultsContainer' : function(el) {
 		Pattern.displayTotalSearchResultsCount(el);
 	},
-	'#foswikiWebSearchForm':function(el) {
+	'form#foswikiWebSearchForm':function(el) {
 		Pattern.displayModifySearchLink();
 	},
-	'.foswikiPopUp':function(el) {
+	'a.foswikiPopUp':function(el) {
 		el.onclick = function() {
 			foswiki.Window.openPopup(el.href, {template:"viewplain"});
 			return false;
 		}
 	},
-	'.foswikiFocus':function(el) {
+	'input.foswikiFocus':function(el) {
 		el.focus();
 	},
-	'.foswikiChangeFormButton':function(el) {
+	'input.foswikiChangeFormButton':function(el) {
 		el.onclick = function() {
 			suppressSaveValidation();
 		}

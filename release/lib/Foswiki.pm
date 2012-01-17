@@ -153,7 +153,7 @@ BEGIN {
         # ASSERTS are turned on by defining the environment variable
         # FOSWIKI_ASSERTS. If ASSERTs are off, this is assumed to be a
         # production environment, and no stack traces or paths are
-        # output to the browser.
+        # output to the browser. 
         $SIG{'__WARN__'} = sub { die @_ };
         $Error::Debug = 1;    # verbose stack traces, please
     }
@@ -163,8 +163,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF $VERSION
     # Automatically expanded on checkin of this module
-    $VERSION = '$Date: 2009-06-21 23:21:08 +0200 (Sun, 21 Jun 2009) $ $Rev: 4272 (2009-06-21) $ ';
-    $RELEASE = 'Foswiki-1.0.6';
+    $VERSION = '$Date: 2009-09-20 23:24:26 +0200 (Sun, 20 Sep 2009) $ $Rev: 5061 (2009-09-20) $ ';
+    $RELEASE = 'Foswiki-1.0.7';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -899,6 +899,9 @@ sub redirect {
             # Redirecting from a post to a get
             my $cache = $this->cacheQuery();
             if ($cache) {
+                if ($url eq '/') {
+                    $url = $this->getScriptUrl(1, 'view');
+                }
                 $url .= $cache;
             }
         }
@@ -984,7 +987,11 @@ sub cacheQuery {
     $query->save( \*F );
     close(F);
 
-    return '/foswiki_redirect_cache/' . $uid;
+    if ($Foswiki::cfg{UsePathForRedirectCache}) {
+        return '/foswiki_redirect_cache/' . $uid;
+    } else {
+        return '?foswiki_redirect_cache=' . $uid;
+    }
 }
 
 =begin TML
@@ -3914,7 +3921,7 @@ sub QUERYPARAMS {
         $entry =~ s/\$value/$value/;
         push( @list, $entry );
     }
-    return expandStandardEscapes( join( $separator, @list ) );
+    return join( $separator, @list );
 }
 
 sub URLPARAM {

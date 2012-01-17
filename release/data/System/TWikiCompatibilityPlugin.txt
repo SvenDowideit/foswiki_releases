@@ -1,3 +1,4 @@
+%META:TOPICPARENT{name="Plugins"}%
 ---+!! !TWikiCompatibilityPlugin
 <!--
 One line description, required for extensions repository catalog.
@@ -41,7 +42,7 @@ Many thanks to the following sponsors for supporting this work:
 |  Plugin Author(s): | Sven Dowideit, Michael Daum, Crawford Currie |
 |  Copyright: | &copy; SvenDowideit@fosiki.com |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL3 (Gnu General Public License)]] |
-|  Plugin Version: | 4223 (2009-06-20) |
+|  Plugin Version: | 1776 (2009-01-06) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
 |  Dependencies: | None |
 |  Plugin Home: | http://foswiki.org/Extensions/%TOPIC% |

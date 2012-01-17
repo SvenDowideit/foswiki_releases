@@ -35,6 +35,7 @@ TML syntax is not supported.
 package Foswiki::Plugins::WysiwygPlugin::TML2HTML;
 
 use CGI qw( -any );
+use Error qw( :try );
 
 use Foswiki;
 use Foswiki::Plugins::WysiwygPlugin::Constants;
@@ -100,6 +101,19 @@ sub convert {
 
     # Substitute back in protected elements
     $content = $this->_dropBack($content);
+
+    if ($content =~ /[$TT0$TT1$TT2]/o) {
+        # There should never be any of these in the text at this point.
+        # If there are, then the conversion failed. 
+        # Encode the original TML as verbatim-style HTML and include it
+        # in an error log, so that the user at least has a chance to save
+        # his/her work.
+        my $originalContent = $_[1];
+        $originalContent =~ s/[$TT0$TT1$TT2]/?/go;
+        $originalContent = _protectVerbatimChars($originalContent);
+        $originalContent =~ s{/}{'&#'.ord('/').';'}ge; # </tag> looks like a path, but it isn't
+        throw Error::Simple( 'Conversion to HTML failed. TML:<br />'.$originalContent );
+    }
 
     # DEBUG
     #print STDERR "TML2HTML = '$content'\n";
@@ -245,6 +259,8 @@ sub _getRenderedVersion {
 
     $text = $this->_takeOutSets($text);
 
+    $text = $this->_takeOutCustomTags($text);
+
     $text =~ s/\\\n/ /g;
     $text =~ s/\t/   /g;
 
@@ -259,11 +275,9 @@ sub _getRenderedVersion {
     $text =~ s/<\/img>//gi;
 
     # Handle colour tags specially (hack, hack, hackity-HACK!)
-    my $colourMatch = join( '|', grep( /^[A-Z]/, keys %WC::KNOWN_COLOUR ) );
-    while ( $text =~
-        s#%($colourMatch)%(.*?)%ENDCOLOR%#<font color="\L$1\E">$2</font>#og )
-    {
-    }
+    my $colourMatch = join( '|', grep( /^[A-Z]/, @WC::TML_COLOURS ) );
+    $text =~ s#%($colourMatch)%(.*?)%ENDCOLOR%#
+      _getNamedColour($1, $2)#oge;
 
     # Convert Foswiki tags to spans outside protected text
     $text = $this->_processTags($text);
@@ -507,6 +521,24 @@ s/$WC::STARTWW(($Foswiki::regex{webNameRegex}\.)?$Foswiki::regex{wikiWordRegex}(
     return $text;
 }
 
+sub _getNamedColour {
+    my ( $name, $t ) = @_;
+    my $epr = Foswiki::Func::getPreferencesValue($name);
+
+    # Match <font color="x" and style="color:x"
+    if (
+        defined $epr
+        && (   $epr =~ /color=["'](#?\w+)['"]/
+            || $epr =~ /color\s*:\s*(#?\w+)/ )
+      )
+    {
+        return "<span class='WYSIWYG_COLOR' style='color:$1'>$t</span>";
+    }
+
+    # Can't map to a 'real' colour; leave the variables
+    return '%' . $name . '%' . $t . '%ENDCOLOR%';
+}
+
 sub _addClass {
     if ( $_[0] ) {
         $_[0] = join( ' ', ( split( /\s+/, $_[0] ), $_[1] ) );
@@ -519,7 +551,9 @@ sub _addClass {
 # Encode special chars in verbatim as entities to prevent misinterpretation
 sub _protectVerbatimChars {
     my $text = shift;
-    $text =~ s/([\000-\011\013-\037<&>'"])/'&#'.ord($1).';'/ges;
+    # $TT0, $TT1 and $TT2 are chr(0), chr(1) and chr(2), respectively. 
+    # They are handled specially, elsewhere
+    $text =~ s/([\003-\011\013-\037<&>'"])/'&#'.ord($1).';'/ges;
     $text =~ s/ /&nbsp;/g;
     $text =~ s/\n/<br \/>/gs;
     return $text;
@@ -578,38 +612,82 @@ qr/^((?:\t|   )+\*\s+(?:Set|Local)\s+(?:$Foswiki::regex{tagNameRegex})\s*=)(.*)$
     return join( "\n", @outtext );
 }
 
+sub _takeOutCustomTags {
+    my ( $this, $text ) = @_;
+
+    my $xmltags = $this->{opts}->{xmltag};
+
+    # Take out custom XML tags
+    sub _takeOutCustomXmlProcess {
+        my ( $this, $state, $scoop ) = @_;
+        my $params = $state->{tagParams};
+        my $tag    = $state->{tag};
+        my $markup = "<$tag$params>$scoop</$tag>";
+        if ( $this->{opts}->{xmltag}->{$tag}->($markup) ) {
+            return $this->_liftOut( $markup, 'PROTECTED' );
+        }
+        else {
+            return $this->_liftOut( "<$tag$params>", 'PROTECTED' ) . $scoop
+              . $this->_liftOut( "</$tag>", 'PROTECTED' );
+        }
+    }
+    for my $tag ( sort keys %{ $this->{opts}->{xmltag} } ) {
+        $text = _takeOutXml( $this, $text, $tag, \&_takeOutCustomXmlProcess );
+    }
+
+    # Take out other custom tags here
+
+    return $text;
+}
+
 sub _takeOutBlocks {
-    my ( $this, $intext, $tag ) = @_;
-    die unless $tag;
+
+    # my ( $this, $intext, $tag ) = @_;
+
+    sub _takeOutBlocksProcess {
+        my ( $this, $state, $scoop ) = @_;
+        my $placeholder = $state->{tag} . $state->{n};
+        $this->{removed}->{$placeholder} = {
+            params => _parseParams( $state->{tagParams} ),
+            text   => $scoop,
+        };
+        return $TT0 . $placeholder . $TT0;
+    }
+
+    return _takeOutXml( @_, \&_takeOutBlocksProcess );
+}
+
+sub _takeOutXml {
+    my ( $this, $intext, $tag, $fn ) = @_;
+    die       unless $tag;
+    die       unless $fn;
     return '' unless $intext;
     return $intext unless ( $intext =~ m/<$tag\b/ );
 
-    my $open  = qr/<$tag\b[^>]*>/i;
-    my $close = qr/<\/$tag>/i;
-    my $out   = '';
-    my $depth = 0;
+    my $openNoCapture    = qr/<$tag\b[^>]*>/i;
+    my $openCaptureAttrs = qr/<$tag\b([^>]*)>/i;
+    my $close            = qr/<\/$tag>/i;
+    my $out              = '';
+    my $depth            = 0;
     my $scoop;
-    my $tagParams;
-    my $n = 0;
 
-    foreach my $chunk ( split /($open|$close)/, $intext ) {
+    # &$fn may rely on the existence of these fields,
+    # and may add more fields, if needed
+    my %state = ( tag => $tag, n => 0, tagParams => undef );
+
+    foreach my $chunk ( split /($openNoCapture|$close)/, $intext ) {
         next unless defined($chunk);
-        if ( $chunk =~ m/<$tag\b([^>]*)>/ ) {
+        if ( $chunk =~ m/$openCaptureAttrs/ ) {
             unless ( $depth++ ) {
-                $tagParams = $1;
-                $scoop     = '';
+                $state{tagParams} = $1;
+                $scoop = '';
                 next;
             }
         }
         elsif ( $depth && $chunk =~ m/$close/ ) {
             unless ( --$depth ) {
-                my $placeholder = $tag . $n;
-                $this->{removed}->{$placeholder} = {
-                    params => _parseParams($tagParams),
-                    text   => $scoop,
-                };
-                $chunk = $TT0 . $placeholder . $TT0;
-                $n++;
+                $chunk = $fn->( $this, \%state, $scoop );
+                $state{n}++;
             }
         }
         if ($depth) {
@@ -626,16 +704,11 @@ sub _takeOutBlocks {
         # while ( $depth-- ) {
         #     $scoop .= "</$tag>\n";
         # }
-        my $placeholder = $tag . $n;
-        $this->{removed}->{$placeholder} = {
-            params => _parseParams($tagParams),
-            text   => $scoop,
-        };
-        $out .= $TT0 . $placeholder . $TT0;
+        $out .= $fn->( $this, \%state, $scoop );
     }
 
     # Filter spurious tags without matching open/close
-    $out =~ s/$open/&lt;$tag$1&gt;/g;
+    $out =~ s/$openCaptureAttrs/&lt;$tag$1&gt;/g;
     $out =~ s/$close/&lt;\/$tag&gt;/g;
     $out =~ s/<($tag\s+\/)>/&lt;$1&gt;/g;
 
@@ -771,10 +844,10 @@ sub _emitTR {
             $fn = "CGI::th";
         }
 
-        $cell = ' '.$cell if $cell =~ /^(?:\*|==?|__?)[^\s]/;
-        $cell = $cell.' ' if $cell =~ /[^\s](?:\*|==?|__?)$/;
+        $cell = ' ' . $cell if $cell =~ /^(?:\*|==?|__?)[^\s]/;
+        $cell = $cell . ' ' if $cell =~ /[^\s](?:\*|==?|__?)$/;
 
-        push( @tr, { fn => $fn, attr => $attr, text => $cell } ); 
+        push( @tr, { fn => $fn, attr => $attr, text => $cell } );
     }
 
     # Work out colspans

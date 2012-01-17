@@ -57,15 +57,15 @@ require Foswiki::Plugins; # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
 # *must* exist in this package.
-# This should always be $Rev: 3417 (2009-04-12) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 4684 (2009-08-18) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-our $VERSION = '$Rev: 3417 (2009-04-12) $';
+our $VERSION = '$Rev: 4684 (2009-08-18) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part
 # of the version number in PLUGINDESCRIPTIONS.
-our $RELEASE = '$Date: 2008-12-14 18:49:56 +0100 (Sun, 14 Dec 2008) $';
+our $RELEASE = '$Date: 2009-08-18 17:13:53 +0200 (Tue, 18 Aug 2009) $';
 
 # Short description of this plugin
 # One line description, is shown in the %SYSTEMWEB%.TextFormattingRules topic:
@@ -767,7 +767,7 @@ cache and security plugins.
 This is an example of a sub to be called by the =rest= script. The parameter is:
    * =$session= - The Foswiki object associated to this session.
 
-Additional parameters can be recovered via de query object in the $session.
+Additional parameters can be recovered via the query object in the $session.
 
 For more information, check %SYSTEMWEB%.CommandAndCGIScripts#rest
 

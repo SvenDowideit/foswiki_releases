@@ -1,3 +1,4 @@
+%META:TOPICPARENT{name="Plugins"}%
 ---+ Empty Plugin
 
 This Plugin does nothing.
@@ -27,10 +28,11 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 ---++ Plugin Info
 
-|  Author: | Foswiki:Main.PluginAuthor|
-|  Copyright: | &copy; 2008, Foswiki Contributors |
-|  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 3417 (2009-04-12) |
-|  Home: | http://foswiki.org/Extensions/%TOPIC%Dev |
-|  Support: | http://foswiki.org/Support/%TOPIC% |
+|  Author | Foswiki:Main.PluginAuthor|
+|  Copyright | &copy; 2008, Foswiki Contributors |
+|  License | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
+|  Version | 4684 (2009-08-18) |
+|  Release | $Date: 2009-08-18 17:13:53 +0200 (Tue, 18 Aug 2009) $ | 
+|  Home | http://foswiki.org/Extensions/%TOPIC%Dev |
+|  Support | http://foswiki.org/Support/%TOPIC% |
 
