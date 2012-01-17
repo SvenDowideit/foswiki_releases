@@ -19,7 +19,7 @@ you will probably need to change your plugin when you upgrade Foswiki.
 
 %TOC%
 
-API version $Date: 2009-12-02 22:28:39 +0100 (Wed, 02 Dec 2009) $ (revision $Rev: 6075 (2010-01-17) $)
+API version $Date: 2010-07-21 03:55:24 +0200 (Wed, 21 Jul 2010) $ (revision $Rev: 8969 (2010-09-08) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -2309,7 +2309,7 @@ for managing this directory; Foswiki will not read from it, or write to it.
 The directory is guaranteed to exist, and to be writable by the webserver
 user. By default it will *not* be web accessible.
 
-The directory and it's contents are permanent, so Plugins must be careful
+The directory and its contents are permanent, so Plugins must be careful
 to keep their areas tidy.
 
 =cut
@@ -2445,7 +2445,7 @@ sub spaceOutWikiWord {
 
 ---+++ writeWarning( $text )
 
-Log Warning that may require admin intervention to data/warning.txt
+Log a warning that may require admin intervention to the warnings log (=data/warn*.txt=)
    * =$text= - Text to write; timestamp gets added
 
 =cut

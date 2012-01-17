@@ -615,9 +615,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Authors: | Foswiki:Main.RafaelAlvarez, Foswiki:Main.MichaelDaum, Foswiki:Main.ArthurClemens |
 |  Copyright  | Copyright (C) Rafael Alvarez; Michael Daum, Arthur Clemens |
 |  License: | [[http://www.gnu.org/copyleft/gpl.html][GPL]] |
-|  Version: | 4751 (2009-09-02) |
-|  Release: | 1.5.3 |
+|  Version: | 6737 (2010-03-13) |
+|  Release: | 1.5.3.1 |
 |  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
+|  13 Mar 2010 | 1.5.3.1 Fixed id generated in subwebs. |
 |  02 Sep 2009 | 1.5.3 Add sequential number to the =TWISTY= =id= to allow more than one instance with that id on the page. |
 |  26 Aug 2009 | 1.5.2 Fix dependencies - jqueryPlugin and DojoToolkit were ported to foswiki a while ago. |
 |  03 Dec 2008 | 1.5.1 Added parameter =linkclass=. Foswiki version. |

@@ -28,11 +28,13 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 ---++ Plugin Info
 
-|  Author | Foswiki:Main.PluginAuthor|
+|  Author | Foswiki:Main.PluginAuthor |
 |  Copyright | &copy; 2008, Foswiki Contributors |
 |  License | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version | 5770 (2009-12-11) |
-|  Release | $Date: 2009-12-11 09:52:40 +0100 (Fri, 11 Dec 2009) $ | 
-|  Home | http://foswiki.org/Extensions/%TOPIC%Dev |
+|  Version | 7889 (2010-06-23) |
+|  Release | $Date: 2010-06-23 07:12:40 +0200 (Wed, 23 Jun 2010) $ |
+|  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
+|  XX Mmm 20XX (1.0) | Description of change |
+|  Home | http://foswiki.org/Extensions/%TOPIC% |
 |  Support | http://foswiki.org/Support/%TOPIC% |
 

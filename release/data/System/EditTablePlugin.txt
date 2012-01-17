@@ -40,6 +40,8 @@ The format tokens are the same as with %SYSTEMWEB%.FormattedSearch:
 
 The =date= field type allows one to choose a date with a popup calendar. Popup calendar works with all modern browsers. The date picker button is inactive if the browser cannot support the popup calendar or if javascript is disabled. 
 
+The optional DHTML date format specifiers are described in the [[System.JSCalendarContrib#FormatSpecifiers][JSCalendarContrib]] documentation. When time spec
+ifiers are used, the calendar allows one to choose a date and a time.
 
 ---++ Per Cell Settings
 
@@ -47,7 +49,7 @@ An individual edit field type can be defined for each table cell. Place an =%<no
 
 It is also possible to place the edit button inside a cell instead of default location below the table. Type =| %<nop>EDITCELL{ "editbutton, 1, Edit this table" }% |= to show a button, or =| %<nop>EDITCELL{ "editbutton, 1, Edit table, Image-URL" }% |= to show a button image with alternate text.
 
-*Note:* The =%<nop>EDITCELL{ }%= macro cannot be used by itself; place an =%<nop>EDITTABLE{ }%=variable at the beginning of a table where you want to use =%<nop>EDITCELL{ }%= variables.
+*Note:* The =%<nop>EDITCELL{ }%= macro cannot be used by itself; place an =%<nop>EDITTABLE{ }%= variable at the beginning of a table where you want to use =%<nop>EDITCELL{ }%= variables.
 
 ---++ Table Buttons
 

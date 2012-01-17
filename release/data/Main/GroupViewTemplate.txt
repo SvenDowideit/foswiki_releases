@@ -1,0 +1,16 @@
+%TMPL:INCLUDE{"view"}%
+
+%TMPL:DEF{"content"}%<div class="foswikiTopicText">
+---+!! %NOP%%TOPIC%
+%TEXT%
+---++ %MAKETEXT{"Members"}%
+__WARNING: this is a group topic that was defined in foswiki 1.1 or above - the membership must be edited using the 'Edit settings' in the 'More Actions' screen__
+
+%GROUP%
+
+*%MAKETEXT{"Related topics:"}%* [[%SYSTEMWEB%.AccessControl][AccessControl]], [[%USERSWEB%.WikiGroups][WikiGroups]]
+
+#TopicEnd
+</div>%TMPL:END%
+
+%META:PREFERENCE{name="VIEW_TEMPLATE" title="VIEW_TEMPLATE" type="Set" value="SkinTemplateView"}%

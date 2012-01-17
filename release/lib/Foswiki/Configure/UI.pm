@@ -28,7 +28,9 @@ sub new {
     $this->{bin} = $1;
     my @root = File::Spec->splitdir( $this->{bin} );
     pop(@root);
-    $this->{root} = File::Spec->catfile( @root, '' );
+    # SMELL: Force a trailing separator - Linux and Windows are inconsistent
+    $this->{root} = File::Spec->catfile( @root, 'x' );
+    chop $this->{root};
 
     return $this;
 }
@@ -45,7 +47,7 @@ sub findRepositories {
         {
             push(
                 @{ $this->{repositories} },
-                { name => $1, data => $2, pub => $3 }
+                { name => $1, data => $2, pub => $3, user => $4, pass => $5 }
             );
         }
     }

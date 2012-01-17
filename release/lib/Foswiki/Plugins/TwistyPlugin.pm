@@ -31,9 +31,9 @@ use strict;
 use vars qw( @modes $doneHeader $doneDefaults $twistyCount
   $prefMode $prefShowLink $prefHideLink $prefRemember);
 
-our $VERSION = '$Rev: 4751 (2009-09-02) $';
+our $VERSION = '$Rev: 6737 (2010-03-13) $';
 
-our $RELEASE = '1.5.3';
+our $RELEASE = '1.5.3.1';
 our $SHORTDESCRIPTION =
   'Twisty section Javascript library to open/close content dynamically';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -184,12 +184,16 @@ sub _ENDTWISTYTOGGLE {
 }
 
 sub _createId {
-    my ( $rawId, $theWeb, $theTopic ) = @_;
+    my ( $inRawId, $inWeb, $inTopic ) = @_;
 
-    if ( !defined $rawId || $rawId eq '' ) {
-        return 'twistyId' . $theWeb . $theTopic;
+    my $id;
+    if ( $inRawId ) {
+        $id = $inRawId;
+    } else {
+        $id = "$inWeb$inTopic";
     }
-    return "twistyId$rawId";
+    $id =~ s/\//subweb/go;
+    return "twistyId$id";
 }
 
 sub _twistyBtn {

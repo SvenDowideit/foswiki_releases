@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2010-01-08 04:06:12 +0100 (Fri, 08 Jan 2010) $ (revision $Rev: 6075 (2010-01-17) $)
+API version $Date: 2010-02-11 22:01:07 +0100 (Thu, 11 Feb 2010) $ (revision $Rev: 8969 (2010-09-08) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -36,7 +36,7 @@ use strict;
 
 require Foswiki;
 
-our $VERSION = '$Rev: 6075 (2010-01-17) $'; # Subversion rev number
+our $VERSION = '$Rev: 8969 (2010-09-08) $'; # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -105,7 +105,7 @@ in hh:mm format. For example:
 The default timezone is Z, unless $defaultLocal is true in which case
 the local timezone will be assumed.
 
-If the date format was not recognised, will return 0.
+If the date format was not recognised, will return undef.
 
 =cut
 

@@ -2,6 +2,7 @@
 #
 # Copyright (C) 2000-2003 Andrea Sterbini, a.sterbini@flashnet.it
 # Copyright (C) 2001-2007 Peter Thoeny, peter@thoeny.org
+# Copyright (C) 2009-2010 Foswiki Contributors
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -40,16 +41,16 @@ use strict;
 use Foswiki::Func    ();    # The plugins API
 use Foswiki::Plugins ();    # For the API version
 
-our $VERSION           = '$Rev: 5022 (2009-09-20) $';
-our $RELEASE           = '20 Sep 2009';
+our $VERSION           = '$Rev: 8158 (2010-07-13) $';
+our $RELEASE           = '12 Jul 2010';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION =
 'Link ExternalSite:Page text to external sites based on aliases defined in a rules topic';
 
-our $interLinkFormat;
-our $sitePattern;
-our $pagePattern;
-our %interSiteTable;
+my $interLinkFormat;
+my $sitePattern;
+my $pagePattern;
+my %interSiteTable;
 
 BEGIN {
 
@@ -65,10 +66,12 @@ sub initPlugin {
     my ( $topic, $web, $user, $installWeb ) = @_;
 
     # Regexes for the Site:page format InterWiki reference
-    my $man = Foswiki::Func::getRegularExpression('mixedAlphaNum');
-    my $ua  = Foswiki::Func::getRegularExpression('upperAlpha');
-    $sitePattern = "([$ua][$man]+)";
-    $pagePattern = "([${man}_\/][$man" . '\.\/\+\_\,\&\;\:\=\!\?\%\#\@\-]*?)';
+    my $man = $Foswiki::regex{mixedAlphaNum};
+    my $ua  = $Foswiki::regex{upperAlpha};
+    %interSiteTable = ();
+    $sitePattern    = "([$ua][$man]+)";
+    $pagePattern =
+      "([${man}_\/][$man" . '"\'\.\/\+\_\,\&\;\:\=\!\?\%\#\@\-]*?)';
 
     # Get plugin preferences from InterwikiPlugin topic
     $interLinkFormat =
@@ -81,6 +84,17 @@ sub initPlugin {
           || 'InterWikis'
     );
 
+    if (
+        !Foswiki::Func::checkAccessPermission(
+            'VIEW', $user, undef, $interTopic, $interWeb
+        )
+      )
+    {
+        Foswiki::Func::writeWarning(
+"InterwikiPlugin: user '$user' did not have permission to read the rules topic at '$interWeb.$interTopic'"
+        );
+        return 1;
+    }
     my $text = Foswiki::Func::readTopicText( $interWeb, $interTopic, undef, 1 );
 
     # '| alias | URL | ...' table and extract into 'alias', "URL" list
@@ -104,11 +118,13 @@ sub preRenderingHandler {
 
     # ref in [[ref]] or [[ref][
     $_[0] =~
-s/(\[\[)$sitePattern:$pagePattern(\]\]|\]\[[^\]]+\]\])/_link($1,$2,$3,$4)/geo;
+s/(\[\[)$sitePattern:$pagePattern(\]\]|\]\[[^\]]+\]\])/_link($1,$2,$3,$4)/ge;
 
     # ref in text
     $_[0] =~
-s/(^|[\s\-\*\(])$sitePattern:$pagePattern(?=[\s\.\,\;\:\!\?\)\|]*(\s|$))/_link($1,$2,$3)/geo;
+s/(^|[\s\-\*\(])$sitePattern:$pagePattern(?=[\s\.\,\;\:\!\?\)\|]*(\s|$))/_link($1,$2,$3)/ge;
+
+    return;
 }
 
 sub _link {

@@ -129,8 +129,12 @@ BEGIN {
         die "Can't find Foswiki: $@";
     }
 
-    # Use the CLI engine
+    # Use the CLI engine and minimal mapper and password manager so configure
+    # can still work if an authentication contrib is not operational
     $Foswiki::cfg{Engine} = 'Foswiki::Engine::CLI';
+    $Foswiki::cfg{PasswordManager} = 'none';
+    $Foswiki::cfg{UserMappingManager} = 'Foswiki::Users::BaseUserMapping';
+
     require Foswiki;
 
     # We have to get the admin user, as a guest user may be blocked.
@@ -1108,7 +1112,7 @@ sub install {
             print 'The script uses an ONLYIF condition'
               . ' which is potentially insecure: "'
               . $trigger . "\"\n";
-            if ( $trigger =~ /^[a-zA-Z:\s<>0-9.()]*$/ ) {
+            if ( $trigger =~ /^[a-zA-Z:\s<>0-9.()\$]*$/ ) {
 
                 # It looks more or less safe
                 push(

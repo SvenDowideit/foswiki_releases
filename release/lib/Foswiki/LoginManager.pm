@@ -18,7 +18,7 @@ of this class, implementing the methods marked as *VIRTUAL*. There are already
 examples in the =lib/Foswiki/LoginManager= directory.
 
 The class has extensive tracing, which is enabled by
-$Foswiki::cfg{Trace}{LoginManager.pm}. The tracing is done in such a way as to
+$Foswiki::cfg{Trace}{LoginManager}. The tracing is done in such a way as to
 let the perl optimiser optimise out the trace function as a no-op if tracing
 is disabled.
 
@@ -387,6 +387,7 @@ sub loadSession {
         }
         else {
             _trace( $this, "User is logging out" );
+            $session->logEvent( 'logout', ' ', "AUTHENTICATION LOGOUT - $authUser - " );
 
             #TODO: consider if we should risk passing on the urlparams on logout
             my $path_info = $query->path_info();

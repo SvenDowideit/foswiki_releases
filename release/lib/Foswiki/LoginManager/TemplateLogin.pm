@@ -153,6 +153,7 @@ sub login {
 
             # SUCCESS our user is authenticated..
             $this->userLoggedIn($loginName);
+            $session->logEvent( 'login', $web . '.' . $topic, "AUTHENTICATION SUCCESS - $loginName - " );
 
             # remove the sudo param - its only to tell TemplateLogin
             # that we're using BaseMapper..
@@ -181,18 +182,28 @@ sub login {
             return;
         }
         else {
-            $session->{response}->status(403);
+            # Tasks:Item1029  After much discussion, the 403 code is not used for authentication failures.
+            # RFC states: "Authorization will not help and the request SHOULD NOT be repeated" which is not
+            # the situation here.  
+            $session->{response}->status(200);
+            $session->logEvent( 'login', $web . '.' . $topic, "AUTHENTICATION FAILURE - $loginName - " );
             $banner = $session->templates->expandTemplate('UNRECOGNISED_USER');
         }
     }
     else {
-        $session->{response}->status(400);
+        #if the loginName is unset, then the request was likely a perfectly valid GET call to http://foswiki/bin/login
+        #additionally, 400 cannot be a correct status, as we desire the user to retry the same URL with a different login/password
+        $session->{response}->status(200);
     }
 
     # Remove the validation_key from the passed through params. It isn't
     # required, because the form will have a new validation key, and
     # giving the parameter twice will confuse the strikeone Javascript.
     $session->{request}->delete('validation_key');
+
+   # set the usernamestep value so it can be re-displayed if we are here due
+   # to a failed authentication attempt.
+   $query->param( -name => 'usernamestep', -value => $loginName );
 
     # TODO: add JavaScript password encryption in the template
     # to use a template)

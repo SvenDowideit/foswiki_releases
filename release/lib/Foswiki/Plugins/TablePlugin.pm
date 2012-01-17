@@ -3,7 +3,7 @@
 # Copyright (C) 2001-2003 John Talintyre, jet@cheerful.com
 # Copyright (C) 2001-2004 Peter Thoeny, peter@thoeny.org
 # Copyright (C) 2005-2007 TWiki Contributors
-# Copyright (C) 2008 Foswiki Contributors.
+# Copyright (C) 2008-2010 Foswiki Contributors.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -31,8 +31,8 @@ use Foswiki::Plugins ();    # For the API version
 
 use vars qw( $topic $installWeb $initialised );
 
-our $VERSION = '$Rev: 5755 (2009-12-08) $';
-our $RELEASE = '1.044';
+our $VERSION = '$Rev: 6733 (2010-03-13) $';
+our $RELEASE = '1.046';
 our $SHORTDESCRIPTION =
   'Control attributes of tables and sorting of table columns';
 our $NO_PREFS_IN_TOPIC = 1;

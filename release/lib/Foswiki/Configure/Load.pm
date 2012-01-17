@@ -39,27 +39,43 @@ provide defaults, and it would be silly to have them in two places anyway.
 
 sub readConfig {
     return if $Foswiki::cfg{ConfigurationFinished};
+    my $validLSC = 1;   #Assume LocalSite.cfg is valid
 
-    # Read LocalSite.cfg
-    unless ( do 'Foswiki.spec' ) {
-        die <<GOLLYGOSH;
+    # Read Foswiki.spec and LocalSite.cfg
+    for my $file (qw( Foswiki.spec LocalSite.cfg)) {
+        unless ( my $return = do $file ) {
+            my $errorMessage;
+            if ($@) {
+                $errorMessage = "Could not parse $file: $@";
+                print STDERR "$errorMessage \n";
+            }
+            elsif ( not defined $return ) {
+                print STDERR "Could not 'do' $file: $! \n - This might be okay if file LocalSite.cfg does not exist in a new installation.\n"; 
+                unless ( $! == 2 && $file eq 'LocalSite.cfg' ) {
+
+                    # Non-existent LocalSite.cfg is not an error
+                    $errorMessage = "Could not do $file: $errno $!";
+                }
+                $validLSC = 0;
+            }
+            elsif ( not $return eq '1' ) {
+                $errorMessage = "Could not run $file" unless $return;
+                print STDERR "Running file $file returned  unexpected results: $return \n";
+            }
+            if ($errorMessage) {
+                die <<GOLLYGOSH;
 Content-type: text/plain
 
-Perl error when reading Foswiki.spec: $@
+$errorMessage
 Please inform the site admin.
-GOLLYGOSH
-        exit 1;
-    }
 
-    # Read LocalSite.cfg
-    unless ( do 'LocalSite.cfg' ) {
-        die <<GOLLYGOSH;
-Content-type: text/plain
+If you are the site admin, you should check the configure page.
 
-Perl error when reading LocalSite.cfg: $@
-Please inform the site admin.
+
 GOLLYGOSH
-        exit 1;
+                exit 1;
+            }
+        }
     }
 
     # If we got this far without definitions for key variables, then
@@ -73,17 +89,22 @@ GOLLYGOSH
         # a LocalSite.cfg, which we don't want
         # die "$var must be defined in LocalSite.cfg"
         #  unless( defined $Foswiki::cfg{$var} );
-        $Foswiki::cfg{$var} = 'NOT SET' unless defined $Foswiki::cfg{$var};
-      }
+        unless (defined $Foswiki::cfg{$var}) {
+            $Foswiki::cfg{$var} = 'NOT SET';
+            $validLSC = 0;
+        }
+    }
 
-      # Expand references to $Foswiki::cfg vars embedded in the values of
-      # other $Foswiki::cfg vars.
-      expand( \%Foswiki::cfg );
+    # Expand references to $Foswiki::cfg vars embedded in the values of
+    # other $Foswiki::cfg vars.
+    expand( \%Foswiki::cfg );
 
     $Foswiki::cfg{ConfigurationFinished} = 1;
 
     # Alias TWiki cfg to Foswiki cfg for plugins and contribs
     *{'TWiki::cfg'} = *{'Foswiki::cfg'};
+
+    return $validLSC;
 }
 
 sub expand {
@@ -149,7 +170,7 @@ sub readDefaults {
         _loadDefaultsFrom( "$dir/TWiki/Plugins",   $root, \%read, \@errors );
         _loadDefaultsFrom( "$dir/TWiki/Contrib",   $root, \%read, \@errors );
     }
-    if ( defined %TWiki::cfg ) {
+    if ( %TWiki::cfg ) {
 
         # We had some TWiki plugins, need to map their config to Foswiki
         sub mergeHash {

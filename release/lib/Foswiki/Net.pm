@@ -164,15 +164,34 @@ sub getExternalResource {
             $proxyHost = $prefs->getPreferencesValue('PROXYHOST');
             $proxyPort = $prefs->getPreferencesValue('PROXYPORT');
         }
-        $proxyHost ||= $Foswiki::cfg{PROXY}{HOST};
-        $proxyPort ||= $Foswiki::cfg{PROXY}{PORT};
+
+        # Do not use || so user can disable proxy using preferences
+        $proxyHost = $Foswiki::cfg{PROXY}{HOST} unless defined $proxyHost;
+        $proxyPort = $Foswiki::cfg{PROXY}{PORT} unless defined $proxyPort;
         if ( $proxyHost && $proxyPort ) {
+            my ( $proxyUser, $proxyPass );
+            if ( $proxyHost =~ m#^http://(?:(.*?)(?::(.*?))?@)?(.*)(?::(\d+))?/*# ) {
+                $proxyUser = $1;
+                $proxyPass = $2;
+                $proxyHost = $3;
+                $proxyPort = $4 if defined $4;
+            } else {
+                require Foswiki::Net::HTTPResponse;
+                return new Foswiki::Net::HTTPResponse(
+                    "Proxy settings are invalid, check configure ($proxyHost)");
+            }
             $req  = "GET http://$host:$port$url HTTP/1.0\r\n";
             $host = $proxyHost;
             $port = $proxyPort;
+            if ($proxyUser) {
+                require MIME::Base64;
+                import MIME::Base64();
+                my $base64 = encode_base64( "$proxyUser:$proxyPass", "\r\n" );
+                $req .= "Proxy-Authorization: Basic $base64";
+            }
         }
 
-        '$Rev: 6075 (2010-01-17) $' =~ /([0-9]+)/;
+        '$Rev: 8969 (2010-09-08) $' =~ /([0-9]+)/;
         my $revstr = $1;
 
         $req .= 'User-Agent: Foswiki::Net/' . $revstr . "\r\n";
@@ -231,7 +250,7 @@ sub _GETUsingLWP {
     my $request;
     require HTTP::Request;
     $request = HTTP::Request->new( GET => $url );
-    '$Rev: 6075 (2010-01-17) $' =~ /([0-9]+)/;
+    '$Rev: 8969 (2010-09-08) $' =~ /([0-9]+)/;
     my $revstr = $1;
     $request->header( 'User-Agent' => 'Foswiki::Net/'
           . $revstr
@@ -476,8 +495,21 @@ s/([\n\r])(From|To|CC|BCC)(\:\s*)([^\n\r]*)/$1 . $2 . $3 . _fixLineLength( $4 )/
     die $mess . "Can't connect to '$this->{MAIL_HOST}'" unless $smtp;
 
     if ( $Foswiki::cfg{SMTP}{Username} ) {
-        $smtp->auth( $Foswiki::cfg{SMTP}{Username}, $Foswiki::cfg{SMTP}{Password} );
+        unless (
+            $smtp->auth(
+                $Foswiki::cfg{SMTP}{Username},
+                $Foswiki::cfg{SMTP}{Password}
+            )
+          )
+        {
+            my $errmsg =
+              'SMTP auth: ' . $smtp->code() . ': ' . $smtp->message();
+            chomp($errmsg);
+            $errmsg .= ' - Trying to send without authentication';
+            $this->{session}->logger->log( 'warning', "$errmsg" );
+        }
     }
+
     $smtp->mail($from) || die $mess . $smtp->message;
     $smtp->to( @to, { SkipBad => 1 } ) || die $mess . $smtp->message;
     $smtp->data($text) || die $mess . $smtp->message;

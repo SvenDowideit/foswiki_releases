@@ -2,8 +2,7 @@
 %META:TOPICPARENT{name="WebHome"}%
 ---+ %MAKETEXT{"Web Search"}%
 
-%IF{"defined search" then='%ICON{feed}% <a href="%SCRIPTURL{"view"}%/%BASEWEB%/WebRss?search=%URLPARAM{"search" encode="url"}%;type=%IF{"'%URLPARAM{"regex"}%'='on' OR '%URLPARAM{"type"}%'='regex'" then="regex" else="word"}%;excludetopic=%URLPARAM{"excludetopic" encode="url" default="%BASETOPIC%,WebHome,WebStatistics"}%;web=%URLPARAM{"web" encode="url" default="%BASEWEB%"}%;limit=%URLPARAM{"limit" encode="url" default="all"}%;scope=%URLPARAM{"scope" encode="url" default="text"}%;casesensitive=%URLPARAM{"casesensitive" encode="url" default="off"}%">%MAKETEXT{"Get notified on changes on this search"}%</a>'}%
-
+%IF{"defined search and $search!=''" then='%ICON{feed}% <a href="%SCRIPTURL{"view"}%/%BASEWEB%/WebRss?search=%URLPARAM{"search" encode="url"}%;type=%IF{"'%URLPARAM{"regex"}%'='on' OR '%URLPARAM{"type"}%'='regex'" then="regex" else="word"}%;excludetopic=%URLPARAM{"excludetopic" encode="url" default="%BASETOPIC%,WebHome,WebStatistics"}%;web=%URLPARAM{"web" encode="url" default="%BASEWEB%"}%;limit=%URLPARAM{"limit" encode="url" default="all"}%;scope=%URLPARAM{"scope" encode="url" default="text"}%;casesensitive=%URLPARAM{"casesensitive" encode="url" default="off"}%">%MAKETEXT{"Get notified on changes on this search"}%</a>'}%
 %SEARCH{
 "%URLPARAM{"search" encode="quote"}%"
 type="%URLPARAM{"type" default="word"}%"
@@ -17,9 +16,8 @@ nototal="%URLPARAM{"nototal" encode="quote"}%"
 order="%URLPARAM{"order" encode="quote"}%"
 reverse="%URLPARAM{"reverse" encode="quote"}%"
 limit="%URLPARAM{"limit" encode="quote"}%"
-zeroresults="%IF{ "defined search" then="on" else="off" }%"
+zeroresults="%IF{ "defined search and $search!=''" then="on" else="off" }%"
 }%
-
 <a name="foswikiSearchForm"></a>
 <noautolink>
 <div class="foswikiPageForm">
@@ -28,8 +26,10 @@ zeroresults="%IF{ "defined search" then="on" else="off" }%"
 <tr>
 <td colspan="2" class="foswikiFirstRow">
   <input type="text" class="foswikiInputField%IF{"'%URLPARAM{"search"}%'" else=" foswikiFocus"}%" name="search" value="%URLPARAM{ "search" encode="entity" }%" size="40" /> 
-  <input type="submit" class="foswikiSubmit" value='%MAKETEXT{"Search"}%' /><span class="foswikiSmall">&nbsp;&nbsp;<a href='%SCRIPTURL{view}%/%BASEWEB%/WebSearchAdvanced?search=%URLPARAM{"search" encode="url"}%;type=%URLPARAM{"type" encode="url" default="word"}%;scope=%URLPARAM{"scope" encode="url"}%;web=%URLPARAM{"web" encode="url"}%;nosearch=%URLPARAM{"nosearch" encode="url"}%;limit=%URLPARAM{"limit" encode="url"}%;excludetopic=%URLPARAM{"excludetopic" encode="url"}%;casesensitive=%URLPARAM{"casesensitive" encode="url"}%'>%MAKETEXT{"Advanced search"}%</a> | [[%SYSTEMWEB%.SearchHelp][%MAKETEXT{"Help"}%]]</span>
-<div class="foswikiSmall" style="padding:1em 0 0 0;">%MAKETEXT{"TIP: to search for all topics that contain =\"SOAP\"=, =\"WSDL\"=, a literal =\"web service\"=, but not =\"shampoo\"=, write:"}% <code>soap wsdl "web service" -shampoo</code></div>
+  <input type="submit" class="foswikiSubmit" value='%MAKETEXT{"Search"}%' /><span class="foswikiSmall foswikiUnvisited">&nbsp;&nbsp;<a href='%SCRIPTURL{view}%/%BASEWEB%/WebSearchAdvanced?search=%URLPARAM{"search" encode="url"}%;type=%URLPARAM{"type" encode="url" default="word"}%;scope=%URLPARAM{"scope" encode="url"}%;web=%URLPARAM{"web" encode="url"}%;nosearch=%URLPARAM{"nosearch" encode="url"}%;limit=%URLPARAM{"limit" encode="url"}%;excludetopic=%URLPARAM{"excludetopic" encode="url"}%;casesensitive=%URLPARAM{"casesensitive" encode="url"}%'>%MAKETEXT{"Advanced search"}%</a></span>
+<div class="foswikiSmall" style="padding:1em 0 0 0;">%MAKETEXT{"TIP: to search for all topics that contain =\"SOAP\"=, =\"WSDL\"=, a literal =\"web service\"=, but not =\"shampoo\"=, write:"}% <code>soap wsdl "web service" -shampoo</code><br />
+<span class="foswikiUnvisited"><a class="foswikiPopUp" target="SearchHelp" href="%SCRIPTURL{view}%/%SYSTEMWEB%/SearchHelp">%MAKETEXT{"Help"}%</a></span>
+</div>
 </td>
 </tr>
 <tr>

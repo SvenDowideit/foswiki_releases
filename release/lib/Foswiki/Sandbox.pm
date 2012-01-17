@@ -8,7 +8,7 @@ This package provides an interface to the outside world. All calls to
 system functions, or handling of file names, should be brokered by
 the =sysCommand= function in this package.
 
-API version $Date: 2009-04-21 03:53:50 +0200 (Tue, 21 Apr 2009) $ (revision $Rev: 6075 (2010-01-17) $)
+API version $Date: 2009-04-21 03:53:50 +0200 (Tue, 21 Apr 2009) $ (revision $Rev: 8969 (2010-09-08) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the

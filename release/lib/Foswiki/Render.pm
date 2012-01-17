@@ -604,7 +604,7 @@ SMELL: why is this available to Func?
 
 sub internalLink {
     my ( $this, $theWeb, $theTopic, $theLinkText, $theAnchor,
-        $doLinkToMissingPages, $doKeepWeb, $hasExplicitLinkLabel )
+        $doLinkToMissingPages, $doKeepWeb, $hasExplicitLinkLabel, $params )
       = @_;
 
     # SMELL - shouldn't it be callable by Foswiki::Func as well?
@@ -651,13 +651,13 @@ sub internalLink {
     $theLinkText =~ s/(?<=[\s\(])([$Foswiki::regex{upperAlpha}])/<nop>$1/go;
 
     return _renderWikiWord( $this, $theWeb, $theTopic, $theLinkText, $theAnchor,
-        $doLinkToMissingPages, $doKeepWeb );
+        $doLinkToMissingPages, $doKeepWeb, $params );
 }
 
 # TODO: this should be overridable by plugins.
 sub _renderWikiWord {
     my ( $this, $theWeb, $theTopic, $theLinkText, $theAnchor,
-        $doLinkToMissingPages, $doKeepWeb )
+        $doLinkToMissingPages, $doKeepWeb, $params )
       = @_;
     my $store = $this->{session}->{store};
     my $topicExists = $store->topicExists( $theWeb, $theTopic );
@@ -676,7 +676,7 @@ sub _renderWikiWord {
 
     if ($topicExists) {
         return _renderExistingWikiWord( $this, $theWeb, $theTopic, $theLinkText,
-            $theAnchor );
+            $theAnchor, $params );
     }
     if ($doLinkToMissingPages) {
 
@@ -685,7 +685,7 @@ sub _renderWikiWord {
         #     #unshift( @topics, $singular);
         # }
         return _renderNonExistingWikiWord( $this, $theWeb, $theTopic,
-            $theLinkText );
+            $theLinkText, $params );
     }
     if ($doKeepWeb) {
         return $theWeb . '.' . $theLinkText;
@@ -695,7 +695,7 @@ sub _renderWikiWord {
 }
 
 sub _renderExistingWikiWord {
-    my ( $this, $web, $topic, $text, $anchor ) = @_;
+    my ( $this, $web, $topic, $text, $anchor, $params ) = @_;
 
     my $currentWebHome = '';
     $currentWebHome = 'foswikiCurrentWebHomeLink  '
@@ -709,9 +709,13 @@ sub _renderExistingWikiWord {
 
     my @attrs;
     my $href = $this->{session}->getScriptUrl( 0, 'view', $web, $topic );
+    if ($params) {
+        $href .= $params;
+    }
     if ($anchor) {
         $anchor = $this->makeAnchorName($anchor);
-        $href = "$href#$anchor";
+        # Item8556 - drop path if same topic and anchor
+        $href = $currentTopic ? "#$anchor" : "$href#$anchor";
     }
     my $cssClassName = "$currentTopic$currentWebHome";
     $cssClassName =~ s/^(.*?)\s*$/$1/ if $cssClassName;
@@ -849,6 +853,15 @@ s/(?<=[\s\(])($Foswiki::regex{wikiWordRegex}|[$Foswiki::regex{upperAlpha}])/<nop
 
     $text ||= $link;
 
+    # Extract '?params'
+    # $link =~ s/(\?.*?)(?>#|$)//;
+    my $params = '';
+    if ( $link =~ s/(\?.*$)// ) {
+        $params = $1;
+        my $p = quotemeta($params);
+        $text =~ s/$p//;
+    }
+
     # Extract '#anchor'
     # $link =~ s/(\#[a-zA-Z_0-9\-]*$)//;
     my $anchor = '';
@@ -884,7 +897,7 @@ s/(?<=[\s\(])($Foswiki::regex{wikiWordRegex}|[$Foswiki::regex{upperAlpha}])/<nop
     ( $web, $topic ) = $this->{session}->normalizeWebTopicName( $web, $topic );
 
     return $this->internalLink( $web, $topic, $text, $anchor, 1, undef,
-        $hasExplicitLinkLabel );
+        $hasExplicitLinkLabel, $params );
 }
 
 # Handle an external link typed directly into text. If it's an image
@@ -1038,6 +1051,9 @@ sub renderFORMFIELD {
         $text = $altText || '';
     }
 
+    # render nop exclamation marks before words as <nop>
+    $text =~ s/!(\w+)/<nop>$1/gs;
+    
     return $text;
 }
 
@@ -1866,22 +1882,22 @@ sub renderRevisionInfo {
     }
 
     my $value = $format || 'r$rev - $date - $time - $wikiusername';
-    $value =~ s/\$web/$web/gi;
-    $value =~ s/\$topic/$topic/gi;
-    $value =~ s/\$rev/$rev/gi;
-    $value =~ s/\$time/Foswiki::Time::formatTime( $date, '$hour:$min:$sec')/gei;
+    $value =~ s/\$web/$web/g;
+    $value =~ s/\$topic/$topic/g;
+    $value =~ s/\$rev/$rev/g;
+    $value =~ s/\$time/Foswiki::Time::formatTime( $date, '$hour:$min:$sec')/ge;
     $value =~
-s/\$date/Foswiki::Time::formatTime( $date, $Foswiki::cfg{DefaultDateFormat} )/gei;
+s/\$date/Foswiki::Time::formatTime( $date, $Foswiki::cfg{DefaultDateFormat} )/ge;
     $value =~
-      s/(\$(rcs|http|email|iso))/Foswiki::Time::formatTime($date, $1 )/gei;
+      s/(\$(rcs|http|email|iso))/Foswiki::Time::formatTime($date, $1 )/ge;
 
     if ( $value =~ /\$(sec|min|hou|day|wday|dow|week|mo|ye|epoch|tz)/ ) {
         $value = Foswiki::Time::formatTime( $date, $value );
     }
-    $value =~ s/\$comment/$comment/gi;
-    $value =~ s/\$username/$un/gi;
-    $value =~ s/\$wikiname/$wn/gi;
-    $value =~ s/\$wikiusername/$wun/gi;
+    $value =~ s/\$comment/$comment/g;
+    $value =~ s/\$username/$un/g;
+    $value =~ s/\$wikiname/$wn/g;
+    $value =~ s/\$wikiusername/$wun/g;
 
     return $value;
 }

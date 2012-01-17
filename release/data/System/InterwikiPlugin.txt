@@ -53,9 +53,11 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Author: | Foswiki:%USERSWEB%.AndreaSterbini, TWiki:Main.PeterThoeny |
 |  Copyright: | &copy; 2001-2007, Andrea Sterbini, Peter Thoeny ([[http://www.twiki.net/][TWIKI.NET]]), %SYSTEMWEB%.ProjectContributor |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 5022 (2009-09-20) |
-|  Release: | 20 Sep 2009 |
+|  Version: | 8158 (2010-07-13) |
+|  Release: | 12 Jul 2010 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  12 Jul 2010: | Foswiki:Main.AndrewJones - Check access controls on !InterWikis topic |
+|  10 Jul 2010: | =mod_perl= and =FastCGI= compatible |
 |  20 Sep 2009: | Version from 15 Apr now included with Foswiki 1.0.7. |
 |  15 Apr 2009: | Foswiki:Main.CrawfordCurrie - removed plugin preferences from this topic |
 |  16 Dec 2008: | Foswiki:Main.KennethLavrsen - Foswiki version - no features changed |

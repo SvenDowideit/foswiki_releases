@@ -38,7 +38,7 @@ Pictorially,
 As well as the meta-data, the object also stores the web name, topic
 name and topic text.
 
-API version $Date: 2009-09-16 14:36:32 +0200 (Wed, 16 Sep 2009) $ (revision $Rev: 6075 (2010-01-17) $)
+API version $Date: 2010-03-17 01:10:01 +0100 (Wed, 17 Mar 2010) $ (revision $Rev: 8969 (2010-09-08) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -64,7 +64,7 @@ use strict;
 use Error qw(:try);
 use Assert;
 
-our $VERSION = '$Rev: 6075 (2010-01-17) $';
+our $VERSION = '$Rev: 8969 (2010-09-08) $';
 
 =begin TML
 
@@ -697,6 +697,11 @@ sub renderFormFieldForDisplay {
 
     $value = $mf->{value};
 
+    # remove nop exclamation marks from form field value before it is put
+    # inside a format like [[$topic][$formfield()]] that prevents it being 
+    # detected
+    $value =~ s/!(\w+)/<nop>$1/gos;
+    
     my $fname = $this->getFormName();
     if ($fname) {
         require Foswiki::Form;

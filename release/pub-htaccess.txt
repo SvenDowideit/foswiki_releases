@@ -12,7 +12,7 @@
 Allow from all
 
 # Deny people from looking at the index
-# Bare in mind that this is largely inadequate
+# Bear in mind that this is largely inadequate
 # See http://foswiki.org/System/AccessControl#Controlling_access_to_Attachment
 # and http://foswiki.org/Tasks/Item610
 # If you think you have a solution it is in your best interests to share it 
@@ -38,6 +38,8 @@ php_flag engine off
 AddType text/plain .shtml .php .php3 .phtml .phtm .pl .py .cgi
 
 #for TWikiCompatibility - or even to make 'attachment not found's more user friendly
+# - This statement must be tailored with the {ScriptUrlPath}.  See
+# bin/.htaccess.txt for details.
 ErrorDocument 404 /foswiki/bin/viewfile
 
 #add an Expires header that is sufficiently in the future that the browser does not even ask if its uptodate
@@ -46,7 +48,7 @@ ErrorDocument 404 /foswiki/bin/viewfile
 #LoadModule expires_module libexec/httpd/mod_expires.so
 #AddModule mod_expires.c
 #<ifmodule mod_expires.c>
-#  <filesmatch "\.(jpg|gif|png|css|js)$">
+#  <filesmatch "\.(jpe?g|gif|png|ico|css|js)$">
 #       ExpiresActive on
 #       ExpiresDefault "access plus 11 days"
 #   </filesmatch>

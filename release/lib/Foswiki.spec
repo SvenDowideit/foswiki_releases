@@ -435,7 +435,7 @@ $Foswiki::cfg{AuthScripts} = 'attach,edit,manage,rename,save,upload,viewauth,rdi
 # Authentication realm. This is
 # normally only used in md5 password encoding. You may need to change it
 # if you are sharing a password file with another application.
-$Foswiki::cfg{AuthRealm} = 'Enter your $Foswiki::cfg{SystemWebName}.LoginName. (Typically First name and last name, no space, no dots, capitalized, e.g. !JohnSmith, unless you chose otherwise). Visit $Foswiki::cfg{SystemWebName}.UserRegistration if you do not have one.';
+$Foswiki::cfg{AuthRealm} = 'Enter your WikiName. (First name and last name, no space, no dots, capitalized, e.g. JohnSmith). Cancel to register if you do not have one.';
 
 #---++ User Mapping
 # **SELECTCLASS Foswiki::Users::*UserMapping**
@@ -737,7 +737,7 @@ $Foswiki::cfg{LogFileName} = '$Foswiki::cfg{DataDir}/log%DATE%.txt';
 # <p>
 # Configuration items in this section control two things: recognition of
 # national (non-ascii) characters and the system locale used by Foswiki, which
-# influences how programs Foswiki and external programa called by it behave
+# influences how programs Foswiki and external programs called by it behave
 # regarding internationalization.
 # </p>
 # <p>
@@ -1138,15 +1138,17 @@ $Foswiki::cfg{NotifyTopicName}     = 'WebNotify';
 # mode in SMTP. Output will go to the webserver error log.
 $Foswiki::cfg{SMTP}{Debug} = 0;
 
-# **STRING 30 EXPERT**
+# **STRING 30**
 # Some environments require outbound HTTP traffic to go through a proxy
 # server. (e.g. http://proxy.your.company).
 # <b>CAUTION</b> This setting can be overridden by a PROXYHOST setting
 # in SitePreferences. Make sure you delete the setting from there if
 # you are using a SitePreferences topic from a previous release of Foswiki.
+# If your proxy requires authentication, simply put it in the URL, as in:
+# http://username:password@proxy.your.company.
 $Foswiki::cfg{PROXY}{HOST} = '';
 
-# **STRING 30 EXPERT**
+# **STRING 30**
 # Some environments require outbound HTTP traffic to go through a proxy
 # server. Set the port number here (e.g: 8080).
 # <b>CAUTION</b> This setting can be overridden by a PROXYPORT setting

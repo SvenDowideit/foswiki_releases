@@ -163,8 +163,8 @@ BEGIN {
 
     # DO NOT CHANGE THE FORMAT OF  $VERSION
     # Automatically expanded on checkin of this module 
-    $VERSION = '$Date: 2010-01-17 15:13:06 +0100 (Sun, 17 Jan 2010) $ $Rev: 6075 (2010-01-17) $ ';
-    $RELEASE = 'Foswiki-1.0.9';
+    $VERSION = '$Date: 2010-09-08 10:52:30 +0200 (Wed, 08 Sep 2010) $ $Rev: 8969 (2010-09-08) $ ';
+    $RELEASE = 'Foswiki-1.0.10';
     $VERSION =~ s/^.*?\((.*)\).*: (\d+) .*?$/$RELEASE, $1, build $2/;
 
     # Default handlers for different %TAGS%
@@ -266,7 +266,10 @@ BEGIN {
     }
 
     # readConfig is defined in Foswiki::Configure::Load to allow overriding it
-    Foswiki::Configure::Load::readConfig();
+    if ( Foswiki::Configure::Load::readConfig() ) {
+        $Foswiki::cfg{isVALID} = 1;
+    }
+
 
     if ( $Foswiki::cfg{WarningsAreErrors} ) {
 
@@ -782,7 +785,7 @@ sub _isRedirectSafe {
 
     #TODO: this should really use URI
     # Compare protocol, host name and port number
-    if ( $redirect =~ m!^(.*?://[^/]*)! ) {
+    if ( $redirect =~ m!^(.*?://[^/?#]*)! ) {
 
         # implicit untaints OK because result not used. uc retaints
         # if use locale anyway.
@@ -1546,26 +1549,23 @@ sub new {
     $topic = ucfirst($topic);
 
     # Validate and untaint topic name from path info
-    $this->{topicName} = Foswiki::Sandbox::untaint(
-        $topic,
-        sub {
-            return $Foswiki::cfg{HomeTopicName}
-              unless isValidTopicName( $topic, 1 );
-            return $topic;
-        }
-    );
+    $this->{topicName} = Foswiki::Sandbox::untaint( $topic,
+        \&Foswiki::Sandbox::validateTopicName );
 
     # Validate web name from path info
-    $this->{requestedWebName} = Foswiki::Sandbox::untaint(
-        $web,
-        sub {
-            return '' unless $web &&    # can be an empty string
-                  isValidWebName( $web, 1 );
-            return $web;
-        }
-    );
-    $this->{webName} = $this->{requestedWebName}
-      || $Foswiki::cfg{UsersWebName};
+    $this->{webName} =
+      Foswiki::Sandbox::untaint( $web, \&Foswiki::Sandbox::validateWebName );
+
+    if ( !defined $this->{webName} && !defined $this->{topicName} ) {
+        $this->{webName}   = $Foswiki::cfg{UsersWebName};
+        $this->{topicName} = $Foswiki::cfg{HomeTopicName};
+    }
+
+    $this->{webName} = ''
+      unless ( defined $this->{webName} );
+
+    $this->{topicName} = $Foswiki::cfg{HomeTopicName}
+      unless ( defined $this->{topicName} );
 
     # Convert UTF-8 web and topic name from URL into site charset if
     # necessary
@@ -1883,6 +1883,8 @@ sub logEvent {
     $user = ( $this->{users}->getLoginName($user) || 'unknown' )
       if ( $this->{users} );
 
+    $user = '' unless (defined $user);  # Avoid undefined string in compare
+
     if ( $user eq $cfg{DefaultUserLogin} ) {
         my $cgiQuery = $this->{request};
         if ($cgiQuery) {
@@ -1983,12 +1985,24 @@ sub applyPatternToIncludedText {
 
     $pattern = Foswiki::Sandbox::untaint( $pattern, \&validatePattern );
 
-    try {
-        $text =~ s/$pattern/$1/is;
-    }
-    catch Error::Simple with {
-        $text = '';
+    my $ok = 0;
+    eval {
+        # The eval acts as a try block in case there is anything evil in
+        # the pattern.
+
+        # The () ensures that $1 is defined if $pattern matches
+        # but does not capture anything
+        if ($text =~ m/$pattern()/is) {
+            $text = $1;
+        }
+        else {
+            # The pattern did not match, so return nothing
+            $text = '';
+        }
+        $ok = 1;
     };
+    $text = '' unless $ok;
+
     return $text;
 }
 

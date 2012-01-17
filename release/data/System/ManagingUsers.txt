@@ -86,13 +86,13 @@ If you want to make it clear the user is no longer around, replace the topic con
 The existence of the <nop>UserName topic should also prevent that user name from being re-used, sealing the potential security hole regarding inherited permissions..
 
 ---++ Customizing registration Emails.
-Foswiki's Registration can send 3 emails who's output is governed by templates:
+Foswiki's Registration can send 3 emails whose output is governed by templates:
    1 User registration confirmation - =templates/registerconfirm.tmpl=
    2 User registration notification - =templates/registernotify.tmpl=
    3 Email to notify the Wiki admin of registration - =templates/registernotifyadmin.tmpl=
 
 As these are SkinTemplates, they can be customized and selected using the SKIN path setting.
-Because there are default tmpl files in the =templates= dir, this cannot use Template topics.
+Because there are default =.tmpl= files in the =templates= dir, this cannot use Template topics.
 
 These template files have a specific format that matches the raw format of emails sent via SMTP,
 so be careful and test your changes. It is easiest to start by copying the default templates:
@@ -107,8 +107,8 @@ then add =myskin= to the beginning of the =SKIN= setting in %USERSWEB%.SitePrefe
 
 From this point on, your myskin templates will be used for the registration emails.
 
-To make it possible for WikiUsers to modify the email contents, you could use a parameterized =%<nop>INCLUDE%=
-statement in your customized version. eg:
+To make it possible for users to modify the email contents, you could use a parameterized =%<nop>INCLUDE%=
+statement in your customized version, eg:
 
 <verbatim>
 From: %WIKIWEBMASTERNAME% <%WIKIWEBMASTER%>

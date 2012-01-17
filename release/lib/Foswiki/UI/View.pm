@@ -120,6 +120,7 @@ sub view {
     else {                 # Topic does not exist yet
         $indexableView = 0;
         $session->enterContext('new_topic');
+        $session->{response}->status(404);
         $rev = 1;
         $viewTemplate = 'TopicDoesNotExistView';
         $logEntry .= ' (not exist)';
@@ -490,6 +491,11 @@ sub viewfile {
             params => [ 'viewfile', '?' ]
         );
     }
+
+    # decode filename in case it is urlencoded and/or utf8, see Item9462
+    $fileName = Foswiki::urlDecode($fileName);
+    my $decodedFileName = $session->UTF82SiteCharSet($fileName);
+    $fileName = $decodedFileName if defined $decodedFileName;
 
     #print STDERR "VIEWFILE: web($webName), topic($topic), file($fileName)\n";
 

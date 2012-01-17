@@ -30,19 +30,16 @@ each line of the function. For efficiency and clarity, you should
 only uncomment handlers you actually use.
 
 __NOTE:__ When developing a plugin it is important to remember that
-
 Foswiki is tolerant of plugins that do not compile. In this case,
 the failure will be silent but the plugin will not be available.
 See %SYSTEMWEB%.InstalledPlugins for error messages.
 
 __NOTE:__ Foswiki:Development.StepByStepRenderingOrder helps you decide which
 rendering handler to use. When writing handlers, keep in mind that these may
-be invoked
-
-on included topics. For example, if a plugin generates links to the current
-topic, these need to be generated before the =afterCommonTagsHandler= is run.
-After that point in the rendering loop we have lost the information that
-the text had been included from another topic.
+be invoked on included topics. For example, if a plugin generates links to the
+current topic, these need to be generated before the =afterCommonTagsHandler=
+is run. After that point in the rendering loop we have lost the information
+that the text had been included from another topic.
 
 =cut
 
@@ -57,15 +54,15 @@ require Foswiki::Plugins; # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
 # *must* exist in this package.
-# This should always be $Rev: 5770 (2009-12-11) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 7889 (2010-06-23) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-our $VERSION = '$Rev: 5770 (2009-12-11) $';
+our $VERSION = '$Rev: 7889 (2010-06-23) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part
 # of the version number in PLUGINDESCRIPTIONS.
-our $RELEASE = '$Date: 2009-12-11 09:52:40 +0100 (Fri, 11 Dec 2009) $';
+our $RELEASE = '$Date: 2010-06-23 07:12:40 +0200 (Wed, 23 Jun 2010) $';
 
 # Short description of this plugin
 # One line description, is shown in the %SYSTEMWEB%.TextFormattingRules topic:
@@ -127,8 +124,7 @@ sub initPlugin {
     # on integrating your plugin configuration with =configure=.
 
     # Always provide a default in case the setting is not defined in
-    # LocalSite.cfg. See %SYSTEMWEB%.Plugins for help in adding your plugin
-    # configuration to the =configure= interface.
+    # LocalSite.cfg.
     # my $setting = $Foswiki::cfg{Plugins}{EmptyPlugin}{ExampleSetting} || 0;
 
     # Register the _EXAMPLETAG function to handle %EXAMPLETAG{...}%
@@ -148,8 +144,8 @@ sub initPlugin {
 # You would have one of these for each macro you want to process.
 #sub _EXAMPLETAG {
 #    my($session, $params, $theTopic, $theWeb) = @_;
-#    # $session  - a reference to the Foswiki session object (if you don't know
-#    #             what this is, just ignore it)
+#    # $session  - a reference to the Foswiki session object
+#    #             (you probably won't need it, but documented in Foswiki.pm)
 #    # $params=  - a reference to a Foswiki::Attrs object containing
 #    #             parameters.
 #    #             This can be used as a simple hash that maps parameter names

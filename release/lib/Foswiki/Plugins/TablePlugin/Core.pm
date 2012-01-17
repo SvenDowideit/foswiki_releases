@@ -1,6 +1,6 @@
 # Plugin for Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 #
-# Copyright (C) 2008 Foswiki Contributors.
+# Copyright (C) 2008-2010 Foswiki Contributors.
 # Copyright (C) 2005-2006 TWiki Contributors
 # Copyright (C) 2001-2004 Peter Thoeny, peter@thoeny.org
 # Copyright (C) 2001-2003 John Talintyre, jet@cheerful.com
@@ -94,6 +94,7 @@ sub _setDefaults {
     @dataBg         = ( '#ecf2f8', '#ffffff' );
     @dataBgSorted   = ();
     @dataColor      = ();
+    $initDirection  = 0;
 
     undef $initSort;
 
@@ -504,8 +505,8 @@ sub _convertToNumberAndDate {
     $text = _stripHtml($text);
 
     if ( $text =~ /^\s*$/ ) {
-        return (0, 0);
-    } 
+        return ( undef, undef );
+    }
 
     my $num = undef;
     my $date = undef;
@@ -513,7 +514,7 @@ sub _convertToNumberAndDate {
     # Unless the table cell is a pure number
     # we test if it is a date.    
     if ( $text =~ /^\s*-?[0-9]+(\.[0-9]+)?\s*$/ ) {
-        $num = $text;
+        
     }
     else {
         try {
@@ -525,12 +526,21 @@ sub _convertToNumberAndDate {
 
     unless ($date) {
         $date = undef;
-        if ( $text =~ /^\s*(-?[0-9]+)(\.[0-9]+)?/ ) {
-            # for example for attachment sizes: 1.1 K
-            # but also for other strings that start with a number
-            my $num1 = $1 || 0;
-            my $num2 = $2 || 0;
-            $num = scalar("$num1$num2");
+        # very course testing on IP (could in fact be anything with n.n. syntax
+        if ( $text =~ /^\s*\b\d{1,}\.\d{1,}\.(?:.*?)$/ ) {
+
+            # should be sorted by text
+
+        }
+        elsif ( $text =~ /^\s*(-*[0-9]+\.*[0-9]*).*?/ ) {
+        
+            # test for:
+            # 8 - whole numbers
+            # 8.1 - decimal numbers
+            # 8K - strings that start with a number
+            # 8.1K - idem
+			
+            $num = $1 * 1.0;
         }
     }
 
@@ -1316,12 +1326,12 @@ sub emitTable {
                 # SMELL: efficient? That's not efficient!
                 @curTable = map { $_->[0] }
                   sort { $b->[1] cmp $a->[1] }
-                  map { [ $_, lc( $_->[$sortCol]->{text} ) ] } @curTable;
+                  map { [ $_, lc( _stripHtml( $_->[$sortCol]->{text} ) ) ] } @curTable;
             }
             if ( $currentSortDirection == $sortDirection{'ASCENDING'} ) {
                 @curTable = map { $_->[0] }
                   sort { $a->[1] cmp $b->[1] }
-                  map { [ $_, lc( $_->[$sortCol]->{text} ) ] } @curTable;
+                  map { [ $_, lc( _stripHtml ( $_->[$sortCol]->{text} ) ) ] } @curTable;
             }
         }
         else {

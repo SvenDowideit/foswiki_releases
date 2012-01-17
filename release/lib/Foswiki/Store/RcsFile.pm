@@ -126,6 +126,7 @@ sub mkPathTo {
     my ( $volume, $path, undef ) = File::Spec->splitpath( $file );
     $path = File::Spec->catpath( $volume, $path, '' );
 
+    umask(oct(777)-$Foswiki::cfg{RCS}{dirPermission}); 
     eval { File::Path::mkpath( $path, 0, $Foswiki::cfg{RCS}{dirPermission} ); };
     if ($@) {
         throw Error::Simple("RCS: failed to create ${path}: $!");
@@ -1257,7 +1258,9 @@ sub eachChange {
 
             # Create a hash for this line
             {
-                topic    => $_->[0],
+                topic => Foswiki::Sandbox::untaint(
+                    $_->[0], \&Foswiki::Sandbox::validateTopicName
+                ),
                 user     => $_->[1],
                 time     => $_->[2],
                 revision => $_->[3],

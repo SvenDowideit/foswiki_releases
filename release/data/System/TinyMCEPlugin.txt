@@ -169,9 +169,10 @@ Another great Foswiki extension from the <a style="text-decoration:none" href="h
 |  Copyright: | &copy; 2007-2009 Crawford Currie http://c-dot.co.uk |
 |  License: | [[http://www.gnu.org/licenses/gpl.html][GPL (Gnu General Public License)]] |
 |             | This package also includes the complete sources for version 3.2.7 of the !TinyMCE editor which is covered by [[http://tinymce.moxiecode.com/license.php][its own license]]. |
-|  Version: | 5860 (2009-12-28) |
-|  Release: | 29 Dec 2009 |
+|  Version: | 6527 (2010-02-26) |
+|  Release: | 26 Feb 2010 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  19 Feb 2010 | Foswikitask:Item8566: Fix for sites with latest JQueryPlugin where IE users get: "Unable to install !TinyMCE; &lt;META..." |
 |  29 Dec 2009 | Foswikitask:Item2447: Fix unable to apply "Normal" format in some browsers (notes added to System topic)<br/> Foswikitask:Item1462: Block attachments to unsaved AUTOINC topics |
 |  25 Nov 2009 | Foswikitask:Item2412: Inserting images - fixed a problem where it wasn't easy (impossible unless > 1 attachments) to select the first image in the attachment list; improved layout of dialog window where preview obscures insert/cancel buttons. |
 |  09 Nov 2009 | Foswikitask:Item2341: Added blockquote button and rearranged toolbars slightly; cleaned up System topic |

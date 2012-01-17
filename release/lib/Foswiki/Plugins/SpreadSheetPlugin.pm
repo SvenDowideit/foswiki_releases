@@ -31,7 +31,7 @@ use vars qw(
   $web $topic $user $installWeb $debug $skipInclude $doInit
 );
 
-our $VERSION           = '$Rev: 5484 (2009-11-10) $';
+our $VERSION           = '$Rev: 7176 (2010-04-12) $';
 our $RELEASE           = '10 Nov 2009';
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION =
@@ -55,7 +55,9 @@ sub initPlugin {
 
     # Flag to skip calc if in include
     $skipInclude =
-      Foswiki::Func::getPreferencesFlag("SPREADSHEETPLUGIN_SKIPINCLUDE") || 1;
+        Foswiki::Func::getPreferencesFlag("SPREADSHEETPLUGIN_SKIPINCLUDE");
+    my $skipIncludePref = Foswiki::Func::getPreferencesValue("SPREADSHEETPLUGIN_SKIPINCLUDE");
+    $skipInclude = 1 unless defined $skipIncludePref && $skipIncludePref ne '';
 
     # Plugin correctly initialized
     Foswiki::Func::writeDebug(
