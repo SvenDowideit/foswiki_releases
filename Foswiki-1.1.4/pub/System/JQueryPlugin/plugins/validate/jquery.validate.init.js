@@ -1,0 +1,1 @@
+jQuery(function(a){a(".jqValidate:not(.jqInitedValidate)").livequery(function(){var c=a(this),b=a.extend({},c.metadata());c.addClass("jqInitedValidate").validate(b)})});
