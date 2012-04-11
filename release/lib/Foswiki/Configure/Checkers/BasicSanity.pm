@@ -152,7 +152,7 @@ HERE
     # 'uninitialised variable' alerts later.
     foreach my $var (
         qw( DataDir DefaultUrlHost PubUrlPath
-        PubDir TemplateDir ScriptUrlPath LocalesDir )
+        PubDir TemplateDir ScriptUrlPath LocalesDir SafeEnvPath )
       )
     {
 
@@ -160,23 +160,43 @@ HERE
         $Foswiki::cfg{$var} = 'NOT SET' unless defined $Foswiki::cfg{$var};
     }
 
-    # Make %ENV safer for CGI
+    # Make %ENV safer for CGI - Assign a safe default for SafeEnvPath
     $Foswiki::cfg{DETECTED}{originalPath} = $ENV{PATH} || '';
-    unless ( $Foswiki::cfg{SafeEnvPath} ) {
 
-        # Grab the current path
-        if ( defined( $ENV{PATH} ) ) {
-            $ENV{PATH} =~ /(.*)/;
-            $Foswiki::cfg{SafeEnvPath} = $1;
-        }
-        else {
+    if ( $Foswiki::cfg{SafeEnvPath} eq 'NOT SET' ) {
+        # SMELL:  Untaint to get past the first run.  It will be
+        # Overridden to the SafeEnvPath after first save
+        ($ENV{PATH}) = $ENV{PATH} =~ m/^(.*)$/;
+    }
+    else {
+        $ENV{PATH} = $Foswiki::cfg{SafeEnvPath};
+    }
 
-            # Can't guess
-            $Foswiki::cfg{SafeEnvPath} = '';
+    delete @ENV{qw( IFS CDPATH ENV BASH_ENV )};
+
+    # The following check for OP_match is only needed on Foswiki 1.1.
+    # Foswiki 1.2 does not use this setting.
+    my $goodOp = 0;
+    foreach my $op ( @{ $Foswiki::cfg{Operators}{Query} } ) {
+        if ( $op eq 'Foswiki::Query::OP_match' ) {
+            $goodOp = 1;
+            last;
         }
     }
-    $ENV{PATH} = $Foswiki::cfg{SafeEnvPath};
-    delete @ENV{qw( IFS CDPATH ENV BASH_ENV )};
+
+    unless ($goodOp) {
+        $result .= $this->ERROR(<<'MESSAGE');
+<code>lib/LocalSite.cfg</code> has a problem.  The setting for
+<code>{Operators}{Query}</code> is missing the definition for the match operator.
+Was the configuration upgraded from Foswiki 1.0.x?  Please remove <code>lib/LocalSite.cfg</code>
+and reconfigure, or edit the file and manually add the <code>OP_match</code> definition as shown here:
+<pre>$Foswiki::cfg{Operators}{Query} = [
+      'Foswiki::Query::OP_match',
+      'Foswiki::Query::OP_and',
+      ... (list continues)
+</pre>
+MESSAGE
+    }
 
     return $result;
 }

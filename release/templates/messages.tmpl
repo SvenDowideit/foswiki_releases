@@ -170,6 +170,15 @@
 
 %MAKETEXT{"You have *not* been registered."}%
 %TMPL:END%
+%TMPL:DEF{"passwords_disabled"}%
+---+++ %MAKETEXT{"Passwords disabled"}%
+
+%MAKETEXT{"The Administrator has disabled password changes."}%
+
+%MAKETEXT{"Please contact [_1]." args="%WIKIWEBMASTER%"}%
+
+%MAKETEXT{"Your password has not been changed."}%
+%TMPL:END%
 %TMPL:DEF{"thanks"}%
 ---+++ %MAKETEXT{"Thank you for registering"}%
    * %MAKETEXT{"Your personal Foswiki topic [_1] has been created" args="%USERSWEB%.%PARAM2%"}% <br />
@@ -233,6 +242,12 @@
 %TMPL:DEF{"missing_fields"}%
 ---+++ %MAKETEXT{"Missing Fields"}%
 =<font color="red">**</font>= %PARAM1% %MAKETEXT{"fields are required."}%
+
+%MAKETEXT{"Please go back in your browser and try again."}%
+%TMPL:END%
+%TMPL:DEF{"invalid_field"}%
+---+++ %MAKETEXT{"Invalid Input"}%
+=<font color="red">**</font>= %MAKETEXT{"The value supplied for =[_1]= has been rejected." args="%PARAM1%"}%
 
 %MAKETEXT{"Please go back in your browser and try again."}%
 %TMPL:END%
@@ -310,6 +325,22 @@
 %TMPL:DEF{"bad_email"}%
 ---+++ %MAKETEXT{"Invalid e-mail address"}%
 %MAKETEXT{"The e-mail address for this account is not valid."}%
+
+%PARAM1%
+
+%MAKETEXT{"Please go back in your browser and try again."}%
+%TMPL:END%
+%TMPL:DEF{"rej_email"}%
+---+++ %MAKETEXT{"Invalid e-mail address"}%
+%MAKETEXT{"The e-mail address for this account has been rejected."}%
+
+%PARAM1%
+
+%MAKETEXT{"Please go back in your browser and try again."}%
+%TMPL:END%
+%TMPL:DEF{"dup_email"}%
+---+++ %MAKETEXT{"Invalid e-mail address"}%
+%MAKETEXT{"The e-mail address for this account is already registered to another user."}%
 
 %PARAM1%
 
@@ -472,7 +503,7 @@
 %TMPL:DEF{"problem_adding_to_group"}%
 ---+++ %MAKETEXT{"Errors adding users to group"}%
 
-%MAKETEXT{"There were errors adding [_1] to the [_2] group. " args="%PARAM1%, %PARAM2%"}%
+%MAKETEXT{"There were errors adding to the [_2] group. [_1] " args="%PARAM1%, %PARAM2%"}%
 
 %MAKETEXT{"Please check to ensure you have permission to modify the group."}%
 
@@ -499,6 +530,18 @@
 ---+++ %MAKETEXT{"No username specified"}%
 
 %MAKETEXT{"You need to specify a valid user to remove from a group."}%
+%TMPL:END%
+
+%TMPL:DEF{"no_group_and_no_create"}%
+---+++ %MAKETEXT{"Create not specified and group does not exist"}%
+
+%MAKETEXT{"You cannot add users to a missing group unless the create option is set.."}%
+%TMPL:END%
+
+%TMPL:DEF{"no_group_and_no_create"}%
+---+++ %MAKETEXT{"Create not specified and group does not exist"}%
+
+%MAKETEXT{"You cannot add users to a missing group unless the create option is set.."}%
 %TMPL:END%
 
 %TMPL:DEF{"no_group_specified_for_remove_from_group"}%
@@ -555,6 +598,7 @@
 %TMPL:DEF{"bad_attachment"}%     %MAKETEXT{"Error: File attachment at [_1],[_2] does not exist" args="%PARAM1%, %PARAM2%"}% %TMPL:END%
 %TMPL:DEF{"bad_protocol"}%       %MAKETEXT{"Error: Unsupported protocol. (Must be 'http://domain/...')"}% %TMPL:END%
 %TMPL:DEF{"bad_content"}%        %MAKETEXT{"Error: Unsupported content type: [_1] (Must be =text/html=, =text/plain= or =text/css=)" args="%PARAM1%"}% %TMPL:END%
+%TMPL:DEF{"web_not_found"}%      %MAKETEXT{"Warning: Can't find web [_1] for topic [_2]" args="<nop>%PARAM1%, <nop>%PARAM2%"}% %TMPL:END%
 %TMPL:DEF{"topic_not_found"}%    %MAKETEXT{"Warning: Can't find topic [_1].[_2]" args="<nop>%PARAM1%, <nop>%PARAM2%"}% %TMPL:END%
 %TMPL:DEF{"topic_section_not_found"}%    %MAKETEXT{"Warning: Can't find named section [_3] in topic [_1].[_2]" args="<nop>%PARAM1%, <nop>%PARAM2%, <nop>%PARAM3%"}% %TMPL:END%
 %TMPL:DEF{"already_included"}%   %MAKETEXT{"Warning: Can't INCLUDE [_1] repeatedly, topic is already included. [_2]" args="<nop>%PARAM1%, %PARAM2%"}% %TMPL:END%
@@ -628,6 +672,8 @@
 ---++ %MAKETEXT{"Attachment '[_1]' does not exist" args="%PARAM2%"}%
 %MAKETEXT{"You are trying to [_1] an attachment that does not exist." args="%PARAM1%"}%
 
+<a href='%SCRIPTURLPATH{view}%/%WEB%/%TOPIC%'>%MAKETEXT{"Go back"}%</a>
+
 %MAKETEXT{"Contact [_1] if you have any questions." args="%WIKIWEBMASTER%"}%
 %TMPL:END%
 %TMPL:DEF{"duplicate_activation"}%
@@ -650,4 +696,6 @@
 %TMPL:DEF{"template_recursion"}%
 ---+++ %MAKETEXT{"Too many recursions parsing template [_1]" args="%PARAM1%"}%
 %MAKETEXT{"Please notify your [_1] administrator." args="<nop>%WIKITOOLNAME%"}%
+%TMPL:END%
+%TMPL:DEF{"enable_js"}%<div class="foswikiAlert"> *%MAKETEXT{"You cannot proceed because either Cookies or Javascript are disabled in your browser."}%* </div><p />%MAKETEXT{"Go back to the previous page, and enable Cookies and Javascript before trying again"}%
 %TMPL:END%

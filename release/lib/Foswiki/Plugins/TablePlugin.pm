@@ -8,8 +8,8 @@ package Foswiki::Plugins::TablePlugin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 13401 (2011-12-13) $';
-our $RELEASE = '1.138';
+our $VERSION = '$Rev: 14090 (2012-02-25) $';
+our $RELEASE = '1.140';
 our $SHORTDESCRIPTION =
   'Control attributes of tables and sorting of table columns';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -127,19 +127,21 @@ sub _readPluginSettings {
       Foswiki::Func::getPreferencesValue('TABLEPLUGIN_TABLEATTRIBUTES');
 
     debug( 'TablePlugin', "\t configureAttrStr=$configureAttrStr" )
-      if $configureAttrStr;
-    debug( 'TablePlugin', "\t pluginAttrStr=$pluginAttrStr" ) if $pluginAttrStr;
+     if defined $configureAttrStr;
+    debug( 'TablePlugin', "\t pluginAttrStr=$pluginAttrStr" ) if defined $pluginAttrStr;
     debug( 'TablePlugin',
         "\t no settings from configure could be read; using default values" )
-      if !$configureAttrStr;
-    $configureAttrStr ||= $DEFAULT_TABLE_SETTINGS;
+      unless defined $configureAttrStr;
+
+    $configureAttrStr = $DEFAULT_TABLE_SETTINGS unless defined $configureAttrStr;
 
     $configureAttrStr = Foswiki::Func::expandCommonVariables( $configureAttrStr,
         $topic, $web, undef )
-      if $configureAttrStr;
+      if defined $configureAttrStr;
+
     $pluginAttrStr = Foswiki::Func::expandCommonVariables( $pluginAttrStr,
         $topic, $web, undef )
-      if $pluginAttrStr;
+      if defined $pluginAttrStr;
 
     my %configureParams = Foswiki::Func::extractParameters($configureAttrStr);
     my %pluginParams    = Foswiki::Func::extractParameters($pluginAttrStr);
@@ -149,7 +151,7 @@ sub _readPluginSettings {
 
 sub afterCommonTagsHandler {
 
-    debug( '', 'afterCommonTagsHandler' );
+    #debug( '', 'afterCommonTagsHandler' );
     _writeStyleToHead();
 }
 
@@ -222,7 +224,7 @@ sub debugData {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

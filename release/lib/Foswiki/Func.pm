@@ -17,7 +17,7 @@ System.DevelopingPlugins. If you use
 functions in other Foswiki libraries you risk creating a security hole, and
 you will probably need to change your plugin when you upgrade Foswiki.
 
-API version $Date: 2011-12-17 00:18:05 -0500 (Sat, 17 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
+API version $Date: 2012-03-28 21:52:33 -0400 (Wed, 28 Mar 2012) $ (revision $Rev: 14595 (2012-04-11) $)
 
 *Since:* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki 1.0.0). The _date_ indicates the
@@ -156,6 +156,16 @@ Compose fully qualified URL
 
 Return: =$url=       URL, e.g. ="http://example.com:80/cgi-bin/view.pl/Main/WebNotify"=
 
+*Examples:*
+<verbatim class="perl">
+my $url;
+# $url eq 'http://wiki.example.org/url/to/bin'
+$url = Foswiki::Func::getScriptUrl();
+# $url eq 'http://wiki.example.org/url/to/bin/edit'
+$url = Foswiki::Func::getScriptUrl(undef, undef, 'edit');
+# $url eq 'http://wiki.example.org/url/to/bin/edit/Web/Topic'
+$url = Foswiki::Func::getScriptUrl('Web', 'Topic', 'edit');</verbatim>
+
 =cut
 
 sub getScriptUrl {
@@ -165,6 +175,37 @@ sub getScriptUrl {
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
 
     return $Foswiki::Plugins::SESSION->getScriptUrl( 1, $script, $web, $topic,
+        @_ );
+}
+
+=begin TML
+
+---+++ getScriptUrlPath( $web, $topic, $script, ... ) -> $path
+
+Compose absolute URL path. See Foswiki::Func::getScriptUrl
+
+*Examples:*
+<verbatim class="perl">
+my $path;
+# $path eq '/path/to/bin'
+$path = Foswiki::Func::getScriptUrlPath();
+# $path eq '/path/to/bin/edit'
+$path = Foswiki::Func::getScriptUrlPath(undef, undef, 'edit');
+# $path eq '/path/to/bin/edit/Web/Topic'
+$path = Foswiki::Func::getScriptUrlPath('Web', 'Topic', 'edit');</verbatim>
+
+*Since:* 19 Jan 2012 (when called without parameters, this function is
+backwards-compatible with the old version which was deprecated 28 Nov 2008).
+
+=cut
+
+sub getScriptUrlPath {
+    my $web    = shift;
+    my $topic  = shift;
+    my $script = shift;
+    ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
+
+    return $Foswiki::Plugins::SESSION->getScriptUrl( 0, $script, $web, $topic,
         @_ );
 }
 
@@ -534,6 +575,7 @@ Registered tags differ from tags implemented using the old approach (text substi
 sub registerTagHandler {
     my ( $tag, $function, $syntax ) = @_;
     ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
+    ASSERT( $Foswiki::Plugins::SESSION->isa('Foswiki') ) if DEBUG;
 
     # $pluginContext is undefined if a contrib registers a tag handler.
     my $pluginContext;
@@ -547,8 +589,7 @@ sub registerTagHandler {
         $tag,
         sub {
             my ( $session, $params, $topicObject ) = @_;
-            my $record = $Foswiki::Plugins::SESSION;
-            $Foswiki::Plugins::SESSION = $_[0];
+            local $Foswiki::Plugins::SESSION = $session;
 
             # $pluginContext is defined for all plugins
             # but never defined for contribs.
@@ -565,11 +606,8 @@ sub registerTagHandler {
             }
 
             # Compatibility; expand $topicObject to the topic and web
-            my $result =
-              &$function( $session, $params, $topicObject->topic,
+            return &$function( $session, $params, $topicObject->topic,
                 $topicObject->web, $topicObject );
-            $Foswiki::Plugins::SESSION = $record;
-            return $result;
         },
         $syntax
     );
@@ -662,6 +700,7 @@ sub registerRESTHandler {
         sub {
             my $record = $Foswiki::Plugins::SESSION;
             $Foswiki::Plugins::SESSION = $_[0];
+            ASSERT( $Foswiki::Plugins::SESSION->isa('Foswiki') ) if DEBUG;
             my $result = &$function(@_);
             $Foswiki::Plugins::SESSION = $record;
             return $result;
@@ -2400,11 +2439,21 @@ sub loadTemplate {
 ---+++ expandTemplate( $def ) -> $string
 
 Do a =%<nop>TMPL:P{$def}%=, only expanding the template (not expanding any variables other than =%TMPL%=.)
-   * =$def= - template name
+   * =$def= - template name or parameters (as a string)
 Return: the text of the expanded template
 
 A template is defined using a =%TMPL:DEF%= statement in a template
 file. See the [[System.SkinTemplates][documentation on Foswiki templates]] for more information.
+
+eg:
+    #load the templates (relying on the system-wide skin path.)
+    Foswiki::Func::loadTemplate('linkedin');
+    #get the 'profile' DEF section
+    my $tml = Foswiki::Func::expandTemplate('profile');
+    #get the 'profile' DEF section expanding the inline Template macros (such as %USER% and %TYPE%)
+    #NOTE: when using it this way, it is important to use the double quotes "" to delineate the values of the parameters.
+    my $tml = Foswiki::Func::expandTemplate(
+        '"profile" USER="' . $user . '" TYPE="' . $type . '"' );
 
 =cut
 
@@ -2492,6 +2541,8 @@ Render text from TML into XHTML as defined in [[%SYSTEMWEB%.TextFormattingRules]
    * =$topic= - topic name, optional, defaults to web home
 Return: =$text=    XHTML text, e.g. ='&lt;b>bold&lt;/b> and &lt;code>fixed font&lt;/code>'=
 
+NOTE: renderText expects that all %MACROS% have already been expanded - it does not expand them for you.
+
 =cut
 
 sub renderText {
@@ -2540,7 +2591,7 @@ Direct interface to %<nop>ADDTOZONE (see %SYSTEMWEB%.VarADDTOZONE)
    * =requires= optional, comma-separated list of =$id= identifiers that should
      precede the content
 
-All macros present in =$data= will be expanded before being inserted into the =<head>= section.
+All macros present in =$data= will be expanded before being inserted into the =&lt;head>= section.
 
 <blockquote class="foswikiHelp">%X%
 *Note:* Read the developer supplement at Foswiki:Development.AddToZoneFromPluginHandlers if you are
@@ -3133,27 +3184,6 @@ sub getRegularExpression {
 
 =begin TML
 
----+++ getScriptUrlPath( ) -> $path
-
-Get script URL path
-
-*Deprecated* 28 Nov 2008 - use =getScriptUrl= instead.
-
-Return: =$path= URL path of bin scripts, e.g. ="/cgi-bin"=
-
-*WARNING:* you are strongly recommended *not* to use this function, as the
-{ScriptUrlPaths} URL rewriting rules will not apply to urls generated
-using it.
-
-=cut
-
-sub getScriptUrlPath {
-    ASSERT($Foswiki::Plugins::SESSION) if DEBUG;
-    return $Foswiki::Plugins::SESSION->getScriptUrl( 0, '' );
-}
-
-=begin TML
-
 ---+++ getWikiToolName( ) -> $name
 
 *Deprecated* 28 Nov 2008 in Foswiki; use $Foswiki::cfg{WikiToolName} instead
@@ -3498,7 +3528,8 @@ sub saveTopicText {
             param1   => ( $caller[0] || 'unknown' )
         );
     }
-    $topicObject->text($text);
+    #see Tasks.Item11586 - saveTopicText is supposed to use the embedded meta
+    $topicObject->setEmbeddedStoreForm($text);
 
     try {
         $topicObject->save( minor => $dontNotify );
@@ -3518,7 +3549,7 @@ sub saveTopicText {
 
 ---+++ addToHEAD( $id, $data, $requires )
 
-Adds =$data= to the HTML header (the <head> tag).
+Adds =$data= to the HTML header (the &lt;head> tag).
 
 *Deprecated* 26 Mar 2010 - use =addZoZone('head', ...)=.
 

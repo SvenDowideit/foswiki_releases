@@ -7,7 +7,7 @@
 <p></p>
 <!-- Document writers. Please note that this document is distributed in HTML version in the root of the distribution. You cannot use <a href="http://foswiki.org/System/WikiWord">WikiWord</a> links or any other local linking. -->
 <p></p>
-<em>This guide covers upgrading from a previous version of Foswiki or TWiki (such as Cairo or TWiki4.0) to Foswiki 1.0  (References to Cairo are for TWiki versions older than TWiki 4.0, such as TWikiRelease04Sep2004)</em>
+<em>This guide covers upgrading from a previous version of Foswiki or TWiki (such as Cairo or TWiki4.0) to Foswiki 1.1  (References to Cairo are for TWiki versions older than TWiki 4.0, such as TWikiRelease04Sep2004)</em>
 <p></p>
 <a name="foswikiTOC"></a><div class="foswikiToc"><span class="foswikiTocTitle">On this page:</span> <ul>
 <li> <a href="#Overview"> Overview </a> <ul>
@@ -57,6 +57,7 @@
 </li> <li> <a href="#Logging"> Logging </a>
 </li> <li> <a href="#Managing_caches_of_static_files_during_upgrade"> Managing caches of static files during upgrade </a>
 </li></ul> 
+</li> <li> <a href="#Important_changes_for_the_upgrader_45_since_Foswiki_1.1.4"> Important changes for the upgrader - since Foswiki 1.1.4 </a>
 </li></ul> 
 </div>
 <p></p>
@@ -453,6 +454,9 @@ The currently used log file is always the same name. They are renamed to somehth
 <a name="ManagingBrowserCache"></a>
 <h3><a name="Managing_caches_of_static_files_during_upgrade"></a>  Managing caches of static files during upgrade </h3>
 Managing caches of static <code>.js</code>, <code>.css</code> files: some parts of Foswiki use URI versioning to help web browsers obtain a current version of these files when they change, but currently other parts do not. You may need to get your users to clear their browser's cache after upgrading your site to a new major or minor release (usually not necessary for patch upgrades). An alternative approach is to manage your web server configuration to strategically set appropriate expiry times for static files (see <a class="interwikiLink" href="http://foswiki.org/Support.PerformanceSupplement#ModExpires" title="'Support.PerformanceSupplement#ModExpires' on foswiki.org">performance supplement</a>)
+<p></p>
+<h2><a name="Important_changes_for_the_upgrader_45_since_Foswiki_1.1.4"></a>  Important changes for the upgrader - since Foswiki 1.1.4 </h2>
+Due to fixes to the authentication session cookies when using <code>http</code> and <code>https</code>, your users may need to login again. This applies to both <code>TemplateLogin</code> and <code>ApacheLogin</code>.
 <p></p>
 <hr />
 <strong>Related Topics:</strong> <a href="http://foswiki.org/System/AdminDocumentationCategory">AdminDocumentationCategory</a>, <a class="interwikiLink" href="http://foswiki.org/Support.InstallationGuide" title="'Support.InstallationGuide' on foswiki.org">Foswiki:Support.InstallationGuide</a>, <a class="interwikiLink" href="http://foswiki.org/Support.InstallingOnSpecificPlatforms" title="'Support.InstallingOnSpecificPlatforms' on foswiki.org">Foswiki:Support.InstallingOnSpecificPlatforms</a>, <a class="interwikiLink" href="http://foswiki.org/Support.ApacheConfigGenerator" title="'Support.ApacheConfigGenerator' on foswiki.org">Foswiki:Support.ApacheConfigGenerator</a>, <a class="interwikiLink" href="http://foswiki.org/Support.SettingFileAccessRightsLinuxUnix" title="'Support.SettingFileAccessRightsLinuxUnix' on foswiki.org">Foswiki:Support.SettingFileAccessRightsLinuxUnix</a> <!--, <a class="interwikiLink" href="http://foswiki.org/Support.UpgradingFromOlderTWikiReleases" title="'Support.UpgradingFromOlderTWikiReleases' on foswiki.org">Foswiki:Support.UpgradingFromOlderTWikiReleases</a>, <a class="interwikiLink" href="http://foswiki.org/Support.UpgradingFromTWiki4x2Releases" title="'Support.UpgradingFromTWiki4x2Releases' on foswiki.org">Foswiki:Support.UpgradingFromTWiki4x2Releases</a>, Foswiki:Support.UpgradingPatchReleases-->

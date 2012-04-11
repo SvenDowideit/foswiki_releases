@@ -6,15 +6,15 @@ use warnings;
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION );
 
-$VERSION = '$Rev: 13315 (2011-12-06) $';
-$RELEASE = '1.4.3';
+$VERSION = '$Rev: 14572 (2012-04-06) $';
+$RELEASE = '1.4.4';
 $SHORTDESCRIPTION =
   'FamFamFam Silk is a smooth, free icon set, containing over 2000 icons';
 
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

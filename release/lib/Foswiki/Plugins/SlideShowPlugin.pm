@@ -9,8 +9,8 @@ use vars qw(
   $web $topic $user $installWeb $debug $addedHead
 );
 
-our $VERSION = '$Rev: 12410 (2011-08-28) $';
-our $RELEASE = '2.1.4';
+our $VERSION = '$Rev: 14572 (2012-04-06) $';
+our $RELEASE = '2.1.5';
 our $SHORTDESCRIPTION =
   'Create web based presentations based on topics with headings';
 our $NO_PREFS_IN_TOPIC = 1;
@@ -55,7 +55,7 @@ EOF
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

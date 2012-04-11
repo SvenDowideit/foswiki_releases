@@ -71,7 +71,7 @@ sub rename {
         $new_url = $session->redirectto($redirectto_param);
     }
 
-    $session->redirect( $new_url, undef, 1 ) if $new_url;
+    $session->redirect( $new_url ) if $new_url;
 }
 
 # Rename a topic
@@ -1151,8 +1151,25 @@ sub _newTopicOrAttachmentScreen {
             $search = $session->i18n->maketext('(skipped)');
         }
         else {
-            $refs = _getReferringTopics( $session, $from, 1 );
+            if ( $tmpl =~ /%GLOBAL_SEARCH%/ ) {
+                $refs = _getReferringTopics( $session, $from, 1 );
+                $resultCount += keys %$refs;
+                foreach my $entry ( sort keys %$refs ) {
+                    $checkboxAttrs->{value} = $entry;
+                    $search .= CGI::div( { class => 'foswikiTopRow' },
+                        CGI::input($checkboxAttrs) . " [[$entry]] " );
+                }
+                unless ($search) {
+                    $search = ( $session->i18n->maketext('(none)') );
+                }
+            }
+        }
+        $tmpl =~ s/%GLOBAL_SEARCH%/$search/o;
+
+        if ( $tmpl =~ /%LOCAL_SEARCH%/ ) {
+            $refs = _getReferringTopics( $session, $from, 0 );
             $resultCount += keys %$refs;
+            $search = '';
             foreach my $entry ( sort keys %$refs ) {
                 $checkboxAttrs->{value} = $entry;
                 $search .= CGI::div( { class => 'foswikiTopRow' },
@@ -1161,21 +1178,8 @@ sub _newTopicOrAttachmentScreen {
             unless ($search) {
                 $search = ( $session->i18n->maketext('(none)') );
             }
+            $tmpl =~ s/%LOCAL_SEARCH%/$search/go;
         }
-        $tmpl =~ s/%GLOBAL_SEARCH%/$search/o;
-
-        $refs = _getReferringTopics( $session, $from, 0 );
-        $resultCount += keys %$refs;
-        $search = '';
-        foreach my $entry ( sort keys %$refs ) {
-            $checkboxAttrs->{value} = $entry;
-            $search .= CGI::div( { class => 'foswikiTopRow' },
-                CGI::input($checkboxAttrs) . " [[$entry]] " );
-        }
-        unless ($search) {
-            $search = ( $session->i18n->maketext('(none)') );
-        }
-        $tmpl =~ s/%LOCAL_SEARCH%/$search/go;
         $tmpl =~ s/%SEARCH_COUNT%/$resultCount/go;
     }
 

@@ -137,11 +137,16 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
 ---++ Plugin Info
 |  Author(s): | Michael Daum |
-|  Copyright: | 2007-2011 Michael Daum http://michaeldaumconsulting.com |
+|  Copyright: | 2007-2012 Michael Daum http://michaeldaumconsulting.com, and Foswiki contributors. |
 |  License: | GPL |
-|  Release: | 4.32 |
-|  Version: | 13479 (2011-12-20) |
+|  Release: | 4.33 |
+|  Version: | 14572 (2012-04-06) |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  06 Apr 2012: | (4.33) - Item11511, Item11512.  Minor changes to improve JSON output and Javascript validations.%BR%\
+                   Item11685: deprecate simmplemodal, replace by jquery.ui.dialog.%BR%\
+                   Item11654: JQueryTmpl is discontinued upstream.%BR%\
+                   Item11383: Document jqUIDialogSubmit.%BR%\
+                   Item10383: !JQuerySimpleModal sample window isn't displayed properly. |
 |  20 Dec 2011: | (4.32) - re-release Foswiki 1.1.4 - Item11335 revert spinner changes, Item11371 - close suggestions list. |
 |  12 Dec 2011: | (4.31) - Foswiki 1.1.4 Release. Item11335 JQueryAjaxHelper examples don't work reliably. |
 |  22 Nov 2011: | (4.30) added jquery-1.7 and jquery-1.7.1; \

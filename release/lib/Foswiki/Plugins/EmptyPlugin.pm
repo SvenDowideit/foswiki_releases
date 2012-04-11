@@ -2,7 +2,7 @@
 
 =begin TML
 
----+ package EmptyPlugin
+---+ package Foswiki::Plugins::EmptyPlugin
 
 Foswiki plugins 'listen' to events happening in the core by registering an
 interest in those events. They do this by declaring 'plugin handlers'. These
@@ -20,8 +20,12 @@ subject to change without prior warning, and your plugin may suddenly stop
 working.
 
 Error messages can be output using the =Foswiki::Func= =writeWarning= and
-=writeDebug= functions. You can also =print STDERR=; the output will appear
-in the webserver error log. Most handlers can also throw exceptions (e.g.
+=writeDebug= functions. These logs can be found in the Foswiki/working/logs
+directory.  You can also =print STDERR=; the output will appear in the
+webserver error log.  The {WarningsAreErrors} configure setting makes
+Foswiki less tolerant of errors, and it is recommended to set it during
+development.  It can be set using configure, in the 'Miscellaneous'
+section.  Most handlers can also throw exceptions (e.g.
 [[%SCRIPTURL{view}%/%SYSTEMWEB%/PerlDoc?module=Foswiki::OopsException][Foswiki::OopsException]])
 
 For increased performance, all handler functions except =initPlugin= are
@@ -69,9 +73,9 @@ use Foswiki::Plugins ();    # For the API version
 
 # $VERSION is referred to by Foswiki, and is the only global variable that
 # *must* exist in this package. This should always be in the format
-# $Rev: 13288 (2011-12-03) $ so that Foswiki can determine the checked-in status of the
+# $Rev: 14572 (2012-04-06) $ so that Foswiki can determine the checked-in status of the
 # extension.
-our $VERSION = '$Rev: 13288 (2011-12-03) $';
+our $VERSION = '$Rev: 14572 (2012-04-06) $';
 
 # $RELEASE is used in the "Find More Extensions" automation in configure.
 # It is a manually maintained string used to identify functionality steps.
@@ -83,7 +87,7 @@ our $VERSION = '$Rev: 13288 (2011-12-03) $';
 # date    - a date in 1 Jun 2009 format. Three letter English month names only.
 # Note: it's important that this string is exactly the same in the extension
 # topic - if you use %$RELEASE% with BuildContrib this is done automatically.
-our $RELEASE = '1.1.1';
+our $RELEASE = '1.1.2';
 
 # Short description of this plugin
 # One line description, is shown in the %SYSTEMWEB%.TextFormattingRules topic:
@@ -788,12 +792,16 @@ extend the form field types.
    * =$linkText= - the text for the link i.e. for =[<nop>[Link][blah blah]]=
      it's =blah blah=, for =BlahBlah= it's =BlahBlah=, and for [[Blah Blah]] it's =Blah Blah=.
    * =$hasExplicitLinkLabel= - true if the link is of the form =[<nop>[Link][blah blah]]= (false if it's ==<nop>[Blah]] or =BlahBlah=)
-   * =$web=, =$topic= - specify the topic being rendered
+   * =$web=, =$topic= - specify the link being rendered
 
 Called during rendering, this handler allows the plugin a chance to change
 the rendering of labels used for links.
 
 Return the new link text.
+
+NOTE: this handler is to allow a plugin to change the link text for a possible link - it may never be used.
+for example, Set ALLOWTOPICVIEW = is a possible ACRONYM link that will not be displayed unless the topic exists
+similarly, this handler is called before the Plurals code has a chance to remove the 's' from WikiWords
 
 *Since:* Foswiki::Plugins::VERSION 2.0
 
@@ -925,7 +933,9 @@ issues. Please use =afterUploadHandler()= instead.
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Author: %$AUTHOR%
+
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

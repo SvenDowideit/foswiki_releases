@@ -1,4 +1,5 @@
-%META:TOPICINFO{author="ProjectContributor" date="1284973002" format="1.1" version="1"}%
+%META:TOPICINFO{author="ProjectContributor" date="1327969587" format="1.1" version="1"}%
+
 %META:TOPICPARENT{name="AdminToolsCategory"}%
 %STARTINCLUDE%
 ---+ Site Tools
@@ -7,7 +8,7 @@ _Utilities for searching, navigation, and monitoring site activity_
 
 Site Tools include utilities for navigating, searching and keeping up with site activity.
 
-In particular, you have two highly configurable, automated site monitoring tools, *<nop>WebNotify*, to e-mail alerts when topics are edited, and *<nop>WebStatistics*, to generate detailed activity reports.
+In particular, you have two highly configurable, automated site monitoring tools, *<nop>WebNotify*, to e-mail alerts when topics are edited, and *<nop>%STATISTICSTOPIC%*, to generate detailed activity reports.
 
 %TOC%
 
@@ -38,8 +39,7 @@ This is simply a preset =SEARCH=. The number of topics listed by the =limit= par
 <verbatim class="tml">
 %SEARCH{ "1" web="%BASEWEB%" type="query" nosearch="on"
   order="modified" reverse="on" limit="50"
-}%
-</verbatim>
+}%</verbatim>
 
 #WebRssAndAtom
 ---++ <nop>WebRss and <nop>WebAtom - news feeds on recent changes
@@ -51,79 +51,29 @@ You can point your news reader at WebRss and WebAtom to find out what is new in 
 
 WebIndex lists all web topics in alphabetical order, with the first couple of lines of text. This is simply a preset =SEARCH=:
 <verbatim class="tml">
-%SEARCH{"1" scope="topic" type="query" nosearch="on" }%
-</verbatim>
+%SEARCH{"1" scope="topic" type="query" nosearch="on" }%</verbatim>
 
 #WebStatistics
 ---++ <nop>%STATISTICSTOPIC% - site statistics
+See SiteToolStatistics for detailed configuration and customization information.
 
-Statistics of visits to pages in a web can be generated manually or automatically, on a per-web basis. Statistics are compiled as a running total for each month.  They include totals for Topic Views, Topic Saves, Attachment Uploads, Most Popular Topics with number of views, and Top Contributors showing total of saves and attachment uploads. Statistics from previous months are saved, and a new row is written to the table at the beginning of each month.
-
-   * You can create a %STATISTICSTOPIC% link using ==%<nop>STATISTICSTOPIC%==
-
----+++ Configuring for automatic operation
-
-   * You can automatically generate usage statistics for all webs. To enable this:
-      * The %STATISTICSTOPIC% topic must be present in all webs where you want to have statistics. You can use the topic in the Main web as a template.
-      * Call the =bin/statistics= script from a cron job, once a day is recommended. This will update the %STATISTICSTOPIC% topics in all webs.
-      * *Attention:* The script must run as the same user as the CGI scripts are running, which is user =nobody= on many systems. Example crontab entry: %BR% =0 0 * * * (cd /path/to/bin; ./statistics &gt;/dev/null 2&gt;&amp;1)=
-      * There is a workaround in case you can't run the script as user =nobody= : Run the utility =tools/geturl.pl= in your cron job and specify the URL of the =bin/statistics= script as a parameter. Example: %BR% =0 0 * * * (cd /path/to/tools; ./geturl.pl mydomain.com /urlpath/to/bin/statistics &gt;/dev/null 2&gt;&amp;1)= 
-      * *NOTE:* =geturl.pl= will do a CGI request as the <nop>WikiGuest user, so if you use this workaround, the %STATISTICSTOPIC% topics you are updating will have to be writable by <nop>WikiGuest.
-
-When running from the command line or a cron job, you can pass parameters to the script like this:
-<verbatim class="bash">
-./statistics -logdate 200605 -webs Userweb,Sandbox
-</verbatim>
-
----+++ Generating statistics manually by URL
-
-   * The =bin/statistics= script can also be executed as a CGI script, just enter the URL in your browser. Examples:
-      * Update current month for all webs you have access to: %BR% =%SCRIPTURLPATH{statistics}%=
-      * Update current month for %USERSWEB% web only: %BR% =%SCRIPTURLPATH{statistics}%/%USERSWEB%=
-      * Update current month for a !SubWeb: %BR% =%SCRIPTURLPATH{statistics}%/Parentweb/Subweb/= %BR% *Note:* Trailing slash is required for Subweb to be recognized!  Otherwise the script will assume =Subweb= is a topic and update the =Parentweb= web
-      * Update %SERVERTIME{$month $year}% for %USERSWEB% web: %BR% =%SCRIPTURLPATH{statistics}%/%USERSWEB%?logdate=%SERVERTIME{$year$mo}%=
-      * Update %SERVERTIME{$month $year}% for the !ProjectX, !ProjectY and !ProjectZ webs: %BR% =%SCRIPTURLPATH{statistics}%?logdate=%SERVERTIME{$year$mo}%;webs=Project<nop>X,Project<nop>Y,Project<nop>Z=
-
----+++ Tailoring the %STATISTICSTOPIC% layout
-
-The Statistics topics =%<nop>INCLUDE%= a header topic [[%SYSTEMWEB%.Default%STATISTICSTOPIC%]].  To tailor the help text or column heading, copy [[%SYSTEMWEB%.Default%STATISTICSTOPIC%]] to [[%USERSWEB%.Default%STATISTICSTOPIC%]] and tailor as desired.  This prevents your changes from being lost when Foswiki is updated.
-
-If a %STATISTICSTOPIC% topic does not exist, it will _not_ be created automatically.  Removal of the topic from a web will prevent statistics from being generated.
-
-Statistics are written into the %STATISTICSTOPIC% in the following order.
-   * If a ==marker line== is found in the topic, statistics are inserted into the topic _after_ the =marker line=.
-   * If no =marker line= is present, but the topic contains existing statistics,  the current month is update, or a new month is written _after_ the previous month.
-   * If no =marker line= is present and no previous statistics exist, a new line is added to the end of the topic.
-
-Removal of the marker line causes statistics to be gathered in chronological order (oldest first).  By default, statistics are reported in reverse chronological order.
-
-The =marker line= defines the order of the columns collected by the =statistics= script. The order of the columns should correspond to the table heading in the Default%STATISTICSTOPIC%.  Default marker line is:`;
-<verbatim>
-| <!--statDate--> | <!--statViews--> | <!--statSaves--> | <!--statUploads--> | <!--statTopViews--> | <!--statTopContributors--> |
-</verbatim>
-
----+++ Managing the %STATISTICSTOPIC%
-
-%STATISTICSTOPIC% will continue to grow.  In addition every run of the statistics script will create a new entry in the !%STATISTICSTOPIC% topic revision history. These can become extremely large over time and Foswiki does not provide any mechanism for automatically archiving statistics topics.  For good ongoing performance, it is recommended to archive statistics annually:
-   * Rename the %STATISTICSTOPIC% to =%STATISTICSTOPIC%YYYY=
-   * Restore the default topic with a copy of the =data/_default/%STATISTICSTOPIC%=
-Following these steps will start a fresh statistics topic with a clean revision history.
+%INCLUDE{"SiteToolStatistics" section="SiteTools"}%
 
 #LogFiles
 ---++ Log Files
 
 Foswiki generates an event log which is used by the statistics script
-   * The directory for the log file is defined by the =={Log}{Dir}== setting in [[%SCRIPTURLPATH{"configure"}%][configure]]
-   * The file name is =events.log=  Old events are archived as =events.&lt;year&gt;&lt;month&gt;=
+   * The directory for the log file is defined by the =={Log}{Dir}== setting in [[%SCRIPTURLPATH{"configure"}%#LoggingAndStatistics][configure]]
+   * The file name is =events.log= Old events are archived as =events.&lt;year&gt;&lt;month&gt;=
    * Example path name: =working/logs/events.log=
    * Each access gets logged as: %BR%
      =| &lt;time&gt; | &lt;wikiusername&gt; | &lt;action&gt; | &lt;web&gt;.&lt;topic&gt; | &lt;extra info&gt; | &lt;IP address&gt; |=
    * Example log entry: %BR%
-     =| %SERVERTIME{$day $mon $year - $hour:$min}% | %USERSWEB%.WikiGuest | view | %SYSTEMWEB%.WebRss |  | 66.124.232.02 |=
+     =| %SERVERTIME{$day $mon $year - $hour:$min}% | %USERSWEB%.WikiGuest | view | %SYSTEMWEB%.WebRss | | 66.124.232.02 |=
    * By default the following actions are logged:
      | *Script* | *Action name* | *Extra info* |
      | attach | =attach= | when viewing attach screen of previous uploaded attachment: =filename= |
-     | changes | =changes= |  |
+     | changes | =changes= | |
      | edit | =edit= | when editing non-existing topic: =(not exist)= |
      | login | =login= | Authentication failure or success |
      | manage | =rename= | when moving topic: =moved to !Newweb.NewTopic= |
@@ -144,36 +94,37 @@ Foswiki generates an event log which is used by the statistics script
 #ConfigureEmail
 ---++ E-mail
 
+See also [[%SYSTEMWEB%.InstallationGuidePart2#EmailConfig]]
+
 ---+++ Configuring outgoing mail
 
 Outgoing mail is required for UserRegistration and for [[#WebNotify][recent changes alert]].
 
-The preferred place to configure e-mail is in the =bin/configure= tool (=LocalSite.cfg=).  The configure tool fully documents these setting.  Mail settings are found in the "Mail and Proxies" tab. Foswiki will use the ==Net::SMTP== module if it is installed on your system. 
+The preferred place to configure e-mail is in the [[%SCRIPTURLPATH{"configure"}%#MailAndProxies][configure "Mail and Proxies" tab]] tool (=LocalSite.cfg=). The configure tool fully documents these setting.
 
 The notify e-mail uses the default =changes.tmpl= template, or a skin if activated by a [[%SYSTEMWEB%.PreferenceSettings][preference setting]].
 
-=mailnotify= also relies on a hidden file in each =data/Web= directory: =.changes= and a file with the Web name (one per web) in the =working/work_areas/MailerContrib/= directory. Make sure both are writable by your web server process. =.changes= contains a list of changes;  The file in the =working/work_areas/MailerContrib/= directory  contains a timestamp of the last time notification was done for the web.  Both files are automatically created as needed.
+=mailnotify= also relies on a hidden file in each =data/Web= directory: =.changes= and a file with the Web name (one per web) in the =working/work_areas/MailerContrib/= directory. Make sure both are writable by your web server process. =.changes= contains a list of changes;  The file in the =working/work_areas/MailerContrib/= directorycontains a timestamp of the last time notification was done for the web.Both files are automatically created as needed.
 
 ---++++ Legacy and current configuration
+<blockquote>
+%X% *Caution:* Older versions of Foswiki, and especially TWiki migrations might configure e-mail in the [[%SYSTEMWEB%.PreferenceSettings][preference settings]] topic.Make sure you delete that setting if you are using a SitePreferences topic from a previous release of Foswiki.</blockquote>
 
-<blockquote class="foswikiHelp">
-%X% *Caution:* Older versions of Foswiki, and especially TWiki migrations might configure e-mail in the [[%SYSTEMWEB%.PreferenceSettings][preference settings]] topic.  Make sure you delete that setting if you are using a SitePreferences topic from a previous release of Foswiki. 
-</blockquote>
 %TABLE{sort="off"}%
-| *Parameter* | *[[%SCRIPTURLPATH{"configure"}%][configure]]<br/>(Current)* | *[[%SYSTEMWEB%.PreferenceSettings][preference settings]]<br/>(Legacy)* | *Default* | *Description* |
+| *Parameter* | *[[%SCRIPTURLPATH{"configure"}%#MailAndProxies][configure]]<br />(Current)* | *[[%SYSTEMWEB%.PreferenceSettings][preference settings]]<br />(Legacy)* | *Default* | *Description* |
 | Global enable | ={EnableEmail}= | _n/a_ | =enabled= | Globally enable/disable email support. |
 | Extermal mail program | ={MailProgram}=  | _n/a_ | ='/usr/sbin/sendmail -t -oi -oeq'= | E-mail program used when Net:SMTP is unavailable |
 | Mail relay host | ={SMTP}{MAILHOST}= | =SMTPMAILHOST= | _not set_ | Destination SMTP Server used to receive and relay email. Net::SMTP is disabled if this is not set. |
-| Mail sending hostname | ={SMTP}{SENDERHOST}= | =SMTPSENDERHOST= | _not set_ | Hostname used to identify sender.  Some SMTP configurations will require this. |
+| Mail sending hostname | ={SMTP}{SENDERHOST}= | =SMTPSENDERHOST= | _not set_ | Hostname used to identify sender. Some SMTP configurations will require this. |
 | SMTP Password | ={SMTP}{Password}= | _not supported_ | _not set_ |
 
 ---+++ Setting the automatic e-mail schedule
 
-*For Unix platforms:* Edit the =cron= table so that =mailnotify= is called in an interval of your choice. Please consult =man crontab= of how to modify the table that schedules program execution at certain intervals. Example:
+*For Unix platforms:* Edit the =cron= table so that =mailnotify= is called in an interval of your choice. Please consult =man crontab= for how to modify the table that schedules program execution at certain intervals. Example:
 <verbatim class="bash">
 % crontab -e
-0 1 * * * (cd /path/to/bin; ./mailnotify -q)
-</verbatim>
+0 1 * * * (cd /path/to/bin; ./mailnotify -q)</verbatim>
+
 The above line will run mailnotify nightly at 01:00. The =-q= switch suppresses all normal output.
 
 *For ISP installations:* Many ISPs don't allow hosted accounts direct cron access, as it's often used for things that can heavily load the server. Workaround scripts are available.
@@ -193,7 +144,7 @@ The crontab command is used to schedule commands to be executed periodically.
    * [[http://www.kalab.com/freeware/pycron/pycron.htm][pycron]] - crontab for Windows
 
 ---
-*Related Topics:* AdminDocumentationCategory, AdminToolsCategory
-<!-- %JQREQUIRE{"chili"}% -->
+
+*Related Topics:* AdminDocumentationCategory, AdminToolsCategory<!-- %JQREQUIRE{"chili"}% -->
 
 %STOPINCLUDE%

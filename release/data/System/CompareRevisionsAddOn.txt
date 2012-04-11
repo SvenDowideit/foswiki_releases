@@ -24,7 +24,7 @@ The differences may be shown in two formats, either side-by-side or as an interw
    * Screenshot of side-by-side output: %BR%
      <div class="foswikiImage"><img src="%ATTACHURLPATH%/sidebyside.png" alt="sidebyside.png" width='582' height='565' /></div>
 
-These screenshots have been taken from Sandbox.CompareRevisionsAddOnDemoTopic.
+These screenshots have been taken from %SANDBOXWEB%.CompareRevisionsAddOnDemoTopic.
 
 The appearance can be affected by templates and skins.
 
@@ -129,7 +129,7 @@ If you have any problems, or if the extension isn't available in =configure=, th
 
    * Test if the installation was successful:%BR%
      Call ==<noautolink>%SCRIPTURL{"compare"}%/Web/Topic</noautolink>== with
-     some existing topic. (Try for instance Sandbox.CompareRevisionsAddOnDemoTopic and 
+     some existing topic. (Try for instance %SANDBOXWEB%.CompareRevisionsAddOnDemoTopic and 
      compare your output with above screenshots).
    * Enable the helper plugin CompareRevisionsAddonPlugin with the configure script
    * This plugin will support the HistoryPlugin, if it is enabled
@@ -140,10 +140,11 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Plugin Author: | Foswiki:Main.KennethLavrsen |
 |  Copyright &copy;: | 2006, !JChristophFuchs; 2008-2010 Kenneth Lavrsen and Foswiki Contributors | 
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Version: | 13317 (2011-12-06) |
-|  Release: | 1.1.6 |
+|  Version: | 14572 (2012-04-06) |
+|  Release: | 1.1.7 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
-|  05 Dec 2011 (1.1.7) | Release with Foswiki 1.1.4 - minor code and documentation cleanup. |
+|  06 Apr 2012 (1.1.7) | Foswikitask:Item11445: References to Sandbos should use %<nop>SANDBOXWEB% macro. Release with Foswiki 1.1.5. |
+|  05 Dec 2011 (1.1.6) | Release with Foswiki 1.1.4 - minor code and documentation cleanup. |
 |  28 May 2011 (1.1.6) | Foswikitask:Item10803 - Fix invalid Foswiki configuration affecting !ApacheLogin users introduced in =1.1.4= |
 |  17 May 2011 (1.1.5) | Foswikitask:Item10677 - Speed optimization by avoiding doing pointless lookup for settings in plugin topic |
 |  30 Apr 2011 (1.1.4) | Foswikitask:Item10566 - Add =compareauth= script for !ApacheLogin users %BR%\

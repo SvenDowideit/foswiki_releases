@@ -4,6 +4,13 @@
 ---+ Appendix A: Foswiki Development Time-line
 
 %TOC%
+---++ Foswiki Release 1.1.5 - 10 Apr 2012
+
+Foswiki 1.1.5 was built 10 Apr 2012.  It is a release that fixes some very important issues including some security related issues. It contains 100 fixes and 20 enhancements.
+
+---++ Foswiki Release 1.1.4 - 20 Dec 2011
+
+Foswiki 1.1.4 was built 20 Dec 2011. It is a release that fixes some very important including some security related issues. It contains 143 fixes and 27 enhancements. jQuery has been updated to 1.7.1.
 
 ---++ Foswiki Release 1.1.3 - 16 Apr 2011
 
@@ -161,7 +168,7 @@ As part of the first Foswiki product release, various topics and terms were chan
      | TWiki Application | Wiki Application |
 
 #FreetownRelease 
----++ TWiki Release 4.2.1 (Freetown) released 2011-12-20T15:32:07Z
+---++ TWiki Release 4.2.1 (Freetown) released 2012-04-11T01:22:17Z
 
 Patch release following the 4.2.0 released 22 Jan 2008
 

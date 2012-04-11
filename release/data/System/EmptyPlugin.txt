@@ -37,10 +37,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 ---++ Plugin Info
 
 |  Author: | Foswiki:Main.PluginAuthor |
-|  Copyright: | &copy; 2011, Foswiki Contributors |
+|  Copyright: | &copy; 2012, Foswiki Contributors |
 |  License: | GPL ([[http://www.gnu.org/copyleft/gpl.html][GNU General Public License]]) |
-|  Release: | 1.1.1 |
-|  Version: | 13288 (2011-12-03) |
+|  Release: | 1.1.2 |
+|  Version: | 14572 (2012-04-06) |
 |  Change&nbsp;History: | <!-- versions below in reverse order -->&nbsp; |
 |  XX Mmm 20XX (1.0) | Description of change |
 |  Home: | http://foswiki.org/Extensions/%TOPIC% |

@@ -163,7 +163,9 @@ No parameters
 | =originalrev= | Revision that the edit started on | _latest_ |
 | =redirectto= | If the savesettings process is successful, save will redirect to this topic or URL. The parameter value can be a =TopicName=, a =Web.TopicName=, or a URL.%BR% *Note:* Redirect to a URL only works if it is enabled in =configure= (Miscellaneous ={AllowRedirectUrl}=). | _redirect to the web.topic from the URL path_ |
 | =text= | Text of the topic | _required_ |
-All other parameters may be interpreted as form fields, depending on the current form definition in the topic.
+| =action_save= | Must be set to =Save= or settings are not saved | _required_ |
+| =action_cancel= | Must be set to =Cancel= to cancel save. | _required_ |
+If neither =action_save= or =action_cancel= are provided, an oops error is issued. All other parameters may be interpreted as form fields, depending on the current form definition in the topic.
 
 ---++++ =action=bulkRegister=
 See BulkRegistration.
@@ -204,12 +206,14 @@ add a user / list of users to a group
 | *Parameter* | *Description* | *Default* |
 | =create= | create the group if it doesn't exist | =0= |
 | =groupname= |groupname to change | _required_ |
+| =redirectto= | If the add process is successful, =manage= will redirect to this topic or URL. The parameter value can be a =TopicName=, a =Web.TopicName=, or a URL.%BR% *Note:* Redirect to a URL only works if it is enabled in =configure= (Miscellaneous ={AllowRedirectUrl}=). | None.  An Oops screen showing the results is returned. |
 | =username= | *list* of usernames/wikinames to add to group | _required_ |
 
 ---++++ =action=removeUserFromGroup=
 remove a user / list of users to a group
 | *Parameter* | *Description* | *Default* |
 | =groupname= |groupname to change | _required_ |
+| =redirectto= | If the remove process is successful, =manage= will redirect to this topic or URL. The parameter value can be a =TopicName=, a =Web.TopicName=, or a URL.%BR% *Note:* Redirect to a URL only works if it is enabled in =configure= (Miscellaneous ={AllowRedirectUrl}=). | None.  An Oops screen showing the results is returned. |
 | =username= | *list* of usernames/wikinames to add to group | _required_ |
 
 ---+++ =oops=
@@ -388,7 +392,7 @@ Form field values are passed in parameters named 'field' - for example, if I hav
 
 <blockquote class="foswikiHelp"> *%X% Note:* The =save= script can only be called via HTTP POST method. Make sure you specify =method="post"= if you call the =save= script via a form action. Example:
 <verbatim class="html">
-<form name="new" action="%SCRIPTURLPATH{save}%/Sandbox/" method="post">
+<form name="new" action="%SCRIPTURLPATH{save}%/%SANDBOXWEB%/" method="post">
     ...
 </form>
 </verbatim>
@@ -398,7 +402,10 @@ It is not possible to call =save= from an =&lt;a href ...&gt;= link.</blockquote
 This cgi script has been deprecated. When called, it will redirect to the WebSearch topic, and the parameters will be passed on.
 
 ---+++ =statistics=
-Refresh the %STATISTICSTOPIC% topics in range of webs.
+<!--
+   * Set ISSTATISTICSTOPIC = %IF{"istopic '%STATISTICSTOPIC%'" else="!WebStatistics" then="[[$percntSTATISTICSTOPIC$percnt][WebStatistics]]"}%
+-->
+Refresh the %ISSTATISTICSTOPIC% topics in range of webs.
 | *Parameter* | *Description* | *Default* |
 | =logdate= | YYYYMM to generate statistics for | _current month_ |
 | =webs= | comma-separated list of webs to run stats on | _all accessible webs_ |
@@ -408,10 +415,10 @@ for example:
    2 from browser %SCRIPTURL{"statistics"}%?webs=Userweb,%SANDBOXWEB% updates _Userweb,%SANDBOXWEB%_
    3 from browser %SCRIPTURL{"statistics"}%/%WEB%/ updates %WEB%
    4 from command line bin/statistics updates _all user webs_
-   5 from command line bin/statistics -webs=Userweb,Sandbox updates _Userweb,Sandbox_
+   5 from command line bin/statistics -webs=Userweb,%SANDBOXWEB% updates _Userweb,%SANDBOXWEB%_
    6 from command line bin/statistics %WEB%.<nop>WebHome updates %WEB%
 
-see SiteTools#WebStatistics for more details on %STATISTICSTOPIC% and how to update statistics using cron.
+see SiteTools#WebStatistics for more details on %ISSTATISTICSTOPIC% and how to update statistics using cron.
 
 ---+++ =upload=
 Uploads an attachment to a topic. The HTTP request is expected to be in =multipart/form-data= format.
@@ -469,10 +476,12 @@ to the end of the URL path (after the topic) e.g. =%SCRIPTURL{viewfile}%/Webname
 Details on command line scripts located in the =tools= directory.
 
 ---+++ =geturl.pl=
-This is a very simple script to get the content of a web site. It is marked as _deprecated_ and might be removed (or enhanced) in a future release. Its functions are covered by the standard =wget= and =curl= commands.
+This is a very simple script to get the content of a web site, either using GET or POST. It is marked as _deprecated_ and might be removed in a future release. Its functions are covered by the standard =wget= and =curl= commands, which have the added advantage of performing authentication..
    * Usage:    =geturl.pl &lt;host&gt; &lt;path&gt; [&lt;port&gt; [&lt;header&gt;]]=
    * Example:  =geturl.pl some.domain /some/dir/file.html 80=
    * Will get: =http://some.domain:80/some/dir/file.html=
+   * Example:  =geturl.pl POST some.domain /bin/statistics?webs=%SANDBOXWEB%=
+   * Will post: =http://some.domain/bin/statistics?web=%SANDBOXWEB%= triggering a statistics run
 
 ---+++ =rewriteshebang.pl=
 Simple script to rewrite the =#!/usr/bin/perl= [[http://en.wikipedia.org/wiki/Shebang_%28Unix%29][shebang]] lines specific to your local Perl installation. It will rewrite the first line of all your cgi scripts so they use a different shebang line. Use it if your perl is in a non-standard location, or you want to use a different interpreter (such as 'speedy').

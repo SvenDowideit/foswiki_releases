@@ -17,10 +17,10 @@ use warnings;
 
 use Foswiki;
 
-# This should always be $Rev: 13317 (2011-12-06) $ so that Foswiki can determine the checked-in
+# This should always be $Rev: 14572 (2012-04-06) $ so that Foswiki can determine the checked-in
 # status of the plugin. It is used by the build automation tools, so
 # you should leave it alone.
-our $VERSION = '$Rev: 13317 (2011-12-06) $';
+our $VERSION = '$Rev: 14572 (2012-04-06) $';
 
 # This is a free-form string you can use to "name" your own plugin version.
 # It is *not* used by the build automation tools, but is reported as part

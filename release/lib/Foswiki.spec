@@ -64,7 +64,7 @@ $Foswiki::cfg{PermittedRedirectHostUrls} = '';
 # Do <b>not</b> include a trailing /.
 # <p />
 # See <a href="http://foswiki.org/Support/ShorterUrlCookbook" target="_new">ShorterUrlCookbook</a> for more information on setting up
-# Foswiki to use shorter script URLs.  Expand expert settings to get to settings for the <code>view</code> script.  Other scripts need to 
+# Foswiki to use shorter script URLs.  The setting for the <code>view</code> script may be adjusted below.  Other scripts need to 
 # be manually added to <code>lib/LocalSite.cfg</code>
 # $Foswiki::cfg{ScriptUrlPath} = '/foswiki/bin';
 
@@ -154,6 +154,63 @@ $Foswiki::cfg{PathCheckLimit} = 5000;
 # Suffix of Foswiki CGI scripts (e.g. .cgi or .pl). You may need to set this
 # if your webserver requires an extension.
 $Foswiki::cfg{ScriptSuffix} = '';
+
+# **PATH M**
+# You can override the default PATH setting to control
+# where Foswiki looks for external programs, such as grep and rcs.
+# By restricting this path to just a few key
+# directories, you increase the security of your Foswiki.
+# <ol>
+# 	<li>
+# 		Unix or Linux
+# 		<ul>
+# 			<li>
+# 				Path separator is :
+# 			</li>
+# 			<li>
+# 				Make sure diff and shell (Bourne or bash type) are found on path.
+# 			</li>
+# 			<li>
+# 				Typical setting is /bin:/usr/bin
+# 			</li>
+# 		</ul>
+# 	</li>
+# 	<li>
+# 		Windows ActiveState Perl, using DOS shell
+# 		<ul>
+# 			<li>
+# 				path separator is ;
+# 			</li>
+# 			<li>
+# 				The Windows system directory is required.
+# 			</li>
+# 			<li>
+# 				Use '\' not '/' in pathnames.
+# 			</li>
+# 			<li>
+# 				Typical setting is C:\windows\system32
+# 			</li>
+# 		</ul>
+# 	</li>
+# 	<li>
+# 		Windows Cygwin Perl
+# 		<ul>
+# 			<li>
+# 				path separator is :
+# 			</li>
+# 			<li>
+# 				The Windows system directory is required.
+# 			</li>
+# 			<li>
+# 				Use '/' not '\' in pathnames.
+# 			</li>
+# 			<li>
+# 				Typical setting is /cygdrive/c/windows/system32
+# 			</li>
+# 		</ul>
+# 	</li>
+# </ol>
+#$Foswiki::cfg{SafeEnvPath} = '';
 
 # **STRING 20 EXPERT**
 # {OS} and {DetailedOS} are calculated in the Foswiki code. <b>You
@@ -364,9 +421,12 @@ $Foswiki::cfg{DefaultUserWikiName} = 'WikiGuest';
 $Foswiki::cfg{AdminUserLogin} = 'admin';
 
 # **STRING 20 EXPERT**
-# An admin user WikiName what is displayed for actions done by the AdminUserLogin
+# An admin user WikiName that is displayed for actions done by the AdminUserLogin
 # You should normally not need to change this. (You will need to move the
-# %USERSWEB%.AdminUser topic to match.)
+# %USERSWEB%.AdminUser topic to match. Do not register a user with this name!)
+# This is a special WikiName and should never be directly authenticated.
+# It is accessed by logging in using the AdminUserLogin either directly or with the
+# sudo login.
 $Foswiki::cfg{AdminUserWikiName} = 'AdminUser';
 
 # **STRING 20 EXPERT**
@@ -444,10 +504,34 @@ $Foswiki::cfg{MinPasswordLength} = 7;
 # **PATH**
 # Path to the file that stores passwords, for the Foswiki::Users::HtPasswdUser
 # password manager. You can use the <tt>htpasswd</tt> Apache program to create a new
-# password file with the right encoding.
+# password file with the right encoding, however use caution, as it will remove
+# email addresses from an existing file.
 $Foswiki::cfg{Htpasswd}{FileName} = '$Foswiki::cfg{DataDir}/.htpasswd';
 
-# **SELECT htdigest-md5,sha1,apache-md5,crypt-md5,crypt,plain**
+# **PATH EXPERT**
+# Path to the lockfile for the password file.  This normally does not need to be changed
+# however if two Foswiki installations share and update a common password file it is
+# critical that both use the same lockfile.  For example, change it to the location of the
+# password file,  <tt>$Foswiki::cfg{DataDir}/htpasswd.lock</tt>.  Foswiki must have
+# rights to create the file in this location.
+# Only applicable to <tt>HtPasswdUser</tt>.
+$Foswiki::cfg{Htpasswd}{LockFileName} = '$Foswiki::cfg{WorkingDir}/htpasswd.lock';
+
+# **BOOLEAN EXPERT**
+# Enable this option on systems using <tt>FastCGI, FCGID, or Mod_Perl</tt> in order to avoid reading the
+# for every transaction. It will cause the <tt>HtPasswdUser</tt> module to globally
+# cache the password file, reading it only once on initization.   Only applicable to <tt>HtPasswdUser</tt>.
+$Foswiki::cfg{Htpasswd}{GlobalCache} = $FALSE;
+
+# **BOOLEAN EXPERT**
+# Enable this option if the .htpasswd file can be updated either external to Foswiki
+# or by another Foswiki instance.  When enabled, Foswiki will verify the timestamp of
+# the file and will invalidate the cache if the file has been changed. This is only useful
+# if Foswiki is running in a <tt>mod_perl</tt> or <tt>fcgi</tt> envinroment.
+# Only applicable to <tt>HtPasswdUser</tt>.
+$Foswiki::cfg{Htpasswd}{DetectModification} = $FALSE;
+
+#**SELECT htdigest-md5,apache-md5,bcrypt,sha1,crypt-md5,crypt,plain**
 # Password encryption, for the <tt>Foswiki::Users::HtPasswdUser</tt> password manager. This
 # specifies the type of password hash to generate when writing entries to <tt>.htpasswd</tt>
 # It is also used when reading password entries unless the parameter
@@ -459,19 +543,22 @@ $Foswiki::cfg{Htpasswd}{FileName} = '$Foswiki::cfg{DataDir}/.htpasswd';
 # <dt><tt>htdigest-md5</tt></dt><dd> Strongest only when combined with the <tt>Foswiki::LoginManager::ApacheLogin</tt>
 # Useful on sites where password files are required to be
 # portable. The <tt>{AuthRealm}</tt> value is used with the username and password to generate
-# the encrypted form of the password, thus: <tt>user:{AuthRealm}:hash</tt>.
+# the hashed form of the password, thus: <tt>user:{AuthRealm}:hash</tt>.
 # This encoding is generated by the Apache <tt>htdigest</tt> command.</dd>
-# <dt><tt>sha1</tt></dt><dd> is recommended.  It has the strongest hash.  This is the encoding
-# generated by the <tt>htpasswd -s</tt> command (<tt>userid:{SHA}hash</tt>).</dd>
+# <dt><tt>bcrypt</tt></dt><dd>Hash based upon blowfish algorithm, strength of hash controlled by a cost parameter.
+# <b>Not compatible with Apache Authentication</b></dd>
 # <dt><tt>apache-md5</tt></dt><dd> Enable an Apache-specific algorithm using an iterated
 # (1,000 times) MD5 digest of various combinations of a random 32-bit salt and the password
-# (<tt>userid:$apr1$salt$hash</tt>).
+# (<tt>userid:$apr1$salt$hash</tt>).  This is the default.
 # This is the encoding generated by the <tt>htpasswd -m</tt> command.</dd>
+# <dt><tt>sha1</tt></dt><dd>It has the strongest hash however does not use salt and is therefor more
+# vulnerable to dictionary attacks.  This is the encoding
+# generated by the <tt>htpasswd -s</tt> command (<tt>userid:{SHA}hash</tt>).</dd>
 # <dt><tt>crypt-md5</tt></dt><dd> Enable use of standard libc (/etc/shadow) crypt-md5 password
 # (like <tt>user:$1$salt$hash:email</tt>).  Unlike <tt>crypt</tt> encoding, it does not suffer from password truncation.
 # Passwords are salted, and the salt is stored in the encrypted password string as in normal crypt passwords. This
 # encoding is understood by Apache but cannot be generated by the <tt>htpasswd</tt> command.</dd>
-# <dt><tt>crypt</tt></dt><dd> is the default. <b>Not Recommended.</b> crypt encoding only
+# <dt><tt>crypt</tt></dt><dd> <b>Not Recommended.</b> crypt encoding only
 # uses the first 8 characters of the password. Extra characters are silently discarded.
 # This is the default generated by the Apache <tt>htpasswd</tt> command (<tt>user:hash:email</tt>)</dd>
 # <dt><tt>plain</tt></dt><dd> stores passwords as plain text (no encryption). Useful for testing. Not compatible with <tt>{AutoDetect}</tt> option.</dd>
@@ -481,7 +568,7 @@ $Foswiki::cfg{Htpasswd}{FileName} = '$Foswiki::cfg{DataDir}/.htpasswd';
 # <tt>htpasswd</tt> or <tt>htdigest</tt> Apache program to create a new password file with the correct
 # encoding. Use caution however as these programs do not support the email addresses stored by Foswiki in
 # the <tt>.htpasswd</tt> file.
-$Foswiki::cfg{Htpasswd}{Encoding} = 'crypt';
+$Foswiki::cfg{Htpasswd}{Encoding} = 'apache-md5';
 
 # **BOOLEAN**
 # Allow the <tt>Foswiki::Users::HtPasswdUser</tt>password check routines to auto-detect the stored encoding type.  Enable
@@ -490,7 +577,13 @@ $Foswiki::cfg{Htpasswd}{Encoding} = 'crypt';
 # with caution unless you are using CGI acceleration such as FastCGI or mod_perl.
 #
 # This option is not compatible with <tt>plain</tt> text passwords.
-$Foswiki::cfg{Htpasswd}{AutoDetect} = $FALSE;
+$Foswiki::cfg{Htpasswd}{AutoDetect} = $TRUE;
+
+# **NUMBER**
+# Specify the cost that should be incured when computing the hash of a password.  This number should be increased as CPU speeds increase.
+# The iterations of the hash is roughly 2^cost - default is 8, or 256 iterations.
+#
+$Foswiki::cfg{Htpasswd}{BCryptCost} = 8;
 
 #---++ Registration
 # <p>Registration is the process by which new users register themselves with
@@ -530,68 +623,25 @@ $Foswiki::cfg{Register}{HidePasswd} = $TRUE;
 # You are recommended not to change this.
 $Foswiki::cfg{Register}{RegistrationAgentWikiName} = 'RegistrationAgent';
 
+# **BOOLEAN**
+# Normally users can register multiple WikiNames using the same email address.
+# Enable this parameter to prevent multiple registrations using the same email address.
+$Foswiki::cfg{Register}{UniqueEmail} = $FALSE;
+
+# **REGEX 80 EXPERT**
+# This regular expression can be used to block certain email addresses from being used
+# for registering users.  It can be used to block some of the more common wikispam bots.
+# If this regex matches the entered address, the registration is rejected.  For example:<br/>
+# <code>^.*@(lease-a-seo\.com|paydayloans).*$</code><br/>
+# To block all domains and list only the permitted domains, use an expression of the format:<br/>
+# <code>@(?!(example\.com|example\.net)$)</code>
+$Foswiki::cfg{Register}{EmailFilter} = '';
+
 # **STRING H**
 # Configuration password (not prompted)
 $Foswiki::cfg{Password} = '';
 
 #---++ Environment
-# **PATH M**
-# You can override the default PATH setting to control
-# where Foswiki looks for external programs, such as grep and rcs.
-# By restricting this path to just a few key
-# directories, you increase the security of your Foswiki.
-# <ol>
-# 	<li>
-# 		Unix or Linux 
-# 		<ul>
-# 			<li>
-# 				Path separator is : 
-# 			</li>
-# 			<li>
-# 				Make sure diff and shell (Bourne or bash type) are found on path. 
-# 			</li>
-# 			<li>
-# 				Typical setting is /bin:/usr/bin 
-# 			</li>
-# 		</ul>
-# 	</li>
-# 	<li>
-# 		Windows ActiveState Perl, using DOS shell 
-# 		<ul>
-# 			<li>
-# 				path separator is ; 
-# 			</li>
-# 			<li>
-# 				The Windows system directory is required. 
-# 			</li>
-# 			<li>
-# 				Use '\' not '/' in pathnames. 
-# 			</li>
-# 			<li>
-# 				Typical setting is C:\windows\system32 
-# 			</li>
-# 		</ul>
-# 	</li>
-# 	<li>
-# 		Windows Cygwin Perl 
-# 		<ul>
-# 			<li>
-# 				path separator is : 
-# 			</li>
-# 			<li>
-# 				The Windows system directory is required. 
-# 			</li>
-# 			<li>
-# 				Use '/' not '\' in pathnames. 
-# 			</li>
-# 			<li>
-# 				Typical setting is /cygdrive/c/windows/system32 
-# 			</li>
-# 		</ul>
-# 	</li>
-# </ol>
-$Foswiki::cfg{SafeEnvPath} = '';
-
 # **PERL**
 # Array of the names of configuration items that are available when using %IF, %SEARCH
 # and %QUERY{}%. Extensions can push into this array to extend the set. This is done as
@@ -804,6 +854,20 @@ $Foswiki::cfg{Stats}{TopViews} = 10;
 # **NUMBER**
 # Number of top contributors to show in statistics topic
 $Foswiki::cfg{Stats}{TopContrib} = 10;
+
+# **SELECT Prohibited, Allowed, Always**
+# Set this parameter to <code>Allowed</code> if you want the statistics script to create a
+# missing WebStatistics topic only when the parameter <code>autocreate=1</code> is supplied.
+# Set it to <code>Always</code> if a missing WebStatistics topic should be created unless
+# overridden by URL parameter <code>'autocreate=0'</code>.  <code>Prohibited</code> is
+# the previous behavior and is the default.
+$Foswiki::cfg{Stats}{AutoCreateTopic} = 'Prohibited';
+
+# **STRING 20**
+# If this is set to the name of a Group, then the statistics script will only run for
+# members of the specified  and the AdminGroup.  Ex. Set to <code>AdminGroup</code> to restrict
+# statistics to  administrators.   Default is un-set.  Anyone can run statistics.
+$Foswiki::cfg{Stats}{StatisticsGroup} = '';
 
 # **STRING 20 EXPERT**
 # Name of statistics topic.  Note:  If you change the name of the statistics topic
@@ -1222,7 +1286,7 @@ $Foswiki::cfg{Cache}{Servers} = '127.0.0.1:11211';
 # to access external web pages.</p>
 
 #---++ Email General
-# <p>Settings controlling if and how Foswiki sends email including the identity of the sender
+# <p>Settings controlling if and how Foswiki handles email including the identity of the sender
 # and other expert settings controlling the email process.</p>
 # **BOOLEAN**
 # Enable email globally.  Un-check this option to disable all outgoing
@@ -1253,6 +1317,16 @@ $Foswiki::cfg{NotifyTopicName}     = 'WebNotify';
 # **BOOLEAN EXPERT**
 # Send email Date header using local "server time" instead of GMT
 $Foswiki::cfg{Email}{Servertime} = $FALSE;
+
+# **REGEX 80 EXPERT**
+# This parameter is used to determine which Top Level domains are vaild
+# when auto-linking email addresses.  It is also used by UserRegistration to
+# validate email addresses.  Note, this parameter <em>only</em> controls
+# matching of 3 character and longer TLDs.   2-character country codes and
+# IP Address domains always permitted.  See:<br/><code>
+# Valid TLD's at http://data.iana.org/TLD/tlds-alpha-by-domain.txt<br/>
+# Version 2012022300, Last Updated Thu Feb 23 15:07:02 2012 UTC</code>
+$Foswiki::cfg{Email}{ValidTLD} = qr(AERO|ARPA|ASIA|BIZ|CAT|COM|COOP|EDU|GOV|INFO|INT|JOBS|MIL|MOBI|MUSEUM|NAME|NET|ORG|PRO|TEL|TRAVEL|XXX)i;
 
 #---++ Email Server
 # <p>Settings to select the destination mail server or local email agent used for forwarding email.</p>
@@ -1372,6 +1446,11 @@ $Foswiki::cfg{SystemWebName} = 'System';
 # Name of the web used as a trashcan (where deleted topics are moved)
 # If you change this setting, you must make sure the web exists.
 $Foswiki::cfg{TrashWebName} = 'Trash';
+
+# **STRING 20 EXPERT**
+# Name of the web used as a scratchpad or temporary workarea for users to
+# experiment with Foswiki topics.
+$Foswiki::cfg{SandboxWebName} = 'Sandbox';
 
 # **STRING 20 EXPERT**
 # Name of site-level preferences topic in the {SystemWebName} web.
@@ -1519,9 +1598,38 @@ $Foswiki::cfg{Operators}{If} = [ 'Foswiki::If::OP_allows', 'Foswiki::If::OP_defi
 
 #---+ Extensions -- TABS
 
-#---++ Install and update extensions
-# <p>Consult online extensions repositories for new extensions, or check and manage updates.</p>
+#---++ Plugin Operation and Maintenance
+# <p>General configuration and maintenance of extensions.
+# <ul><li>Specify the plugin load order.
+# <li>Use the Extensions Repository to add, update or remove plugins.
+# <li>Enable and disable installed plugins.
+# </ul>
+
+#---+++ Configure how plugins are loaded by Foswiki
+# **STRING 80**
+# Plugins evaluation order. If set to a comma-separated list of plugin names,
+# will change the execution order of plugins so the listed subset of plugins
+# are executed first. The default execution order is alphabetical on plugin
+# name. <br/><br/>
 #
+# If TWiki compatibility is required, TWikiCompatibilityPlugin should be the first
+# Plugin in the list.  SpreadSheetPlugin should typically be next in the list for proper operation.<br/><br/>
+#
+# Note that some other general extension environment checks are made and reported here.  Plugins
+# that are enabled but not installed and duplicate plugins in the TWiki and Foswiki libraries
+# are reported here.  Also if a TWiki plugin is enabled and the Foswik version is installed, this
+# will also be reported here.  Expand the "Expert" options to find these issues.
+#
+$Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
+
+# **STRING 80 EXPERT**
+# Search path (web names) for plugin topics. Note that the current web
+# is searched last, after this list.   Most modern foswiki plugins do not
+# use the plugin topic for settings, and this setting is ignored. It is
+# recommended that this setting not be changed.
+$Foswiki::cfg{Plugins}{WebSearchPath} = '$Foswiki::cfg{SystemWebName},TWiki';
+
+#---+++ Install, Update or Remove extensions
 # **STRING 80 EXPERT**
 # <b>Extensions Repositories Search List</b><br />
 # Foswiki extension repositories are just Foswiki webs that are organised in the
@@ -1555,30 +1663,16 @@ $Foswiki::cfg{ExtensionsRepositories} = 'Foswiki.org=(http://foswiki.org/Extensi
 
 # *FINDEXTENSIONS* Marker used by bin/configure script - do not remove!
 
+#---+++ Enable or disable installed extensions
 
-#---++ Enabled plugins
 # *PLUGINS* Marker used by bin/configure script - do not remove!
 # <p>The plugins listed below were discovered by searching the <code>@INC</code>
 # path for modules that match the Foswiki standard e.g.
 # <code>Foswiki/Plugins/MyPlugin.pm</code> or the TWiki standard i.e.
-# <code>TWiki/Plugins/YourPlugin.pm</code></p>
+# <code>TWiki/Plugins/YourPlugin.pm</code> Note that this list
+# is only for Plugins. You cannot Enable/Disable Contribs, AddOns or Skins.</p>
 # <p>Any plugins enabled in the configuration but not found in the <code>@INC</code>
 # path are listed at the end and are flagged as errors in the PluginsOrder check.</p>
-# **STRING 80**
-# Plugins evaluation order. If set to a comma-separated list of plugin names,
-# will change the execution order of plugins so the listed subset of plugins
-# are executed first. The default execution order is alphabetical on plugin
-# name. <br/><br/>
-#
-# If TWiki compatibility is required, TWikiCompatibilityPlugin should be the first
-# Plugin in the list.  SpreadSheetPlugin should typically be next in the list for proper operation.<br/><br/>
-#
-# Note that some other general extension environment checks are made and reported here.  Plugins
-# that are enabled but not installed and duplicate plugins in the TWiki and Foswiki libraries
-# are reported here.  Also if a TWiki plugin is enabled and the Foswik version is installed, this
-# will also be reported here.  Expand the "Expert" options to find these issues.
-#
-$Foswiki::cfg{PluginsOrder} = 'TWikiCompatibilityPlugin,SpreadSheetPlugin';
 
 $Foswiki::cfg{Plugins}{PreferencesPlugin}{Enabled} = 1;
 $Foswiki::cfg{Plugins}{PreferencesPlugin}{Module} = 'Foswiki::Plugins::PreferencesPlugin';
@@ -1616,13 +1710,6 @@ $Foswiki::cfg{Plugins}{RenderListPlugin}{Enabled} = 1;
 $Foswiki::cfg{Plugins}{RenderListPlugin}{Module} = 'Foswiki::Plugins::RenderListPlugin';
 $Foswiki::cfg{Plugins}{MailerContribPlugin}{Enabled} = 1;
 $Foswiki::cfg{Plugins}{MailerContribPlugin}{Module} = 'Foswiki::Plugins::MailerContribPlugin';
-
-#---++ Plugin settings
-#<p>Expert settings controlling extension operation.</p>
-# **STRING 80 EXPERT**
-# Search path (web names) for plugin topics. Note that the session web
-# is searched last, after this list.
-$Foswiki::cfg{Plugins}{WebSearchPath} = '$Foswiki::cfg{SystemWebName},TWiki';
 
 1;
 __END__

@@ -5,14 +5,14 @@ package Foswiki::Contrib::TopicUserMappingContrib;
 use strict;
 use warnings;
 
-our $VERSION          = '$Rev: 13482 (2011-12-20) $';
-our $RELEASE          = '4.3.4';
+our $VERSION          = '$Rev: 14572 (2012-04-06) $';
+our $RELEASE          = '4.3.5';
 our $SHORTDESCRIPTION = 'User management using data stored in topics';
 
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

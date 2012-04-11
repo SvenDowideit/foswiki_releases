@@ -7,11 +7,11 @@ package Foswiki::Plugins::EditTablePlugin;
 use strict;
 use warnings;
 
-our $VERSION = '$Rev: 13315 (2011-12-06) $';
+our $VERSION = '$Rev: 14572 (2012-04-06) $';
 
 # Please note that the second is now two digit.
 # Someone increased 4.22 to 4.3 which is not correct.
-our $RELEASE = '4.41';
+our $RELEASE = '4.42';
 
 our $pluginName        = 'EditTablePlugin';
 our $ENCODE_START      = '--EditTableEncodeStart--';
@@ -232,7 +232,7 @@ sub addJavaScriptInterfaceDisabledToHead {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2011 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 

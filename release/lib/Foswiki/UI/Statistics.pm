@@ -66,6 +66,32 @@ sub statistics {
         $session->generateHTTPHeaders();
         $session->{response}->print(
             CGI::start_html( -title => 'Foswiki: Create Usage Statistics' ) );
+
+        if ( uc( $session->{request}->method() ) ne 'POST' ) {
+            throw Foswiki::OopsException(
+                'attention',
+                web    => $session->{webName},
+                topic  => $session->{topicName},
+                def    => 'post_method_only',
+                params => ['statistics']
+            );
+        }
+    }
+
+    if ( defined $Foswiki::cfg{Stats}{StatisticsGroup}
+        && length( $Foswiki::cfg{Stats}{StatisticsGroup} ) > 0 )
+    {
+        unless (
+            Foswiki::Func::isGroupMember(
+                $Foswiki::cfg{Stats}{StatisticsGroup}
+            )
+            || Foswiki::Func::isAnAdmin()
+          )
+        {
+            _printMsg( $session,
+                'Statistics not permitted for user - exiting' );
+            return;
+        }
     }
 
     # Initial messages
@@ -110,26 +136,45 @@ sub statistics {
     my $webSet = $session->{request}->param('webs')
       || $session->{requestedWebName};
 
+    my $recurse =
+      Foswiki::Func::isTrue( $session->{request}->param('subwebs') );
+
     if ($webSet) {
 
         # do specific webs
         foreach my $web ( split( /,\s*/, $webSet ) ) {
             $web = Foswiki::Sandbox::untaint( $web,
                 \&Foswiki::Sandbox::validateWebName );
-            push( @weblist, $web ) if $web;
+            if ($web) {
+                push( @weblist, $web );
+                if ($recurse) {
+                    my $webObj = Foswiki::Meta->new( $session, $web );
+                    my $subweb = $webObj->web();
+                    my $it     = $webObj->eachWeb($recurse);
+                    while ( $it->hasNext() ) {
+                        my $w = $it->next();
+                        next
+                          unless Foswiki::WebFilter->user()
+                              ->ok( $session, "$subweb/$w" );
+                        push( @weblist, "$subweb/$w" );
+                    }
+                    $webObj->finish();
+                }
+            }
         }
     }
     else {
 
         # otherwise do all user webs:
         my $root = Foswiki::Meta->new($session);
-        my $it   = $root->eachWeb();
+        my $it   = $root->eachWeb($recurse);
         while ( $it->hasNext() ) {
             my $w = $it->next();
             next unless $Foswiki::WebFilter::user->ok( $session, $w );
             push( @weblist, $w );
         }
     }
+
     my $firstTime = 1;
     foreach my $web (@weblist) {
         try {
@@ -241,8 +286,11 @@ sub _collectLogData {
         # ignore events that are not statistically helpful
         next if ( $notes && $notes =~ /dontlog/ );
 
-        # ignore searches for now - idea: make a "top search phrase list"
-        next if ( $opName && $opName =~ /search|renameweb|changepasswd/ );
+# ignore events statistics doesn't understand for now - idea: make a "top search phrase list"
+        next
+          if ( $opName
+            && $opName =~
+            /search|renameweb|changepasswd|resetpasswd|sudo login|logout/ );
 
         # .+ is used because topics name can contain stuff like
         # !, (, ), =, -, _ and they should have stats anyway
@@ -299,8 +347,16 @@ sub _collectLogData {
             }
         }
         else {
+
+            # ignore template webs.  (Regex copied from Foswiki::WebFilter)
+            if ( defined $webTopic ) {
+                my ( $w, $t ) = split( /\./, $webTopic );
+                next if $w =~ /(?:^_|\/_)/;
+            }
+
             $session->logger->log( 'debug',
-                'WebStatistics: Bad logfile line ' . join( '|', @$line ) );
+                'WebStatistics: Bad logfile line ' . join( '|', @$line ) )
+              if (DEBUG);
         }
     }
 
@@ -317,6 +373,11 @@ sub _processWeb {
     }
 
     _printMsg( $session, "* Reporting on $web web" );
+
+    unless ( Foswiki::Func::webExists($web) ) {
+        _printMsg( $session, "!Web $web does not exist,  skipping.." );
+        return;
+    }
 
     # Handle null values, print summary message to browser/stdout
     my $statViews   = $data->{statViewsRef}->{$web};
@@ -351,17 +412,81 @@ sub _processWeb {
     # Update the WebStatistics topic
 
     my $tmp;
+    my $meta;
     my $statsTopic = $Foswiki::cfg{Stats}{TopicName};
-    unless ( $session->topicExists( $web, $statsTopic ) ) {
-        _printMsg( $session,
-            "! Warning: No updates done, topic $web.$statsTopic does not exist"
-        );
-        return $web;
-    }
 
     # DEBUG
     # $statsTopic = 'TestStatistics';		# Create this by hand
-    my $meta = Foswiki::Meta->load( $session, $web, $statsTopic );
+
+    my $statsTemplateWeb = '';
+    my $tmplObject;
+
+    my $autoCreate    = 0;
+    my $autoCreateMsg = 'prohibited';
+    if ( defined $Foswiki::cfg{Stats}{AutoCreateTopic} ) {
+        if ( $Foswiki::cfg{Stats}{AutoCreateTopic} eq 'Allowed' ) {
+            $autoCreateMsg = 'not requested';
+            $autoCreate    = $session->{request}->param('autocreate')
+              if defined $session->{request}->param('autocreate');
+        }
+        else {
+            $autoCreate = 1
+              if ( $Foswiki::cfg{Stats}{AutoCreateTopic} eq 'Always' );
+        }
+    }
+
+    unless ( $session->topicExists( $web, $statsTopic ) ) {
+        if ($autoCreate) {
+            my $statsTemplate = $statsTopic . 'Template';
+            if (
+                $session->topicExists(
+                    $Foswiki::cfg{UsersWebName},
+                    $statsTemplate
+                )
+              )
+            {
+                $statsTemplateWeb = $Foswiki::cfg{UsersWebName};
+            }
+            elsif (
+                $session->topicExists(
+                    $Foswiki::cfg{SystemWebName},
+                    $statsTemplate
+                )
+              )
+            {
+                $statsTemplateWeb = $Foswiki::cfg{SystemWebName};
+            }
+            if ($statsTemplateWeb) {
+                my $webMeta = Foswiki::Meta->load( $session, $web );
+                Foswiki::UI::checkAccess( $session, 'CHANGE', $webMeta );
+                _printMsg( $session,
+"* Creating $web.$statsTopic using template $statsTemplateWeb.$statsTemplate"
+                );
+                $tmplObject = Foswiki::Meta->load( $session, $statsTemplateWeb,
+                    $statsTemplate );
+                Foswiki::UI::checkAccess( $session, 'VIEW', $tmplObject );
+                $meta = Foswiki::Meta->new( $session, $web, $statsTopic );
+                $meta->copyFrom($tmplObject);
+                $meta->text( $tmplObject->text() );
+            }
+            else {
+                _printMsg( $session,
+"! Warning: Template topic $statsTemplate not found in $Foswiki::cfg{UsersWebName} or $Foswiki::cfg{SystemWebName}.  Unable to generate statistics in $web web."
+                );
+                return $web;
+            }
+        }
+        else {
+            _printMsg( $session,
+"! Warning: No updates done, topic $web.$statsTopic does not exist, and autocreate $autoCreateMsg."
+            );
+            return $web;
+        }
+    }
+    else {
+        $meta = Foswiki::Meta->load( $session, $web, $statsTopic );
+    }
+
     Foswiki::UI::checkAccess( $session, 'CHANGE', $meta );
     my @lines = split( /\r?\n/, $meta->text );
     my $statLine;

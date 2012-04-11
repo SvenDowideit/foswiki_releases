@@ -260,7 +260,7 @@ sub _userReallyExists {
 
 ---++ ObjectMethod addUser ($login, $wikiname, $password, $emails) -> $cUID
 
-throws an Error::Simple 
+throws an Error::Simple
 
 Add a user to the persistant mapping that maps from usernames to wikinames
 and vice-versa. The default implementation uses a special topic called
@@ -273,7 +273,7 @@ This function must return a *canonical user id* that it uses to uniquely
 identify the user. This can be the login name, or the wikiname if they
 are all guaranteed unigue, or some other string consisting only of 7-bit
 alphanumerics and underscores.
-if you fail to create a new user (for eg your Mapper has read only access), 
+if you fail to create a new user (for eg your Mapper has read only access),
             throw Error::Simple(
                'Failed to add user: '.$ph->error());
 
@@ -292,7 +292,10 @@ sub addUser {
         # They exist; their password must match
         unless ( $this->{passwords}->checkPassword( $login, $password ) ) {
             throw Error::Simple(
-                'New password did not match existing password for this user');
+                $this->{session}->i18n->maketext(
+                    'New password did not match existing password for this user'
+                )
+            );
         }
 
         # User exists, and the password was good.
@@ -309,9 +312,35 @@ sub addUser {
         unless ( $this->{passwords}->setPassword( $login, $password ) == 1 ) {
 
             throw Error::Simple(
-                'Failed to add user: ' . $this->{passwords}->error() );
+                    $this->{session}->i18n->maketext('Failed to add user: ')
+                  . $this->{passwords}->error() );
         }
     }
+
+    $this->{CACHED} = 0;
+    my $user = $this->_maintainUsersTopic( 'add', $login, $wikiname );
+
+#can't call setEmails here - user may be in the process of being registered
+#TODO; when registration is moved into the mapping, setEmails will happend after the createUserTOpic
+#$this->setEmails( $user, $emails );
+
+    return $user;
+}
+
+=begin TML
+
+---++ ObjectMethod _maintainUsersTopic ( $action, $login, $wikiname )
+
+throws an Error::Simple
+
+Add or remove  a user to/from the persistant mapping that maps from usernames to wikinames
+and vice-versa. The default implementation uses a special topic called
+"WikiUsers" in the users web. =cut
+
+=cut
+
+sub _maintainUsersTopic {
+    my ( $this, $action, $login, $wikiname ) = @_;
 
     my $usersTopicObject;
 
@@ -331,6 +360,8 @@ sub addUser {
         );
     }
     else {
+
+        return undef if ( $action eq 'del' );
 
         # Construct a new users topic from the template
         my $templateTopicObject =
@@ -352,9 +383,13 @@ sub addUser {
       Foswiki::Time::formatTime( time(), $Foswiki::cfg{DefaultDateFormat},
         'gmtime' );
 
-    # add to the mapping caches
-    my $user = _cacheUser( $this, $wikiname, $login );
-    ASSERT($user) if DEBUG;
+    my $user;
+
+    # add to the mapping caches unless removing a user
+    unless ( $action eq 'del' ) {
+        $user = _cacheUser( $this, $wikiname, $login );
+        ASSERT($user) if DEBUG;
+    }
 
     # add name alphabetically to list
 
@@ -404,6 +439,8 @@ sub addUser {
                 # found alphabetical position or last record
                 if ( $wikiname eq $name ) {
 
+                    next if ( $action eq 'del' );
+
                     # adjusting existing user - keep original registration date
                     $entry .= $odate;
                 }
@@ -412,15 +449,15 @@ sub addUser {
                 }
 
                 # don't adjust if unchanged
-                return $user if ( $entry eq $line );
-                $line  = $entry;
+                return $user if ( $entry eq $line && $action eq 'add' );
+                $line = $entry if ( $action eq 'add' );
                 $entry = '';
             }
         }
-
         $output .= $line . "\n";
     }
-    if ($entry) {
+
+    if ( $entry && $action eq 'add' ) {
 
         # brand new file - add to end
         $output .= "$entry$today\n";
@@ -446,10 +483,6 @@ sub addUser {
         throw $e;
     };
 
-#can't call setEmails here - user may be in the process of being registered
-#TODO; when registration is moved into the mapping, setEmails will happend after the createUserTOpic
-#$this->setEmails( $user, $emails );
-
     return $user;
 }
 
@@ -461,15 +494,35 @@ Delete the users entry. Removes the user from the password
 manager and user mapping manager. Does *not* remove their personal
 topics, which may still be linked.
 
+Note that this must be called with the cUID.  If any doubt,  resolve the cUID
+by $this->{session}->{users}->getCanonicalUserID($identity).
+
 =cut
 
 sub removeUser {
     my ( $this, $cUID ) = @_;
-    my $ln = $this->getLoginName($cUID);
-    $this->{passwords}->removeUser($ln);
+
+    my $ln       = $this->getLoginName($cUID);
+    my $wikiname = $this->getWikiName($cUID);
+    $this->{passwords}->removeUser($ln) if ($ln);
+
+   # SMELL: If for some reason the login or wikiname is not found in the mapping
+   # Then the WikiUsers topic will not be maintained.
+    $this->_maintainUsersTopic( 'del', $ln, $wikiname ) if ( $ln && $wikiname );
 
     # SMELL: does not update the internal caches,
     # needs someone to implement it
+    # Brutal update - invalidate them all
+
+    $this->{CACHED}             = 0;
+    $this->{L2U}                = {};
+    $this->{U2W}                = {};
+    $this->{W2U}                = {};
+    $this->{eachGroupMember}    = {};
+    $this->{singleGroupMembers} = ();
+
+    return 1;
+
 }
 
 =begin TML
@@ -823,10 +876,12 @@ sub addUserToGroup {
       $this->{session}
       ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $Group );
 
-    throw Error::Simple("Users cannot be added to $Group")
+    throw Error::Simple( $this->{session}
+          ->i18n->maketext( 'Users cannot be added to [_1]', $Group ) )
       if ( $Group eq 'NobodyGroup' || $Group eq 'BaseGroup' );
 
-    throw Error::Simple('Group names must end in Group')
+    throw Error::Simple(
+        $this->{session}->i18n->maketext('Group names must end in Group') )
       unless ( $Group =~ m/Group$/ );
 
     # the registration code will call this function using the rego agent
@@ -839,7 +894,7 @@ sub addUserToGroup {
       . ") is TRYING to add $cuid aka("
       . $usersObj->getWikiName($cuid)
       . ") to $groupName\n"
-      if DEBUG;
+      if ( $cuid && DEBUG );
 
     my $membersString = '';
     my $allowChangeString;
@@ -851,10 +906,8 @@ sub addUserToGroup {
           Foswiki::Meta->load( $this->{session}, $groupWeb, $groupName );
 
         if ( !$groupTopicObject->haveAccess( 'CHANGE', $user ) ) {
-            return 0;
-
-            #throw Error::Simple(
-            #    "CHANGE not permitted by $user");
+            throw Error::Simple( $this->{session}
+                  ->i18n->maketext( 'CHANGE not permitted by [_1]', $user ) );
         }
 
         $membersString = $groupTopicObject->getPreference('GROUP') || '';
@@ -881,14 +934,16 @@ sub addUserToGroup {
 
 # see if we have permission to add a topic, or to edit the existing topic, etc..
 
-        #throw Error::Simple(
-        #    'Group does not exist and create not permitted')
-        return 0
-          unless ($create);
+        throw Error::Simple( $this->{session}
+              ->i18n->maketext('Group does not exist and create not permitted')
+        ) unless ($create);
 
-        #throw Error::Simple(
-        #    "CHANGE not permitted for $groupName by $user")
-        return 0
+        throw Error::Simple(
+            $this->{session}->i18n->maketext(
+                'CHANGE not permitted for [_1] by [_2]',
+                ( $groupName, $user )
+            )
+          )
           unless (
             Foswiki::Func::checkAccessPermission(
                 'CHANGE', $user, '', $groupName, $groupWeb
@@ -906,7 +961,8 @@ sub addUserToGroup {
         $allowChangeString = $groupName;
     }
 
-    my $wikiName = $usersObj->getWikiName($cuid);
+    my $wikiName = '';
+    $wikiName = $usersObj->getWikiName($cuid) if ($cuid);
 
     if ( $membersString !~ m/\b$wikiName\b/ ) {
         $membersString .= ', ' if ( $membersString ne '' );
@@ -1019,10 +1075,18 @@ sub removeUserFromGroup {
       $this->{session}
       ->normalizeWebTopicName( $Foswiki::cfg{UsersWebName}, $groupName );
 
-    throw Error::Simple("Users cannot be removed from $groupName")
+    throw Error::Simple( $this->{session}
+          ->i18n->maketext( 'Users cannot be removed from [_1]', $groupName ) )
       if ( $groupName eq 'BaseGroup' );
 
-    throw Error::Simple("AdminUser cannot be removed from $groupName")
+    throw Error::Simple(
+        $this->{session}->i18n->maketext(
+            '[_1] cannot be removed from [_2]',
+            (
+                $Foswiki::cfg{AdminUserWikiName}, $Foswiki::cfg{SuperAdminGroup}
+            )
+        )
+      )
       if ( $groupName eq "$Foswiki::cfg{SuperAdminGroup}"
         && $cuid eq 'BaseUserMapping_333' );
 
@@ -1039,18 +1103,23 @@ sub removeUserFromGroup {
             && !$usersObj->isGroup($cuid) )
         {
 
-            #throw Error::Simple(
-            #    "User $cuid not in group, cannot be removed")
-            return 0;
+            throw Error::Simple(
+                $this->{session}->i18n->maketext(
+                    'User [_1] not in group, cannot be removed', $cuid
+                )
+            );
         }
         my $groupTopicObject =
           Foswiki::Meta->load( $this->{session}, $Foswiki::cfg{UsersWebName},
             $groupName );
         if ( !$groupTopicObject->haveAccess( 'CHANGE', $user ) ) {
 
-            #throw Error::Simple(
-            #    "CHANGE by $user not permitted.")
-            return 0;
+            throw Error::Simple(
+                $this->{session}->i18n->maketext(
+                    'User [_1] does not have CHANGE permission on [_2].',
+                    ( $user, $groupName )
+                )
+            );
         }
 
         my $WikiName = $usersObj->getWikiName($cuid);
@@ -1473,6 +1542,29 @@ returns undef if no error
 sub passwordError {
     my ($this) = @_;
     return $this->{passwords}->error();
+}
+
+=begin TML
+
+---++ ObjectMethod validateRegistrationField($field, $value ) -> $string
+
+This method is called for every field submitted during registration.  It is also used
+to validate the username when adding a member to a group.
+
+Returns a string containing the sanitized registration field, or can throw an Error::Simple
+if the field contains illegal data to block the registration.
+
+returns the string unchanged if no issue found.
+
+=cut
+
+sub validateRegistrationField {
+
+    #my ($this, $field, $value) = @_;
+    my $this = shift;
+
+# For now just let Foswiki::UserMapping do the validation - nothing special needed.
+    return $this->SUPER::validateRegistrationField(@_);
 }
 
 # TODO: and probably flawed in light of multiple cUIDs mapping to one wikiname

@@ -90,7 +90,7 @@ callers don't require them. For this reason, be *very careful* how you use
 =Foswiki::Meta=. Extension authors will almost always find the methods
 they want in =Foswiki::Func=, rather than in this class.
 
-API version $Date: 2011-12-03 08:17:36 -0500 (Sat, 03 Dec 2011) $ (revision $Rev: 13483 (2011-12-20) $)
+API version $Date: 2012-03-22 01:36:10 -0400 (Thu, 22 Mar 2012) $ (revision $Rev: 14595 (2012-04-11) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (Foswiki release 4.2.3). The _date_ indicates the
@@ -119,7 +119,7 @@ use Assert;
 use Errno 'EINTR';
 
 our $reason;
-our $VERSION = '$Rev: 13483 (2011-12-20) $';
+our $VERSION = '$Rev: 14595 (2012-04-11) $';
 
 # Version for the embedding format (increment when embedding format changes)
 our $EMBEDDING_FORMAT_VERSION = 1.1;
@@ -447,6 +447,9 @@ which may have surprising effects on other code that shares the object.
 
 sub unload {
     my $this = shift;
+
+    $this->{_session}->search->metacache->removeMeta( $this->web, $this->topic )
+      if $this->{_session};
     $this->{_loadedRev}      = undef;
     $this->{_latestIsLoaded} = undef;
     $this->{_text}           = undef;
@@ -1894,6 +1897,16 @@ sub save {
 
         my $pretext = $text;               # text before the handler modifies it
         my $premeta = $this->stringify();  # just the meta, no text
+        unless ( $this->{_loadedRev} ) {
+
+          # The meta obj doesn't have a loaded rev yet, and we have to block the
+          # beforeSaveHandlers from loading the topic from store. We are saving,
+          # and anything we have in $this is going to get written anyway, so we
+          # can simply mark it as "the latest".
+          # SMELL: this may not work if the beforeSaveHandler tries to use the
+          # meta obj for access control checks, so that is not recommended.
+            $this->{_loadedRev} = $this->getLatestRev();
+        }
 
         $plugins->dispatch( 'beforeSaveHandler', $text, $this->{_topic},
             $this->{_web}, $this );
@@ -1929,6 +1942,7 @@ sub save {
     # TWiki:Codev.BugBeforeSaveHandlerBroken
     if ( $plugins->haveHandlerFor('afterSaveHandler') ) {
         my $text = $this->getEmbeddedStoreForm();
+        delete $this->{_preferences};    # Make sure handler has changed prefs
         my $error = $signal ? $signal->{-text} : undef;
         $plugins->dispatch( 'afterSaveHandler', $text, $this->{_topic},
             $this->{_web}, $error, $this );
@@ -3161,6 +3175,9 @@ The =\%searchOptions= hash may contain the following options:
    * =tokens= - array ref of search tokens
    
 TODO: should this really be in Meta? it seems like a rendering issue to me.
+
+warning: this will produce text that contains html entities - including quotes
+use         =$summary = Foswiki::entityEncode($summary);= to diffuse them
 
    
 =cut

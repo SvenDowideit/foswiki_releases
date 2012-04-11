@@ -19,8 +19,8 @@ use vars qw(
   $NO_PREFS_IN_TOPIC
 );
 
-$VERSION           = '$Rev: 13479 (2011-12-20) $';
-$RELEASE           = '4.32';
+$VERSION           = '$Rev: 14572 (2012-04-06) $';
+$RELEASE           = '4.33';
 $SHORTDESCRIPTION  = 'jQuery <nop>JavaScript library for Foswiki';
 $NO_PREFS_IN_TOPIC = 1;
 
@@ -428,14 +428,14 @@ sub handleJQueryPlugins {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2010-2011 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2010-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 
 Additional copyrights apply to some or all of the code in this
 file as follows:
 
-Copyright (C) 2006-2011 Michael Daum http://michaeldaumconsulting.com
+Copyright (C) 2006-2012 Michael Daum http://michaeldaumconsulting.com
 
 This program is free software; you can redistribute it and/or
 modify it under the terms of the GNU General Public License

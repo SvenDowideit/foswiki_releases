@@ -22,6 +22,47 @@ use Assert;
 use Error qw( :try );
 use Fcntl qw( :DEFAULT :flock );
 
+our ( $GlobalCache, $GlobalTimestamp );
+
+sub PasswordData {
+    my $this = shift;
+
+    if ( $Foswiki::cfg{Htpasswd}{GlobalCache} ) {
+        $HtPasswdUser::GlobalCache = shift if @_;
+        return $HtPasswdUser::GlobalCache;
+    }
+    else {
+        $this->{LocalCache} = shift if @_;
+        return $this->{LocalCache};
+    }
+}
+
+sub PasswordTimestamp {
+    my $this = shift;
+    if ( $Foswiki::cfg{Htpasswd}{GlobalCache} ) {
+        $HtPasswdUser::GlobalTimestamp = shift if @_;
+        return $HtPasswdUser::GlobalTimestamp;
+    }
+    else {
+        $this->{LocalTimestamp} = shift if @_;
+        return $this->{LocalTimestamp};
+    }
+}
+
+# Used in unit tests to reset the cache.  Also used to clear the cache if the
+# Password file has been modified externally.
+sub ClearCache {
+    my $this = shift;
+    if ( $Foswiki::cfg{Htpasswd}{GlobalCache} ) {
+        $HtPasswdUser::GlobalCache     = ();
+        $HtPasswdUser::GlobalTimestamp = 0;
+    }
+    else {
+        undef $this->{LocalCache};
+        undef $this->{LocalTimestamp};
+    }
+}
+
 # Set TRACE to 1 to enable detailed trace of password activity
 use constant TRACE => 0;
 
@@ -49,7 +90,8 @@ sub new {
         $this->{SHA} = 1 unless ($@);
         eval 'use Crypt::PasswdMD5';
         $this->{APR} = 1 unless ($@);
-
+        eval 'use Crypt::Eksblowfish::Bcrypt;';
+        $this->{BCRYPT} = 1 unless ($@);
     }
 
     if (   $Foswiki::cfg{Htpasswd}{Encoding} eq 'md5'
@@ -80,6 +122,10 @@ sub new {
         eval 'use Crypt::PasswdMD5';
         $this->{APR} = 1 unless ($@);
     }
+    elsif ( $Foswiki::cfg{Htpasswd}{Encoding} eq 'bcrypt' ) {
+        eval 'use Crypt::Eksblowfish::Bcrypt;';
+        $this->{BCRYPT} = 1 unless ($@);
+    }
     else {
         print STDERR "ERROR: unknown {Htpasswd}{Encoding} setting : "
           . $Foswiki::cfg{Htpasswd}{Encoding} . "\n";
@@ -104,7 +150,8 @@ Break circular references.
 sub finish {
     my $this = shift;
     $this->SUPER::finish();
-    undef $this->{passworddata};
+    undef $this->{LocalCache};
+    undef $this->{LocalTimestamp};
 }
 
 =begin TML
@@ -119,11 +166,22 @@ sub readOnly {
     my $this = shift;
     my $path = $Foswiki::cfg{Htpasswd}{FileName};
 
-    #TODO: what if the data dir is also read only?
-    if ( ( !-e $path ) || ( -e $path && -r $path && !-d $path && -w $path ) ) {
+    # We expect the path to exist and be writable.
+    if ( -e $path && -f _ && -w _ ) {
         $this->{session}->enterContext('passwords_modifyable');
         return 0;
     }
+
+    # Otherwise, log a problem.
+    $this->{session}->logger->log( 'warning',
+            'The password file does not exist or cannot be written.'
+          . 'Run =configure= and check the setting of {Htpasswd}{FileName}.'
+          . ' New user registration has been disabled until this is corrected.'
+    );
+
+    # And disable registration (which will also disable password changes)
+    $Foswiki::cfg{Register}{EnableNewUserRegistration} = 0;
+
     return 1;
 }
 
@@ -138,14 +196,15 @@ sub fetchUsers {
     my $db    = $this->_readPasswd(1);
     my @users = sort keys %$db;
     require Foswiki::ListIterator;
-    return new Foswiki::ListIterator( \@users );
+    return Foswiki::ListIterator->new( \@users );
 }
 
 # Lock the htpasswd semaphore file (create if it does not exist)
 # Returns a file handle that you can later simply close with _unlockPasswdFile
 sub _lockPasswdFile {
     my $operator     = @_;
-    my $lockFileName = $Foswiki::cfg{WorkingDir} . '/htpasswd.lock';
+    my $lockFileName = $Foswiki::cfg{Htpasswd}{LockFileName}
+      || "$Foswiki::cfg{WorkingDir}/htpasswd.lock";
 
     sysopen( my $fh, $lockFileName, O_RDWR | O_CREAT, 0666 )
       || throw Error::Simple( $lockFileName
@@ -173,7 +232,16 @@ sub _unlockPasswdFile {
 sub _readPasswd {
     my ( $this, $lockShared ) = @_;
 
-    return $this->{passworddata} if ( defined( $this->{passworddata} ) );
+    if (   $Foswiki::cfg{Htpasswd}{DetectModification}
+        && $this->PasswordData()
+        && -e $Foswiki::cfg{Htpasswd}{FileName} )
+    {
+        my $fileTime = ( stat(_) )[9];
+        $this->ClearCache()
+          if ( $fileTime > $this->PasswordTimestamp() );
+    }
+
+    return $this->PasswordData() if ( $this->PasswordData() );
 
     my $data = {};
     if ( !-e $Foswiki::cfg{Htpasswd}{FileName} ) {
@@ -182,6 +250,11 @@ sub _readPasswd {
 
     $lockShared |= 0;
     my $lockHandle = _lockPasswdFile(LOCK_SH) if $lockShared;
+    $this->PasswordTimestamp(
+        ( stat( $Foswiki::cfg{Htpasswd}{FileName} ) )[9] );
+    print STDERR "Loading Passwords, timestamp "
+      . $this->PasswordTimestamp() . " \n"
+      if (TRACE);
     my $IN_FILE;
 
     open( $IN_FILE, '<', "$Foswiki::cfg{Htpasswd}{FileName}" )
@@ -194,8 +267,8 @@ sub _readPasswd {
         my @fields = split( /:/, $line, 5 );
 
         if (TRACE) {
-            print "\nSplit LINE $line\n";
-            foreach my $f (@fields) { print "split: $f\n"; }
+            print STDERR "\nSplit LINE $line\n";
+            foreach my $f (@fields) { print STDERR "split: $f\n"; }
         }
 
         my $hID = shift @fields;
@@ -229,6 +302,9 @@ sub _readPasswd {
             }
             elsif ( length($tPass) eq 37 && $tPass =~ m/^\$apr1\$/ ) {
                 $data->{$hID}->{enc} = 'apache-md5';
+            }
+            elsif ( length($tPass) eq 60 && $tPass =~ m/^\$2a\$/ ) {
+                $data->{$hID}->{enc} = 'bcrypt';
             }
             elsif ( length($tPass) eq 13
                 && ( !$fields[0] || $fields[0] =~ m/@/ ) )
@@ -281,9 +357,12 @@ sub _readPasswd {
         }
     }
     close($IN_FILE);
+    $this->PasswordData($data);
+    $this->PasswordTimestamp(
+        ( stat( $Foswiki::cfg{Htpasswd}{FileName} ) )[9] );
+
     _unlockPasswdFile($lockHandle) if $lockShared;
 
-    $this->{passworddata} = $data;
     return $data;
 }
 
@@ -317,7 +396,8 @@ sub _dumpPasswd {
 }
 
 sub _savePasswd {
-    my $db = shift;
+    my $this = shift;
+    my $db   = shift;
 
     unless ( -e "$Foswiki::cfg{Htpasswd}{FileName}" ) {
 
@@ -348,7 +428,12 @@ EoT
     print $fh $content;
 
     close($fh);
-    umask($oldMask);             # Restore original umask
+
+    # Reset the cache timestamp
+    $this->PasswordData($db);
+    $this->PasswordTimestamp(
+        ( stat( $Foswiki::cfg{Htpasswd}{FileName} ) )[9] );
+    umask($oldMask);    # Restore original umask
 }
 
 sub encrypt {
@@ -459,6 +544,34 @@ sub encrypt {
         return $passwd;
 
     }
+    elsif ( $enc eq 'bcrypt' ) {
+        unless ( $this->{BCRYPT} ) {
+            $this->{error} = "Unsupported Encoding";
+            return 0;
+        }
+
+        my $salt;
+        $salt = $this->fetchPass($login) unless $fresh;
+        if ( $fresh || !$salt ) {
+            my @saltchars = ( '.', '/', 0 .. 9, 'A' .. 'Z', 'a' .. 'z' );
+            foreach my $i ( 0 .. 15 ) {
+
+                # generate a salt not only from rand() but also mixing
+                # in the users login name: unecessary
+                $salt .= $saltchars[
+                  (
+                      int( rand( $#saltchars + 1 ) ) +
+                        $i +
+                        ord( substr( $login, $i % length($login), 1 ) ) )
+                  % ( $#saltchars + 1 )
+                ];
+            }
+         $salt = Crypt::Eksblowfish::Bcrypt::en_base64($salt);
+         $salt = '$2a$08$'.$salt;
+        }
+        $salt = substr( $salt, 0, 29 );
+        return Crypt::Eksblowfish::Bcrypt::bcrypt($passwd, $salt);
+    }
     die 'Unsupported password encoding ' . $enc;
 }
 
@@ -524,7 +637,8 @@ sub setPassword {
         print STDERR
 "setPassword login $login pass $db->{$login}->{pass} enc $db->{$login}->{enc} realm $db->{$login}->{realm} emails $db->{$login}->{emails}\n"
           if (TRACE);
-        _savePasswd($db);
+        $this->_savePasswd($db);
+
     }
     catch Error::Simple with {
         my $e = shift;
@@ -558,7 +672,7 @@ sub removeUser {
         }
         else {
             delete $db->{$login};
-            _savePasswd($db);
+            $this->_savePasswd($db);
             $result = 1;
         }
     }
@@ -641,7 +755,7 @@ sub setEmails {
 
         $db->{$login}->{emails} = $emails;
 
-        _savePasswd($db);
+        $this->_savePasswd($db);
     }
     finally {
         _unlockPasswdFile($lockHandle) if $lockHandle;

@@ -37,7 +37,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * Set WEBSUMMARY = %IF{"defined SITEMAPWHAT" then="$percentSITEMAPWHAT$percent"}% %IF{"defined SITEMAPUSETO" then="$percentSITEMAPUSETO$percent"}%
 
    * Copyright notice:
-      * Set WEBCOPYRIGHT = <span class="foswikiRight"> <a href="http://foswiki.org/"><img src="%PUBURLPATH%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif" alt="%MAKETEXT{"This site is powered by Foswiki"}%" title="%MAKETEXT{"This site is powered by Foswiki"}%" border="0" /></a></span>%MAKETEXT{"Copyright &&copy; by the contributing authors. All material on this collaboration platform is the property of the contributing authors." args="1999-%GMTIME{$year}%"}% <br /> %MAKETEXT{"Ideas, requests, problems regarding [_1]? <a href='[_2]'>Send feedback</a>" args="<nop>%WIKITOOLNAME%,mailto:%WIKIWEBMASTER%?subject=%WIKITOOLNAME%%20Feedback%20on%20%BASEWEB%.%BASETOPIC%"}%
+      * Set WEBCOPYRIGHT = <span class="foswikiRight"> <a href="http://foswiki.org/"><img src="%PUBURLPATH%/%SYSTEMWEB%/ProjectLogos/foswiki-badge.gif" alt="%MAKETEXT{"This site is powered by Foswiki"}%" title="%MAKETEXT{"This site is powered by Foswiki"}%" /></a></span>%MAKETEXT{"Copyright &&copy; by the contributing authors. All material on this collaboration platform is the property of the contributing authors." args="1999-%GMTIME{$year}%"}% <br /> %MAKETEXT{"Ideas, requests, problems regarding [_1]? <a href='[_2]'>Send feedback</a>" args="<nop>%WIKITOOLNAME%,mailto:%WIKIWEBMASTER%?subject=%WIKITOOLNAME%%20Feedback%20on%20%BASEWEB%.%BASETOPIC%"}%
 
    * Simplified Copyright notice for the WebRss feed (don't use any special characters, html tags, entities, wiki markup or WikiWords)
       * Set WEBRSSCOPYRIGHT = Copyright %GMTIME{"$year"}% by contributing authors
@@ -134,7 +134,7 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * Set WIKIHOMEURL = %SCRIPTURLPATH{"view"}%
 
    * List of <nop>%WIKITOOLNAME% webs - on the first line of the upper toolbar (to add a new web, see ManagingWebs and %SYSTEMWEB%.SiteMap):
-      * Set WIKIWEBLIST = [[%USERSWEB%.%HOMETOPIC%][%USERSWEB%]] %SEP% [[%SYSTEMWEB%.%HOMETOPIC%][%SYSTEMWEB%]] %SEP% [[Sandbox.%HOMETOPIC%][Sandbox]]
+      * Set WIKIWEBLIST = [[%USERSWEB%.%HOMETOPIC%][%USERSWEB%]] %SEP% [[%SYSTEMWEB%.%HOMETOPIC%][%SYSTEMWEB%]] %SEP% [[%SANDBOXWEB%.%HOMETOPIC%][%SANDBOXWEB%]]
       * %T% *NOTE:* To automatically list all non-hidden webs in alphabetical order, use the =%<nop>WEBLIST{}%= macro instead: <br />
         %WEBLIST{"[[$name.%HOMETOPIC%][$name]]" separator=" | "}%
 
@@ -156,6 +156,8 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * Set SEARCHVARDEFAULTTYPE = literal
    * Stop words, e.g., common words and characters to exclude from a keyword search:
       * Set SEARCHSTOPWORDS = a, all, am, an, and, any, as, at, b, be, by, c, d, e, for, from, g, h, how, i, i'm, i.e., in, is, isn't, it, it's, its, j, k, l, m, n, o, of, on, or, p, q, r, s, t, that, that's, the, this, to, u, v, w, was, wasn't, what, what's, when, where, who, who's, will, with, x, y, z
+   * Default page size for Index topics - such as WebIndex, WebSearch
+      * Set DEFAULTPAGESIZE = 50
 
 ---+++ E-mail Settings
 
@@ -320,17 +322,17 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
 
 #DocGraphics
    * Macros for graphics used in documentation - view all images in %ICONTOPIC%:
-      * Set H = <img src="%ICONURLPATH{help}%" alt="HELP" title="HELP" width="16" height="16" border="0" />
-      * Set I = <img src="%ICONURLPATH{tip}%" alt="IDEA!" title="IDEA!" width="16" height="16" border="0" />
-      * Set M = <img src="%ICONURLPATH{arrowright}%" alt="MOVED TO..." title="MOVED TO..." width="16" height="16" border="0" />
-      * Set N = <img src="%ICONURLPATH{new}%" alt="NEW" title="NEW" width="30" height="16" border="0" />
-      * Set P = <img src="%ICONURLPATH{pencil}%" alt="REFACTOR" title="REFACTOR" width="16" height="16" border="0" />
-      * Set Q = <img src="%ICONURLPATH{question}%" alt="QUESTION?" title="QUESTION?" width="16" height="16" border="0" />
-      * Set S = <img src="%ICONURLPATH{starred}%" alt="PICK" title="PICK" width="16" height="16" border="0" />
-      * Set T = <img src="%ICONURLPATH{tip}%" alt="TIP" title="TIP" width="16" height="16" border="0" />
-      * Set U = <img src="%ICONURLPATH{updated}%" alt="UPDATED" title="UPDATED" width="55" height="16" border="0" />
-      * Set X = <img src="%ICONURLPATH{warning}%" alt="ALERT!" title="ALERT!" width="16" height="16" border="0" />
-      * Set Y = <img src="%ICONURLPATH{choice-yes}%" alt="DONE" title="DONE" width="16" height="16" border="0" />
+      * Set H = <img src="%ICONURLPATH{help}%" alt="HELP" title="HELP" width="16" height="16" />
+      * Set I = <img src="%ICONURLPATH{tip}%" alt="IDEA!" title="IDEA!" width="16" height="16" />
+      * Set M = <img src="%ICONURLPATH{arrowright}%" alt="MOVED TO..." title="MOVED TO..." width="16" height="16" />
+      * Set N = <img src="%ICONURLPATH{new}%" alt="NEW" title="NEW" width="30" height="16" />
+      * Set P = <img src="%ICONURLPATH{pencil}%" alt="REFACTOR" title="REFACTOR" width="16" height="16" />
+      * Set Q = <img src="%ICONURLPATH{question}%" alt="QUESTION?" title="QUESTION?" width="16" height="16" />
+      * Set S = <img src="%ICONURLPATH{starred}%" alt="PICK" title="PICK" width="16" height="16" />
+      * Set T = <img src="%ICONURLPATH{tip}%" alt="TIP" title="TIP" width="16" height="16" />
+      * Set U = <img src="%ICONURLPATH{updated}%" alt="UPDATED" title="UPDATED" width="55" height="16" />
+      * Set X = <img src="%ICONURLPATH{warning}%" alt="ALERT!" title="ALERT!" width="16" height="16" />
+      * Set Y = <img src="%ICONURLPATH{choice-yes}%" alt="DONE" title="DONE" width="16" height="16" />
 
    * Colored text: (see more StandardColors)
      | You type: | =%<nop>RED% red text %<nop>ENDCOLOR% and %<nop>GREEN% green text %<nop>ENDCOLOR%= |
@@ -357,25 +359,25 @@ Preference settings local to your site should be set in [[%LOCALSITEPREFS%]] (th
       * <span style='background : #808080;'>%WHITE% *Set WHITE = looks like this (with gray background)* %ENDCOLOR%</span>
       * The following color settings are enclosed in verbatim tags to avoid incorrect nesting of XHTML tags:
 <verbatim class="tml">
-      * Set YELLOW = <font color="#ffff00">
-      * Set ORANGE = <font color="#ff6600">
-      * Set RED = <font color="#ff0000">
-      * Set PINK = <font color="#ff00ff">
-      * Set PURPLE = <font color="#800080">
-      * Set TEAL = <font color="#008080">
-      * Set NAVY = <font color="#000080">
-      * Set BLUE = <font color="#0000ff">
-      * Set AQUA = <font color="#00ffff">
-      * Set LIME = <font color="#00ff00">
-      * Set GREEN = <font color="#008000">
-      * Set OLIVE = <font color="#808000">
-      * Set MAROON = <font color="#800000">
-      * Set BROWN = <font color="#996633">
-      * Set BLACK = <font color="#000000">
-      * Set GRAY = <font color="#808080">
-      * Set SILVER = <font color="#c0c0c0">
-      * Set WHITE = <font color="#ffffff">
-      * Set ENDCOLOR = </font>
+      * Set YELLOW = <span class='foswikiYellowFG'>
+      * Set ORANGE = <span class='foswikiOrangeFG'>
+      * Set RED = <span class='foswikiRedFG'>
+      * Set PINK = <span class='foswikiPinkFG'>
+      * Set PURPLE = <span class='foswikiPurpleFG'>
+      * Set TEAL = <span class='foswikiTealFG'>
+      * Set NAVY = <span class='foswikiNavyFG'>
+      * Set BLUE = <span class='foswikiBlueFG'>
+      * Set AQUA = <span class='foswikiAquaFG'>
+      * Set LIME = <span class='foswikiLimeFG'>
+      * Set GREEN = <span class='foswikiGreenFG'>
+      * Set OLIVE = <span class='foswikiOliveFG'>
+      * Set MAROON = <span class='foswikiMaroonFG'>
+      * Set BROWN = <span class='foswikiBrownFG'>
+      * Set BLACK = <span class='foswikiBlackFG'>
+      * Set GRAY = <span class='foswikiGrayFG'>
+      * Set SILVER = <span class='foswikiSilverFG'>
+      * Set WHITE = <span class='foswikiWhiteFG'>
+      * Set ENDCOLOR = </span>
 </verbatim>
 
 ---++ Miscellaneous Settings

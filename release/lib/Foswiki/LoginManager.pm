@@ -90,6 +90,7 @@ sub makeLoginManager {
         && !$session->inContext('command_line') )
     {
 
+        my $sessionname;
         my $use = 'use Foswiki::LoginManager::Session';
         if ( $Foswiki::cfg{Sessions}{UseIPMatching} ) {
             $use .= ' qw(-ip_match)';
@@ -97,13 +98,19 @@ sub makeLoginManager {
         $use .= '; use CGI::Cookie ()';
         eval $use;
         throw Error::Simple($@) if $@;
+        if ( $session->{request}->https() ) {
+            $sessionname = 'SFOSWIKISID';
+        }
+        else {
+            $sessionname = 'FOSWIKISID';
+        }
         if ( $Foswiki::LoginManager::Session::VERSION eq '4.10' ) {
 
             # 4.10 is broken; see Item1989
-            $Foswiki::LoginManager::Session::NAME = 'FOSWIKISID';
+            $Foswiki::LoginManager::Session::NAME = $sessionname;
         }
         else {
-            Foswiki::LoginManager::Session->name('FOSWIKISID');
+            Foswiki::LoginManager::Session->name($sessionname);
         }
     }
 
@@ -152,6 +159,9 @@ sub new {
     $session->leaveContext('can_login');
     map { $this->{_authScripts}{$_} = 1; }
       split( /[\s,]+/, $Foswiki::cfg{AuthScripts} );
+    #Item 11564: ensure that the user adding the login script to AuthScripts does not result in infinite loops
+    delete $this->{_authScripts}{login};
+    delete $this->{_authScripts}{logon};
 
     # register tag handlers and values
     Foswiki::registerTagHandler( 'LOGINURL',         \&_LOGINURL );

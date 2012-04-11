@@ -36,6 +36,7 @@ use strict;
 use warnings;
 use Assert;
 use Error ();
+use Foswiki::Func;
 
 =begin TML
 
@@ -252,7 +253,7 @@ Return a iterator over the canonical user ids of users that are members
 of this group. Should only be called on groups.
 
 Note that groups may be defined recursively, so a group may contain other
-groups. Unless $expand is set to false, this method should *only* return 
+groups. Unless $expand is set to false, this method should *only* return
 users i.e.  all contained groups should be fully expanded.
 
 Subclasses *must* implement this method.
@@ -335,7 +336,14 @@ sub groupAllowsChange {
 
 ---++ ObjectMethod addToGroup( $cuid, $group, $create ) -> $boolean
 adds the user specified by the cuid to the group.
-If the group does not exist, it will return false and do nothing, unless the create flag is set.
+
+Mapper should throws Error::Simple if errors are encountered.  For example,
+if the group does not exist, and the create flag is not supplied:
+<pre>
+    throw Error::Simple( $this->{session}
+        ->i18n->maketext('Group does not exist and create not permitted')
+    ) unless ($create);
+</pre>
 
 =cut
 
@@ -346,6 +354,16 @@ sub addUserToGroup {
 =begin TML
 
 ---++ ObjectMethod removeFromGroup( $cuid, $group ) -> $boolean
+
+Mapper should throws Error::Simple if errors are encountered.  For example,
+if the user does not exist in the group:
+<pre>
+   throw Error::Simple(
+      $this->{session}->i18n->maketext(
+         'User [_1] not in group, cannot be removed', $cuid
+      )
+   );
+</pre>
 
 =cut
 
@@ -522,6 +540,57 @@ returns undef if no error (the default)
 
 sub passwordError {
     return;
+}
+
+=begin TML
+
+---++ ObjectMethod validateRegistrationField($field, $value ) -> $string
+
+Returns a string containing the sanitized registration field, or can throw an oops
+if the field contains illegal data to block the registration.
+
+returns the string unchanged if no issue found.
+
+=cut
+
+sub validateRegistrationField {
+
+    #my ($this, $field, $value) = @_;
+
+    # Filter username per the login validation rules.
+    #    Note:  loginname excluded as it's validated directly in the mapper
+
+    return $_[2] if ( lc( $_[1] ) eq 'loginname' );
+
+    if (   ( lc( $_[1] ) eq 'username' )
+        && length( $_[2] )
+        && !( $_[2] =~ m/$Foswiki::cfg{LoginNameFilterIn}/ ) )
+    {
+        throw Error::Simple("Invalid $_[1]");
+    }
+
+    # Don't check contents of password - it's never displayed.
+    return $_[2] if ( lc( $_[1] ) eq 'password' || lc( $_[1] ) eq 'confirm' );
+
+    unless ( $_[1] =~ m/^(?:firstname|lastname|email|wikiname|name|)$/i ) {
+
+# SMELL This would be better but for now I can't make it work.
+# Undefined subroutine &Foswiki::Macros::ENCODE called
+#
+#require Foswiki::Macros::ENCODE;
+#my $session = $Foswiki::Plugins::SESSION;
+#my $value = Foswiki::Macros::ENCODE->ENCODE( $session, { type => 'safe', _DEFAULT => $_[2] } );
+#print STDERR "Encoding $_[1] as $value\n";
+
+        # This is the "safe" encode in ENCODE.pm
+        $_[2] =~ s/([<>%'"])/'&#'.ord($1).';'/ge;
+    }
+
+    # Don't allow html markup in any other fields.
+    # This should never hit if the encoding works correctly.
+    throw Error::Simple("Invalid $_[1]") if ( $_[2] =~ m/[<>]+/ );
+
+    return $_[2];
 }
 
 1;

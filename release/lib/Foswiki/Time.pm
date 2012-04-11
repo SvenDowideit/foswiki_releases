@@ -6,7 +6,7 @@
 
 Time handling functions.
 
-API version $Date: 2011-11-19 12:13:00 -0500 (Sat, 19 Nov 2011) $ (revision $Rev: 13483 (2011-12-20) $)
+API version $Date: 2012-02-24 17:55:09 -0500 (Fri, 24 Feb 2012) $ (revision $Rev: 14595 (2012-04-11) $)
 
 *Since* _date_ indicates where functions or parameters have been added since
 the baseline of the API (TWiki release 4.2.3). The _date_ indicates the
@@ -38,7 +38,7 @@ use warnings;
 use Assert;
 use Foswiki ();
 
-our $VERSION = '$Rev: 13483 (2011-12-20) $';    # Subversion rev number
+our $VERSION = '$Rev: 14595 (2012-04-11) $';    # Subversion rev number
 
 # Constants
 our @ISOMONTH = (
@@ -242,7 +242,8 @@ sub parseTime {
    | $day | day |
    | $wday | weekday name |
    | $dow | day number (0 = Sunday) |
-   | $week | week number (ISO 8601) |
+   | $week | week number |
+   | $we | week number (~ISO 8601) |
    | $month | month name |
    | $mo | month number |
    | $year | 4-digit year |
@@ -313,6 +314,7 @@ sub formatTime {
     $value =~ s/\$wday/$WEEKDAY[$wday]/gi;
     $value =~ s/\$dow/$wday/gi;
     $value =~ s/\$week/_weekNumber($wday, $yday, $year + 1900)/egi;
+    $value =~ s/\$we/substr('0'._weekNumber($wday, $yday, $year + 1900),-2)/egi;
     $value =~ s/\$mont?h?/$ISOMONTH[$mon]/gi;
     $value =~ s/\$mo/sprintf('%.2u',$mon+1)/gei;
     $value =~ s/\$year?/sprintf('%.4u',$year + 1900)/gei;

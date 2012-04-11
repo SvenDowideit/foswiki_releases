@@ -503,7 +503,7 @@ sub _linkToolTipInfo {
         }
         $summary = $topicObject->summariseText();
         $summary =~
-          s/[\"\']//g;    # remove quotes (not allowed in title attribute)
+          s/[\"\']/<nop>/g;    # remove quotes (not allowed in title attribute)
         $tooltip =~ s/\$summary/$summary/g;
     }
     return $tooltip;
@@ -677,12 +677,14 @@ sub _renderExistingWikiWord {
     my $tooltip = _linkToolTipInfo( $this, $web, $topic );
     $attrs{title} = $tooltip if $tooltip;
 
+    my $aFlag = CGI::autoEscape(0);
     my $link = CGI::a( \%attrs, $text );
+    CGI::autoEscape($aFlag);
 
     # When we pass the tooltip text to CGI::a it may contain
     # <nop>s, and CGI::a will convert the < to &lt;. This is a
     # basic problem with <nop>.
-    $link =~ s/&lt;nop&gt;/<nop>/g;
+    #$link =~ s/&lt;nop&gt;/<nop>/g;
     return $link;
 }
 
@@ -1702,11 +1704,12 @@ Obtain and render revision info for a topic.
 sub renderRevisionInfo {
     my ( $this, $topicObject, $rrev, $format ) = @_;
     my $value = $format || 'r$rev - $date - $time - $wikiusername';
+    $value = Foswiki::expandStandardEscapes($value);
 
     # nop if there are no format tokens
     return $value
       unless $value =~
-/\$(year|ye|wikiusername|wikiname|week|web|wday|username|tz|topic|time|seconds|sec|rev|rcs|month|mo|minutes|min|longdate|isotz|iso|http|hours|hou|epoch|email|dow|day|date)/x;
+/\$(?:year|ye|wikiusername|wikiname|week|we|web|wday|username|tz|topic|time|seconds|sec|rev|rcs|month|mo|minutes|min|longdate|isotz|iso|http|hours|hou|epoch|email|dow|day|date)/x;
 
     my $users = $this->{session}->{users};
     if ($rrev) {
@@ -1783,7 +1786,7 @@ sub renderRevisionInfo {
       Foswiki::Time::formatTime($info->{date}, $1 )/ge;
 
     if ( $value =~
-/\$(year|ye|week|web|wday|username|tz|seconds|sec|rcs|month|mo|minutes|min|longdate|hours|hou|epoch|dow|day)/
+/\$(?:year|ye|week|we|web|wday|username|tz|seconds|sec|rcs|month|mo|minutes|min|longdate|hours|hou|epoch|dow|day)/
       )
     {
         $value = Foswiki::Time::formatTime( $info->{date}, $value );

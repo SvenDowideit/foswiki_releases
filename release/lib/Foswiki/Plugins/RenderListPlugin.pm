@@ -30,8 +30,8 @@ use vars qw(
   $pubUrl $attachUrl
 );
 
-our $VERSION           = '$Rev: 13315 (2011-12-06) $';
-our $RELEASE           = '2.2.5';
+our $VERSION           = '$Rev: 14143 (2012-02-29) $';
+our $RELEASE           = '2.2.6';
 our $pluginName        = 'RenderListPlugin';    # Name of this Plugin
 our $NO_PREFS_IN_TOPIC = 1;
 our $SHORTDESCRIPTION = 'Render bullet lists in a variety of formats';
@@ -72,7 +72,7 @@ sub initPlugin {
 }
 
 # =========================
-sub startRenderingHandler {
+sub preRenderingHandler {
 ### my ( $text, $web ) = @_;   # do not uncomment, use $_[0], $_[1] instead
 
     # This handler is called by getRenderedVersion just before the line loop

@@ -72,9 +72,10 @@ If you have any problems, or if the extension isn't available in =configure=, th
 |  Contrib Author(s): | Foswiki packaging by Sven Dowideit - SvenDowideit@fosiki.com a [[http://WikiRing.com][WikiRing]] founding partner |
 |  Copyright: | &copy; Mark James http://www.famfamfam.com and Damien Guard http://damieng.com and Chris Cagle http://www.cagintranet.com/ and Sven Dowideit http://fosiki.com |
 |  License: | [[http://creativecommons.org/licenses/by/2.5/][Creative Commons Attribution 2.5 License]] |
-|  Version: | 13315 (2011-12-06) |
-|  Release: | 1.4.3 |
+|  Version: | 14572 (2012-04-06) |
+|  Release: | 1.4.4 |
 |  Change History: | <!-- versions below in reverse order -->&nbsp; |
+|  06 Apr 2012 (1.4.4) | Released with Foswiki 1.1.5. Foswikitask:Item11383 - remove redundant %<nop>REVARG% from templates. |
 |  12 Dec 2011 (1.4.3) | Released with Foswiki 1.1.4. Foswikitask:Item11104 - Added =trash-small= icon to !DocumentGraphics.  Foswikitask:Item11016 - Print should pass through URL parameters. Foswikitask:Item11341 - Add a Cog icon. |
 |  03 May 2011 (1.4.1) | Foswikitask:Item10699 - Update METADATA for attachments |
 |  11 Apr 2011 (1.4): | New homepage for "Universal Wiki Edit Button". <br />\

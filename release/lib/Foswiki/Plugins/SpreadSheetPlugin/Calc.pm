@@ -576,12 +576,12 @@ sub _doFunc {
     }
     elsif ( $theFunc eq "LEFT" ) {
         $i      = $rPos + 1;
-        $result = "R$i:C0..R$i:C$cPos";
+        $result = "R$i:C1..R$i:C$cPos";
 
     }
     elsif ( $theFunc eq "ABOVE" ) {
         $i      = $cPos + 1;
-        $result = "R0:C$i..R$rPos:C$i";
+        $result = "R1:C$i..R$rPos:C$i";
 
     }
     elsif ( $theFunc eq "RIGHT" ) {
@@ -618,6 +618,22 @@ sub _doFunc {
           grep { /./ }
           grep { defined $_ } _getListAsFloat($theAttr);
         $result = $arr[0];
+
+    }
+    elsif( $theFunc eq "FLOOR" ) {
+        $i = _getNumber( $theAttr );
+        $result = int( $i );
+        if( $i < 0 && $i != $result ) {
+            $result -= 1;
+        }
+
+    }
+    elsif( $theFunc eq "CEILING" ) {
+        $i = _getNumber( $theAttr );
+        $result = int( $i );
+        if( $i > 0 && $i != $result ) {
+            $result += 1;
+        }
 
     }
     elsif ( $theFunc eq "SUM" ) {
@@ -808,6 +824,8 @@ sub _doFunc {
         $start-- unless ( $start < 1 );
         $num     = 0  unless ($num);
         $replace = "" unless ( defined $replace );
+        $replace =~ s/\$comma/,/g;
+        $replace =~ s/\$sp/ /g;
         eval 'substr( $string, $start, $num, $replace )';
         $result = $string;
 
@@ -817,8 +835,12 @@ sub _doFunc {
         $string = "" unless ( defined $string );
         $result = $string;
         $from   = "" unless ( defined $from );
+        $from =~ s/\$comma/,/g;
+        $from =~ s/\$sp/ /g;
         $from   = quotemeta($from) unless ( $options && $options =~ /r/i );
         $to     = "" unless ( defined $to );
+        $to =~ s/\$comma/,/g;
+        $to =~ s/\$sp/ /g;
 
         # Note that the number 0 is valid string. An empty string as well as 0
         # are valid return values
@@ -1866,14 +1888,14 @@ sub _workingDays {
 __END__
 Foswiki - The Free and Open Source Wiki, http://foswiki.org/
 
-Copyright (C) 2008-2010 Foswiki Contributors. Foswiki Contributors
+Copyright (C) 2008-2012 Foswiki Contributors. Foswiki Contributors
 are listed in the AUTHORS file in the root of this distribution.
 NOTE: Please extend that file, not this notice.
 
 Additional copyrights apply to some or all of the code in this
 file as follows:
 
-Copyright (C) 2001-2011 Peter Thoeny, peter@thoeny.org and
+Copyright (C) 2001-2012 Peter Thoeny, peter@thoeny.org and
 TWiki Contributors.
 
 This program is free software; you can redistribute it and/or
