@@ -1,0 +1,1 @@
+jQuery(function(a){a(".jqUIResizable").livequery(function(){var c=a(this),b=a.extend({},c.metadata());c.removeClass("jqUIResizable").resizable(b)})});

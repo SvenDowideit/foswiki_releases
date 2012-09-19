@@ -1,0 +1,1 @@
+jQuery(function(a){a("input.jqTextboxList:not(.jqInitedTextboxList)").livequery(function(){var c=a(this),b=a.extend({autocomplete:c.attr("autocomplete")},c.metadata());c.addClass("jqInitedTextboxList").textboxlist(b)})});

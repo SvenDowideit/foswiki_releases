@@ -1,0 +1,97 @@
+%META:TOPICINFO{author="ProjectContributor" date="1296208856" format="1.1" version="1"}%
+%META:TOPICPARENT{name="JQueryPlugin"}%
+---+ %TOPIC%
+%JQPLUGINS{"pnotify"
+  format="
+    Homepage: $homepage <br />
+    Author(s): $author <br />
+    Version: $version 
+  "
+}%
+
+%STARTSECTION{"summary"}%
+Full featured plugin to show temporary floating messages for status updates, actions and errors.
+%ENDSECTION{"summary"}%
+
+---++ Usage
+
+Call =$.pnotify(options)= to show a notification.
+
+Most common options:
+
+   * =pnotify_title=: the title
+   * =pnotify_text=: the message text
+   * =pnotify_delay=: milliseconds to show the message
+   * =pnotify_opacity=: value from =0= (fully transparent) to =1= (opaque)
+   * =pnotify_nonblock=: =true= if items below the message should be clickable
+   * =pnotify_type=: ='error'= if an error message
+
+| *Option* | *Comment* | *Default value* |
+| =pnotify_title= | The notice's title | =false= |
+| =pnotify_text= | The notice's text| =false= |
+| =pnotify_addclass= | Additional classes to be added to the notice (for custom styling) | "" |
+| =pnotify_nonblock= | Create a non-blocking notice; it lets the user click elements underneath it | =false= |
+| =pnotify_nonblock_opacity= | The opacity of the notice (if it's non-blocking) when the mouse is over it | =0.2= |
+| =pnotify_history= | Display a pull down menu to redisplay previous notices, and place the notice in the history | =true= |
+| =pnotify_width= | Width of the notice | ="300px"= |
+| =pnotify_min_height= | Minimum height of the notice; it will expand to fit content | ="16px"= |
+| =pnotify_type= | Type of the notice: ="notice"= or ="error"= | ="notice"= |
+| =pnotify_notice_icon= | The icon class to use if type is notice | ="ui-icon ui-icon-info"= |
+| =pnotify_error_icon= | The icon class to use if type is error | ="ui-icon ui-icon-alert"= |
+| =pnotify_animation= | The animation to use when displaying and hiding the notice. ="none"=, ="show"=, ="fade"=, and ="slide"= are built in to jQuery. Others require jQuery UI. Use an object with =effect_in= and =effect_out= to use different effects. | ="fade"= |
+| =pnotify_animate_speed= | Speed at which the notice animates in and out; ="slow"=, ="def"= or ="normal"=, ="fast"= or number of milliseconds | ="slow"= |
+| =pnotify_opacity= | Opacity of the notice | =1= |
+| =pnotify_shadow= | Display a drop shadow | =false= |
+| =pnotify_closer= | Provide a button for the user to manually close the notice | =true= |
+| =pnotify_hide= | After a delay, remove the notice | =true= |
+| =pnotify_delay= | Delay in milliseconds before the notice is removed | =8000= |
+| =pnotify_mouse_reset= | Reset the hide timer if the mouse moves over the notice | =true= |
+| =pnotify_remove= | Remove the notice's elements from the DOM after it is removed | =true= |
+| =pnotify_insert_brs= | Change newlines to =br= tags | =true= |
+| =pnotify_stack= | The stack on which the notices will be placed. Also controls the direction the notices stack. | ={"dir1": "down", "dir2": "left", "push": "bottom"}= |
+		
+See for examples the [[http://pines.sourceforge.net/pnotify/][plugin example page]].
+
+The plugin uses the jQuery UI CSS library for styling, which means it is fully and easily themeable.
+
+---++ Examples
+%JQREQUIRE{"pnotify"}%
+%JQTHEME{"lightness"}%
+%ADDTOZONE{
+"script"
+id="PNotifyDemoScript"
+text="<literal><script type='text/javascript'>
+// example with a message stack
+var stack_topleft = {'dir1': 'down', 'dir2': 'right', 'push': 'top'};
+function showMessage(title, text, err) {
+	var err = Math.round(Math.random());
+	var opts = {
+		pnotify_title: title,
+		pnotify_text: text,
+		pnotify_addclass: 'stack-topleft',
+		pnotify_stack: stack_topleft,
+		pnotify_closer: false,
+		pnotify_delay: 4000,
+		pnotify_nonblock: true,
+		pnotify_opacity: 0.9
+	};
+	if (err) {
+		opts.pnotify_type = 'error';
+	}
+	jQuery.pnotify(opts);
+};
+</script></literal>"
+require="JQUERYPLUGIN::PNOTIFY"
+}%
+%ADDTOZONE{
+"head"
+id="PNotifyDemoStyle"
+text="<literal><style type='text/css' media='all'>
+.ui-pnotify.stack-topleft {
+	top: 15px;
+	left: 15px;
+	right: auto;
+}
+</style></literal>"}%
+%BUTTON{"Show message" onclick="showMessage('Note', 'This is a notification. Click again to see more.')"}%
+%CLEAR%

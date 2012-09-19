@@ -1,0 +1,51 @@
+SUBDIRS=\
+  loader \
+  autocomplete \
+  bgiframe \
+  blockui \
+  button \
+  chili \
+  cookie \
+  corner \
+  cycle \
+  debug \
+  easing \
+  empty \
+  farbtastic \
+  fluidfont \
+  focus \
+  form \
+  foswiki \
+  gradient \
+  hoverintent \
+  innerfade \
+  livequery \
+  localscroll \
+  maskedinput \
+  masonry \
+  media \
+  metadata \
+  nifty \
+  placeholder \
+  pnotify \
+  popupwindow \
+  queryobject \
+  rating \
+  scrollto \
+  serialscroll \
+  shake \
+  shrinkurls \
+  simplemodal \
+  slimbox \
+  superfish \
+  supersubs \
+  tabpane \
+  textboxlist \
+  themeswitcher \
+  tmpl \
+  tooltip \
+  treeview \
+  validate \
+  wikiword 
+
+-include ../Makefile.include

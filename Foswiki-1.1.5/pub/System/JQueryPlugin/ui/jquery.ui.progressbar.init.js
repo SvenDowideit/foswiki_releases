@@ -1,0 +1,1 @@
+jQuery(function(a){a(".jqUIProgressBar").livequery(function(){var d=a(this),c=parseInt(d.text(),10),b=a.extend({value:c},d.metadata());d.empty().removeClass("jqUIProgressbar").progressbar(b)})});

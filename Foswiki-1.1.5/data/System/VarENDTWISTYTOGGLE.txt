@@ -1,0 +1,10 @@
+%META:TOPICINFO{author="ProjectContributor" date="1284876785" format="1.1" version="1"}%
+%META:TOPICPARENT{name="TwistyPlugin"}%
+
+#VarENDTWISTYTOGGLE
+---+++ ENDTWISTYTOGGLE
+*The Twisty closure*
+   * Syntax: =%<nop>ENDTWISTYTOGGLE%=
+      * Will end the most inner unclosed Twisty Toggle section, using the proper tag
+   * Example: =%<nop>ENDTWISTYTOGGLE%=
+   * Related: %INCLUDE{"VarTWISTY" section="related" includingtopic="%INCLUDINGTOPIC%"}%

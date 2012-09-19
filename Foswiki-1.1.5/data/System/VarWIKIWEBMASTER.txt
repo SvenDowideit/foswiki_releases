@@ -1,0 +1,8 @@
+%META:TOPICINFO{author="ProjectContributor" date="1279498772" format="1.1" version="1"}%
+%META:TOPICPARENT{name="Macros"}%
+#VarWIKIWEBMASTER
+---+++ WIKIWEBMASTER -- feedback email address for site
+   * Syntax: =%<nop>WIKIWEBMASTER%=
+   * Expands to: =%WIKIWEBMASTER%=
+   * Related: [[%IF{"'%INCLUDINGTOPIC%'='Macros'" then="#"}%VarWIKIWEBMASTERNAME][WIKIWEBMASTERNAME]]
+

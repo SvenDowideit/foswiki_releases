@@ -1,0 +1,1 @@
+jQuery(function(a){var b={delay:350,track:true,showURL:false,showBody:":",extraClass:"foswiki"};var c;function d(g){var e=a(g);var f=a.extend({},c,e.metadata());e.tooltip(f)}a(".jqTooltip:not(.jqInitedTooltip)").livequery(function(){var e=a(this);e.addClass("jqInitedTooltip");c=a.extend({},b,e.metadata());d(this);e.find("[title]").each(function(){d(this)})})});

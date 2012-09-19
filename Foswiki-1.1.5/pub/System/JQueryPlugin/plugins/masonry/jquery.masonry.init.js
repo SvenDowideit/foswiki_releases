@@ -1,0 +1,1 @@
+jQuery(function(a){var b={waitForImages:false};a(".jqMasonry:not(.jqInitedMasonry)").livequery(function(){var d=a(this),c=a.extend({},b,d.metadata());d.addClass("jqInitedMasonry");if(c.waitForImages){d.imagesLoaded(function(){d.masonry(c)})}else{d.masonry(c)}})});

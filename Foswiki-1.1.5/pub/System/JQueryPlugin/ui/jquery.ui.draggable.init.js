@@ -1,0 +1,1 @@
+jQuery(function(a){a(".jqUIDraggable").livequery(function(){var c=a(this),b=a.extend({},c.metadata());c.removeClass("jqUIDraggable").draggable(b)})});
