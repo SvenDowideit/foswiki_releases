@@ -1,0 +1,38 @@
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Started: Tue Apr  2 16:06:11 2013
+
+WARNING: Could not write to "../working/logs/tools/dependencies_installer.log".
+Using "./tools/dependencies_installer.log" instead.
+
+
+Analysing environment...
+
+Could not open file "../working/configure/pkgdata/".
+Please verify read permissions. You may want to adjust group affiliation of the
+current user. This could make sense if:
+  1. You want to use this user for analysing the modules and maybe use sudo
+     only later for module installation.
+  2. You want to install from CPAN for a *local* CPAN installation.
+In any other case, please invoke the script as root or use sudo initially.
+
+Logfile "./tools/dependencies_installer.log" was written.
+
+>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+Started: Tue Apr  2 16:06:51 2013
+
+WARNING: Could not write to "../working/logs/tools/dependencies_installer.log".
+Using "./tools/dependencies_installer.log" instead.
+
+
+Analysing environment...
+
+Could not open file "../working/configure/pkgdata/".
+Please verify read permissions. You may want to adjust group affiliation of the
+current user. This could make sense if:
+  1. You want to use this user for analysing the modules and maybe use sudo
+     only later for module installation.
+  2. You want to install from CPAN for a *local* CPAN installation.
+In any other case, please invoke the script as root or use sudo initially.
+
+Logfile "./tools/dependencies_installer.log" was written.
+
